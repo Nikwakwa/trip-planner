@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#c62828">
+  <meta name="description" content="Plan your Boston and NYC trip. Works offline.">
+  <title>Trip Planner</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-row">
+      <h1>Trip Planner</h1>
+      <span id="offline-badge" class="badge" hidden>Offline</span>
+    </div>
+    <nav id="trip-tabs" class="trip-tabs" aria-label="Trips">
+      <button class="chip active">Boston</button>
+      <button class="chip">NYC</button>
+      <button class="chip add">+ Trip</button>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section id="view-plan" class="view">
+      <p class="empty">Loading…</p>
+    </section>
+    <section id="view-ideas" class="view" hidden></section>
+    <section id="view-pack" class="view" hidden></section>
+    <section id="view-more" class="view" hidden></section>
+  </main>
+
+  <button id="fab" class="fab" type="button" aria-label="Add a plan">+</button>
+
+  <nav class="tabbar" aria-label="Sections">
+    <button type="button" data-go="plan" class="active"><span class="ti" aria-hidden="true">📅</span>Plan</button>
+    <button type="button" data-go="ideas"><span class="ti" aria-hidden="true">💡</span>Ideas</button>
+    <button type="button" data-go="pack"><span class="ti" aria-hidden="true">✅</span>Checklist</button>
+    <button type="button" data-go="more"><span class="ti" aria-hidden="true">⚙️</span>More</button>
+  </nav>
+
+  <!-- Pop-up form for adding / editing one plan -->
+  <dialog id="item-dialog" class="sheet">
+    <form id="item-form" method="dialog">
+      <h2 id="item-dialog-title">Add plan</h2>
+      <label>What
+        <input name="title" required maxlength="120" placeholder="e.g. Walk the Freedom Trail" autocomplete="off">
+      </label>
+      <label>Type
+        <select name="category" id="item-category"></select>
+      </label>
+      <div class="row2">
+        <label>Day <input type="date" name="date"></label>
+        <label>Time <input type="time" name="time"></label>
+      </div>
+      <p class="hint">Leave the day empty to keep it in Ideas for later.</p>
+      <label>Place or address
+        <input name="place" maxlength="200" placeholder="e.g. Boston Common" autocomplete="off">
+      </label>
+      <label>Link (tickets, booking…)
+        <input name="link" inputmode="url" maxlength="500" placeholder="https://" autocomplete="off">
+      </label>
+      <label>Notes
+        <textarea name="notes" rows="3" maxlength="2000" placeholder="Confirmation #, who's coming, tips…"></textarea>
+      </label>
+      <div class="sheet-actions">
+        <button type="button" class="btn danger" id="item-delete">Delete</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn" data-close>Cancel</button>
+        <button type="submit" class="btn primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Pop-up form for adding / editing a trip (city) -->
+  <dialog id="trip-dialog" class="sheet">
+    <form id="trip-form" method="dialog">
+      <h2 id="trip-dialog-title">Trip</h2>
+      <label>Name
+        <input name="name" required maxlength="40" placeholder="e.g. Boston" autocomplete="off">
+      </label>
+      <div class="row2">
+        <label>First day <input type="date" name="start"></label>
+        <label>Last day <input type="date" name="end"></label>
+      </div>
+      <fieldset class="swatches" id="trip-colors">
+        <legend>Color</legend>
+      </fieldset>
+      <div class="sheet-actions">
+        <button type="button" class="btn danger" id="trip-delete">Delete trip</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn" data-close>Cancel</button>
+        <button type="submit" class="btn primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+</body>
+</html>
