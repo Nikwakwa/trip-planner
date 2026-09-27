@@ -148,6 +148,22 @@
     </form>
   </dialog>
 
+  <!-- Full-height sheet: map of a day's stops (or the whole trip) -->
+  <dialog id="map-dialog" class="sheet map-sheet">
+    <div class="handle" aria-hidden="true"></div>
+    <div class="sheet-head map-head">
+      <div class="map-heading">
+        <h2 id="map-title" tabindex="-1" autofocus>Map</h2>
+        <p id="map-sub" class="map-sub"></p>
+      </div>
+      <button type="button" class="icon-btn ripple" data-close aria-label="Close map">
+        <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#close"/></svg>
+      </button>
+    </div>
+    <div id="map" class="map" role="region" aria-label="Map"></div>
+    <div id="map-body" class="map-body"></div>
+  </dialog>
+
   <!-- Centered dialog for big decisions -->
   <dialog id="confirm-dialog" class="alert">
     <form method="dialog">
@@ -163,6 +179,7 @@
 
   <div id="theme-probe" hidden></div>
   <script src="guides.js"></script>
+  <script src="maps.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

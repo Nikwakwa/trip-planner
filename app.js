@@ -345,7 +345,7 @@ function defaultState() {
 }
 
 function defaultSettings() {
-  return { theme: 'auto', suggestions: true };
+  return { theme: 'auto', suggestions: true, lookup: true };
 }
 
 /* ---------- Loading & saving ---------- */
@@ -489,13 +489,6 @@ function itemHTML(item, trip, { showDate = false } = {}) {
     </li>`;
 }
 
-function byTime(a, b) {
-  if (a.time && b.time) return a.time.localeCompare(b.time);
-  if (a.time) return -1;
-  if (b.time) return 1;
-  return 0;
-}
-
 // Every day between the trip's first and last day, plus any other days that have plans.
 function tripDays(trip) {
   const days = new Set();
@@ -549,6 +542,10 @@ function renderPlan(trip) {
           <span>${done} of ${plural(planned.length, 'plan')} done</span>
           ${progressBar(done / planned.length, 'Plans done')}
         </div>` : ''}
+      <div class="hero-actions">
+        ${planned.length ? `<button type="button" class="hero-btn ripple" data-action="trip-map">${icon('map')}Trip map</button>` : ''}
+        <button type="button" class="hero-btn ripple" data-action="share-trip">${icon('share')}Share</button>
+      </div>
       <button type="button" class="icon-btn hero-edit ripple" data-action="edit-trip" aria-label="Edit trip">${icon('edit')}</button>
     </section>`;
 
@@ -565,7 +562,7 @@ function renderPlan(trip) {
   }
 
   for (const day of days) {
-    const items = trip.items.filter(it => it.date === day).sort(byTime);
+    const items = dayItems(trip, day);
     const inRange = hasDates && day >= trip.start && day <= trip.end;
     const isToday = day === today;
     const sub = [
@@ -590,11 +587,14 @@ function renderPlan(trip) {
         ${items.length
           ? `<ul class="group">${dayListHTML(items, trip, guide)}</ul>`
           : `<button type="button" class="empty-day ripple" data-action="add-on-day" data-date="${day}">${icon('add')}Free day — tap to add a plan</button>`}
+        ${dayToolsHTML(trip, day, items, guide)}
         ${suggestionsHTML(suggestions.get(day), day)}
       </section>`;
   }
 
   $('#view-plan').innerHTML = html;
+  // Plans with an address that isn't in the guide get looked up on the map.
+  lookupMissing(trip, planned);
 }
 
 // A day's plans, with the travel time between each pair of stops.
@@ -775,6 +775,11 @@ function renderMore() {
         <span class="row-text"><span class="row-title">Day suggestions</span><span class="row-sub">Ideas under each day, from the built-in city guide</span></span>
         <span class="switch ${state.settings.suggestions ? 'on' : ''}" aria-hidden="true"></span>
       </button></li>
+      <li><button type="button" class="row ripple" data-action="toggle-lookup" role="switch" aria-checked="${state.settings.lookup}">
+        <span class="row-icon">${icon('pin_drop')}</span>
+        <span class="row-text"><span class="row-title">Find addresses on the map</span><span class="row-sub">Sends the place name you typed (not your plans) to OpenStreetMap's search</span></span>
+        <span class="switch ${state.settings.lookup ? 'on' : ''}" aria-hidden="true"></span>
+      </button></li>
     </ul>
 
     <h2 class="group-label">App</h2>
@@ -813,7 +818,8 @@ function renderMore() {
     </ul>
     <input type="file" id="import-file" accept=".json,application/json" hidden>
 
-    <p class="footnote">${icon('shield', 'sm')}Your plans are stored only on this phone.</p>`;
+    <p class="footnote">${icon('shield', 'sm')}Your plans are stored only on this phone.</p>
+    <p class="footnote">Maps and address lookup: © OpenStreetMap contributors.</p>`;
 }
 
 /* ---------- Plan form (add / edit) ---------- */
@@ -861,7 +867,10 @@ itemForm.addEventListener('submit', (e) => {
         delete found.item.lat;
         delete found.item.lng;
         delete found.item.guideId;
+        delete found.item.geoMiss;
       }
+      // A new day or a set time replaces the position chosen by Optimize route.
+      if (found.item.date !== data.date || data.time) delete found.item.slot;
       Object.assign(found.item, data);
     }
   } else {
@@ -957,7 +966,7 @@ $('#trip-delete').addEventListener('click', async () => {
 });
 
 // Close buttons and tapping the dark area outside a sheet close it.
-for (const dlg of [itemDialog, tripDialog, $('#confirm-dialog')]) {
+for (const dlg of [itemDialog, tripDialog, $('#confirm-dialog'), $('#map-dialog')]) {
   dlg.addEventListener('click', (e) => {
     if (e.target === dlg || e.target.closest('[data-close]')) dlg.close();
   });
@@ -1109,6 +1118,30 @@ document.addEventListener('click', async (e) => {
       save();
       render();
       break;
+    case 'toggle-lookup':
+      state.settings.lookup = !state.settings.lookup;
+      if (state.settings.lookup) activeTrip().items.forEach(i => delete i.geoMiss);
+      save();
+      render();
+      break;
+    case 'day-map':
+      openMap(el.dataset.date);
+      break;
+    case 'trip-map':
+      openMap('all');
+      break;
+    case 'optimize':
+      runOptimize(el.dataset.date);
+      break;
+    case 'undo-optimize':
+      if (mapView.note && mapView.note.undo) mapView.note.undo();
+      break;
+    case 'focus-stop':
+      focusStop(el.dataset.id);
+      break;
+    case 'share-trip':
+      shareTrip();
+      break;
     case 'export':
       exportBackup();
       break;
@@ -1231,6 +1264,8 @@ function cleanBackup(data) {
       lat: coord(i.lat, 90),
       lng: coord(i.lng, 180),
       guideId: str(i.guideId, 60) || undefined,
+      slot: /^\d{2}:\d{2}~\d{2}$/.test(i.slot) ? i.slot : undefined,
+      geoMiss: i.geoMiss === true || undefined,
     })),
   }));
   const checklist = (Array.isArray(data.checklist) ? data.checklist : [])
@@ -1241,6 +1276,7 @@ function cleanBackup(data) {
   const settings = {
     theme: ['auto', 'light', 'dark'].includes(s.theme) ? s.theme : 'auto',
     suggestions: s.suggestions !== false,
+    lookup: s.lookup !== false,
   };
   return { version: 1, activeTripId, trips, checklist, settings };
 }

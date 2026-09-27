@@ -13,6 +13,10 @@ A small, installable web app (PWA) for planning a trip on your phone.
 | `index.html` | The page structure (what's on screen). |
 | `styles.css` | The look: colors, spacing, fonts. |
 | `app.js` | The behavior: adding plans, saving, switching trips. |
+| `guides.js` | Built-in Boston and NYC guides used for suggestions and Explore. |
+| `maps.js` | Day and trip maps, Optimize route, address lookup, sharing. |
+| `vendor/leaflet/` | Leaflet map library (BSD-2 license), stored in the app. |
+| `fonts/`, `icons/sprite.svg` | Google Sans Flex and Material Symbols, stored for offline use (`tools/fetch-assets.ps1`). |
 | `manifest.webmanifest` | Tells the phone the app's name, icon and colors so it can be installed. |
 | `sw.js` | The "service worker": keeps a copy of the app so it opens offline. |
 | `icons/` | App icons for the home screen. |

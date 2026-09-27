@@ -2,13 +2,18 @@
    Strategy: show the saved copy instantly, and quietly fetch a fresh copy
    in the background (when online) for next time. */
 
-const CACHE = 'trip-planner-v4';
+const CACHE = 'trip-planner-v5';
+const TILES = 'trip-planner-map-tiles';   // map images you've viewed, kept across versions
+const MAX_TILES = 800;                     // roughly 15 MB at most
 const FILES = [
   './',
   'index.html',
   'styles.css',
   'app.js',
   'guides.js',
+  'maps.js',
+  'vendor/leaflet/leaflet.js',
+  'vendor/leaflet/leaflet.css',
   'manifest.webmanifest',
   'fonts/google-sans-flex.woff2',
   'icons/sprite.svg',
@@ -30,15 +35,42 @@ self.addEventListener('install', (event) => {
 // New version: throw away older saved copies.
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
-    for (const key of await caches.keys()) if (key !== CACHE) await caches.delete(key);
+    for (const key of await caches.keys()) if (key !== CACHE && key !== TILES) await caches.delete(key);
     await self.clients.claim();
   })());
 });
 
+// Map images: reuse ones already viewed (so maps work offline), fetch the rest.
+let tilesAdded = 0;
+async function mapTile(req) {
+  const cache = await caches.open(TILES);
+  const hit = await cache.match(req);
+  if (hit) return hit;
+  try {
+    const res = await fetch(req);
+    if (res.ok) {
+      await cache.put(req, res.clone());
+      if (++tilesAdded % 25 === 0) {
+        const keys = await cache.keys();       // oldest first
+        for (const k of keys.slice(0, Math.max(0, keys.length - MAX_TILES))) await cache.delete(k);
+      }
+    }
+    return res;
+  } catch {
+    return new Response('', { status: 504 });
+  }
+}
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  if (url.hostname === 'tile.openstreetmap.org') {
+    event.respondWith(mapTile(req));
+    return;
+  }
   // Only handle this app's own files; links to Google Maps etc. go straight to the internet.
-  if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
+  if (url.origin !== self.location.origin) return;
 
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
