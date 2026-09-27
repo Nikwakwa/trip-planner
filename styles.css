@@ -113,6 +113,7 @@ main { max-width: 640px; margin: 0 auto; padding: 12px 16px; }
 }
 .day-head h3 { margin: 0; font-size: 1rem; flex: 1; }
 .day-head small { color: var(--muted); }
+.day { scroll-margin-top: 130px; }  /* so "jump to today" isn't hidden under the header */
 .day.today { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .today-tag {
   background: var(--accent); color: var(--on-accent);
