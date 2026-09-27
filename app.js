@@ -344,6 +344,14 @@ function renderMore() {
     <p class="note">Everything is saved only on this phone, inside this app. Nothing is uploaded.</p>
     <div class="card">
       <div class="btn-stack">
+        <button type="button" class="btn" data-action="export">💾 Save backup file</button>
+        <button type="button" class="btn" data-action="import">📂 Restore from backup file</button>
+        <input type="file" id="import-file" accept=".json,application/json" hidden>
+      </div>
+    </div>
+    <p class="note">Tip: save a backup before your trip. It lands in your Downloads folder.</p>
+    <div class="card">
+      <div class="btn-stack">
         <button type="button" class="btn danger" data-action="reset">Erase everything and start over</button>
       </div>
     </div>`;
@@ -533,6 +541,12 @@ document.addEventListener('click', (e) => {
       state.checklist = state.checklist.filter(x => !x.done);
       save(); render();
       break;
+    case 'export':
+      exportBackup();
+      break;
+    case 'import':
+      $('#import-file').click();
+      break;
     case 'install':
       if (installPrompt) {
         installPrompt.prompt();
@@ -571,6 +585,70 @@ $('#fab').addEventListener('click', () => {
   const today = todayISO();
   const inTrip = trip.start && today >= trip.start && today <= trip.end;
   openItemForm(null, { date: inTrip ? today : (trip.start || '') });
+});
+
+/* ---------- Backup & restore ---------- */
+
+function exportBackup() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `trip-planner-backup-${todayISO()}.json`;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast('Backup saved to Downloads');
+}
+
+// Checks a backup file and keeps only the fields the app understands.
+function cleanBackup(data) {
+  const str = (v, max = 2000) => (typeof v === 'string' ? v.slice(0, max) : '');
+  const date = v => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '');
+  const time = v => (/^\d{2}:\d{2}$/.test(v) ? v : '');
+  if (!data || !Array.isArray(data.trips) || !data.trips.length) throw new Error('not a backup');
+  const trips = data.trips.map(t => ({
+    id: str(t.id, 100) || uid(),
+    name: str(t.name, 40) || 'Trip',
+    color: /^#[0-9a-f]{6}$/i.test(t.color) ? t.color : COLORS[0],
+    start: date(t.start),
+    end: date(t.end),
+    items: (Array.isArray(t.items) ? t.items : []).map(i => ({
+      id: str(i.id, 100) || uid(),
+      title: str(i.title, 120) || 'Untitled',
+      category: CATEGORIES[i.category] ? i.category : 'other',
+      date: date(i.date),
+      time: time(i.time),
+      place: str(i.place, 200),
+      link: str(i.link, 500),
+      notes: str(i.notes),
+      done: i.done === true,
+    })),
+  }));
+  const checklist = (Array.isArray(data.checklist) ? data.checklist : [])
+    .map(c => ({ id: str(c.id, 100) || uid(), text: str(c.text, 200), done: c.done === true }))
+    .filter(c => c.text);
+  const activeTripId = trips.some(t => t.id === data.activeTripId) ? data.activeTripId : trips[0].id;
+  return { version: 1, activeTripId, trips, checklist };
+}
+
+document.addEventListener('change', async (e) => {
+  if (e.target.id !== 'import-file') return;
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const restored = cleanBackup(JSON.parse(await file.text()));
+    const n = restored.trips.reduce((sum, t) => sum + t.items.length, 0);
+    if (!confirm(`Replace everything on this phone with this backup (${restored.trips.length} trips, ${n} plans)?`)) return;
+    state = restored;
+    save();
+    ui.view = 'plan';
+    render();
+    toast('Backup restored');
+  } catch {
+    toast("⚠️ That file isn't a Trip Planner backup");
+  }
 });
 
 /* ---------- Offline & install support ---------- */
