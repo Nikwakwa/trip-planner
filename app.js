@@ -333,6 +333,13 @@ function renderMore() {
       <div class="btn-stack"><button type="button" class="btn" data-action="new-trip">+ Add a trip</button></div>
     </div>
 
+    <h2 class="section-title">App</h2>
+    <div class="card">
+      <div class="row"><div class="grow">Works offline<small>${'serviceWorker' in navigator && navigator.serviceWorker.controller ? '✅ Ready — the app is saved on this phone' : '⏳ Not yet — open the app once while online'}</small></div></div>
+      <div class="row"><div class="grow">Data protected from cleanup<small>${storagePersisted ? '✅ Yes' : 'Not yet — installing the app usually turns this on'}</small></div></div>
+      ${installPrompt ? '<div class="btn-stack"><button type="button" class="btn primary" data-action="install">📲 Install app on this phone</button></div>' : ''}
+    </div>
+
     <h2 class="section-title">Your data</h2>
     <p class="note">Everything is saved only on this phone, inside this app. Nothing is uploaded.</p>
     <div class="card">
@@ -526,6 +533,12 @@ document.addEventListener('click', (e) => {
       state.checklist = state.checklist.filter(x => !x.done);
       save(); render();
       break;
+    case 'install':
+      if (installPrompt) {
+        installPrompt.prompt();
+        installPrompt.userChoice.finally(() => { installPrompt = null; render(); });
+      }
+      break;
     case 'reset':
       if (confirm('Erase ALL trips, plans and checklist items on this phone? This cannot be undone.')) {
         state = defaultState();
@@ -559,6 +572,38 @@ $('#fab').addEventListener('click', () => {
   const inTrip = trip.start && today >= trip.start && today <= trip.end;
   openItemForm(null, { date: inTrip ? today : (trip.start || '') });
 });
+
+/* ---------- Offline & install support ---------- */
+
+let installPrompt = null;      // Chrome hands us this when the app can be installed
+let storagePersisted = false;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  installPrompt = e;
+  if (ui.view === 'more') render();
+});
+window.addEventListener('appinstalled', () => {
+  installPrompt = null;
+  toast('Installed! Find Trip Planner on your home screen.');
+});
+
+function updateOnlineBadge() { $('#offline-badge').hidden = navigator.onLine; }
+window.addEventListener('online', updateOnlineBadge);
+window.addEventListener('offline', updateOnlineBadge);
+updateOnlineBadge();
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(err => console.warn('Offline mode unavailable', err));
+}
+
+// Ask Android not to clear our saved data when the phone is low on space.
+if (navigator.storage && navigator.storage.persist) {
+  navigator.storage.persisted()
+    .then(p => p || navigator.storage.persist())
+    .then(p => { storagePersisted = p; if (ui.view === 'more') render(); })
+    .catch(() => {});
+}
 
 /* ---------- Start ---------- */
 
