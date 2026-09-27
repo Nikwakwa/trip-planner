@@ -6,22 +6,27 @@
    ========================================================= */
 
 const STORAGE_KEY = 'tripPlanner.v1';
+const SPRITE = 'icons/sprite.svg';
 
 const COLORS = ['#c62828', '#1565c0', '#2e7d32', '#6a1b9a', '#ef6c00', '#00838f', '#455a64'];
 
+// Each type of plan gets its own icon and color hue.
 const CATEGORIES = {
-  sight:     { label: 'Sightseeing', icon: '🏛️' },
-  food:      { label: 'Food & drink', icon: '🍽️' },
-  event:     { label: 'Show / event', icon: '🎟️' },
-  shopping:  { label: 'Shopping', icon: '🛍️' },
-  transport: { label: 'Getting around', icon: '🚆' },
-  stay:      { label: 'Hotel / stay', icon: '🛏️' },
-  other:     { label: 'Other', icon: '📌' },
+  sight:     { label: 'Sightseeing',  icon: 'museum',         hue: 255 },
+  food:      { label: 'Food & drink', icon: 'restaurant',     hue: 45 },
+  event:     { label: 'Show / event', icon: 'local_activity', hue: 345 },
+  shopping:  { label: 'Shopping',     icon: 'shopping_bag',   hue: 300 },
+  transport: { label: 'Transport',    icon: 'train',          hue: 205 },
+  stay:      { label: 'Stay',         icon: 'hotel',          hue: 150 },
+  other:     { label: 'Other',        icon: 'push_pin',       hue: 85 },
 };
 
 /* ---------- Small helpers ---------- */
 
 const $ = (sel, root = document) => root.querySelector(sel);
+
+const icon = (name, cls = '') =>
+  `<svg class="icon ${cls}" aria-hidden="true"><use href="${SPRITE}#${name}"/></svg>`;
 
 function uid() {
   return (crypto.randomUUID && crypto.randomUUID()) ||
@@ -44,6 +49,7 @@ function toISO(date) {
   return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}`;
 }
 function todayISO() { return toISO(new Date()); }
+const daysBetween = (a, b) => Math.round((parseDate(b) - parseDate(a)) / 864e5);
 function fmtDay(s, opts = { weekday: 'short', month: 'short', day: 'numeric' }) {
   return parseDate(s).toLocaleDateString(undefined, opts);
 }
@@ -51,6 +57,7 @@ function fmtTime(t) {
   const [h, m] = t.split(':').map(Number);
   return new Date(2000, 0, 1, h, m).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 // Only allow normal web links (blocks tricks like "javascript:").
 function safeUrl(s) {
@@ -62,25 +69,86 @@ function safeUrl(s) {
     return (u.protocol === 'https:' || u.protocol === 'http:') ? u.href : '';
   } catch { return ''; }
 }
+function hostLabel(url) {
+  const h = new URL(url).hostname.replace(/^www\./, '');
+  return h.length > 22 ? h.slice(0, 21) + '…' : h;
+}
 
 function mapsUrl(place, trip) {
   const q = place.toLowerCase().includes(trip.name.toLowerCase()) ? place : `${place}, ${trip.name}`;
   return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
 }
 
-let toastTimer;
-function toast(msg) {
-  let el = $('.toast');
-  if (!el) {
-    el = document.createElement('div');
-    el.className = 'toast';
-    el.setAttribute('role', 'status');
-    document.body.append(el);
+/* ---------- Expressive "cookie" shape ---------- */
+
+// A circle with gentle scalloped edges, like the shapes on Pixel phones.
+function cookiePath(size, lobes, depth) {
+  const r = size / 2;
+  const pts = [];
+  for (let i = 0; i < 180; i++) {
+    const a = (i / 180) * 2 * Math.PI;
+    const rr = r * (1 - depth) + r * depth * Math.cos(lobes * a);
+    pts.push(`${(r + rr * Math.sin(a)).toFixed(2)} ${(r - rr * Math.cos(a)).toFixed(2)}`);
   }
-  el.textContent = msg;
-  el.hidden = false;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.hidden = true; }, 2200);
+  return 'M' + pts.join('L') + 'Z';
+}
+const HERO_SHAPE = cookiePath(100, 12, 0.045);
+const EMPTY_SHAPE = cookiePath(100, 9, 0.06);
+document.documentElement.style.setProperty('--cookie-56', `path('${cookiePath(56, 9, 0.06)}')`);
+
+const shape = (d, cls) => `<svg class="${cls}" viewBox="0 0 100 100" aria-hidden="true"><path d="${d}"/></svg>`;
+
+function emptyState(ic, title, text, action = '') {
+  return `
+    <div class="empty-state">
+      <div class="empty-art">${shape(EMPTY_SHAPE, 'shape')}${icon(ic)}</div>
+      <h2>${title}</h2>
+      <p>${text}</p>
+      ${action}
+    </div>`;
+}
+
+function progressBar(fraction, label) {
+  const p = Math.max(0, Math.min(1, fraction));
+  return `
+    <div class="progress" role="progressbar" aria-label="${esc(label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(p * 100)}">
+      ${p > 0 ? `<span class="on" style="flex-grow:${p}"></span>` : ''}
+      ${p < 1 ? `<span class="off" style="flex-grow:${1 - p}"></span>` : ''}
+    </div>`;
+}
+
+/* ---------- Snackbar (message bar at the bottom, with optional Undo) ---------- */
+
+let snackTimer;
+function snackbar(msg, actionLabel, onAction) {
+  const bar = $('#snackbar');
+  const btn = $('#snackbar-action');
+  $('#snackbar-msg').textContent = msg;
+  btn.hidden = !actionLabel;
+  btn.textContent = actionLabel || '';
+  btn.onclick = () => { hideSnackbar(); onAction && onAction(); };
+  bar.classList.add('show');
+  document.body.classList.add('snack-open');
+  clearTimeout(snackTimer);
+  snackTimer = setTimeout(hideSnackbar, actionLabel ? 5000 : 2800);
+}
+function hideSnackbar() {
+  $('#snackbar').classList.remove('show');
+  document.body.classList.remove('snack-open');
+}
+
+/* ---------- Confirmation dialog for big decisions ---------- */
+
+function askConfirm({ icon: ic, title, text, ok }) {
+  const dlg = $('#confirm-dialog');
+  $('#confirm-icon').setAttribute('href', `${SPRITE}#${ic}`);
+  $('#confirm-title').textContent = title;
+  $('#confirm-text').textContent = text;
+  $('#confirm-ok').textContent = ok;
+  dlg.returnValue = '';
+  dlg.showModal();
+  return new Promise(resolve =>
+    dlg.addEventListener('close', () => resolve(dlg.returnValue === 'ok'), { once: true }));
 }
 
 /* ---------- Starting data (only used the very first time) ---------- */
@@ -144,7 +212,7 @@ function save() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (e) {
-    toast('⚠️ Could not save — phone storage may be full');
+    snackbar('Could not save — phone storage may be full');
   }
 }
 
@@ -164,57 +232,95 @@ function findItem(id) {
   return null;
 }
 
+/* ---------- Theme: the trip's color drives the whole palette ---------- */
+
+const colorCanvas = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+function toHex(css) {
+  colorCanvas.fillStyle = '#000';
+  colorCanvas.fillStyle = css;
+  colorCanvas.fillRect(0, 0, 1, 1);
+  const [r, g, b] = colorCanvas.getImageData(0, 0, 1, 1).data;
+  return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+
+function applyTheme(seed) {
+  document.documentElement.style.setProperty('--seed', seed);
+  // Paint Android's status bar to match the app background.
+  const bg = getComputedStyle($('#theme-probe')).backgroundColor;
+  $('meta[name="theme-color"]').setAttribute('content', toHex(bg));
+}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme(activeTrip().color));
+
 /* ---------- Drawing the screen ---------- */
+
+const TITLES = { plan: '', ideas: '', pack: 'Checklist', more: 'More' };
 
 function render() {
   const trip = activeTrip();
   state.activeTripId = trip.id;
-
-  // Trip color becomes the app's accent color.
-  document.documentElement.style.setProperty('--accent', trip.color);
-  $('meta[name="theme-color"]').setAttribute('content', trip.color);
-
-  renderTripTabs(trip);
+  applyTheme(trip.color);
 
   for (const v of ['plan', 'ideas', 'pack', 'more']) {
     $('#view-' + v).hidden = v !== ui.view;
   }
-  document.querySelectorAll('.tabbar button').forEach(b =>
-    b.classList.toggle('active', b.dataset.go === ui.view));
-  $('#fab').hidden = !(ui.view === 'plan' || ui.view === 'ideas');
-  $('#trip-tabs').hidden = ui.view === 'pack' || ui.view === 'more';
+  document.querySelectorAll('.navbar button').forEach(b => {
+    const on = b.dataset.go === ui.view;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-current', on ? 'page' : 'false');
+  });
+
+  const tripViews = ui.view === 'plan' || ui.view === 'ideas';
+  $('#trip-tabs').hidden = !tripViews;
+  $('#appbar-title').hidden = tripViews;
+  $('#appbar-title').textContent = TITLES[ui.view];
+  $('#fab').hidden = !tripViews;
+  $('#fab-label').textContent = ui.view === 'ideas' ? 'New idea' : 'New plan';
+  $('#fab').setAttribute('aria-label', $('#fab-label').textContent);
+  if (tripViews) renderTripTabs(trip);
 
   if (ui.view === 'plan') renderPlan(trip);
   if (ui.view === 'ideas') renderIdeas(trip);
   if (ui.view === 'pack') renderChecklist();
   if (ui.view === 'more') renderMore();
+  onScroll();
 }
 
 function renderTripTabs(trip) {
   $('#trip-tabs').innerHTML =
-    state.trips.map(t =>
-      `<button type="button" class="chip ${t.id === trip.id ? 'active' : ''}" data-trip="${t.id}">${esc(t.name)}</button>`
-    ).join('') +
-    `<button type="button" class="chip add" data-action="new-trip">+ Trip</button>`;
+    state.trips.map(t => `
+      <button type="button" class="trip-chip ripple ${t.id === trip.id ? 'active' : ''}" data-trip="${t.id}"
+        style="--c:${esc(t.color)}" aria-pressed="${t.id === trip.id}">
+        <span class="dot"></span>${esc(t.name)}
+      </button>`).join('') +
+    `<button type="button" class="trip-chip add ripple" data-action="new-trip" aria-label="Add a trip">${icon('add', 'sm')}</button>`;
 }
 
 function itemHTML(item, trip, { showDate = false } = {}) {
   const cat = CATEGORIES[item.category] || CATEGORIES.other;
   const link = safeUrl(item.link);
-  const sub = [
-    showDate && item.date ? fmtDay(item.date) : '',
-    item.place,
+  const over = [
+    item.time && fmtTime(item.time),
+    showDate && item.date && fmtDay(item.date),
+    cat.label,
   ].filter(Boolean).join(' · ');
+  const chips = [
+    item.place && `<a class="assist-chip ripple" href="${esc(mapsUrl(item.place, trip))}" target="_blank" rel="noopener">${icon('location_on')}Directions</a>`,
+    link && `<a class="assist-chip ripple" href="${esc(link)}" target="_blank" rel="noopener">${icon('link')}${esc(hostLabel(link))}</a>`,
+  ].filter(Boolean).join('');
   return `
     <li class="item ${item.done ? 'done' : ''}" data-id="${item.id}">
-      <button type="button" class="check" data-action="toggle" aria-label="${item.done ? 'Mark not done' : 'Mark done'}" aria-pressed="${item.done}"></button>
-      <button type="button" class="item-body" data-action="edit">
-        <div class="item-title">${item.time ? `<span class="item-time">${esc(fmtTime(item.time))}</span>` : ''}${cat.icon} ${esc(item.title)}</div>
-        ${sub ? `<div class="item-sub">${esc(sub)}</div>` : ''}
-        ${item.notes ? `<div class="item-notes">${esc(item.notes)}</div>` : ''}
+      <button type="button" class="item-main ripple" data-action="edit">
+        <span class="avatar" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}</span>
+        <span class="item-text">
+          <span class="overline">${esc(over)}</span>
+          <span class="item-title">${esc(item.title)}</span>
+          ${item.place ? `<span class="item-sub">${esc(item.place)}</span>` : ''}
+          ${item.notes ? `<span class="item-notes">${esc(item.notes)}</span>` : ''}
+        </span>
       </button>
-      ${link ? `<a class="icon-link" href="${esc(link)}" target="_blank" rel="noopener" aria-label="Open link">🔗</a>` : ''}
-      ${item.place ? `<a class="icon-link" href="${esc(mapsUrl(item.place, trip))}" target="_blank" rel="noopener" aria-label="Open in Maps">📍</a>` : ''}
+      <button type="button" class="check ripple" data-action="toggle" role="checkbox"
+        aria-checked="${item.done}" aria-label="Done: ${esc(item.title)}"><span class="box">${icon('check')}</span></button>
+      ${chips ? `<div class="item-chips">${chips}</div>` : ''}
     </li>`;
 }
 
@@ -240,48 +346,81 @@ function tripDays(trip) {
   return [...days].sort();
 }
 
+function tripStatus(trip) {
+  if (!trip.start || !trip.end) return null;
+  const today = todayISO();
+  if (today < trip.start) {
+    const n = daysBetween(today, trip.start);
+    return { icon: 'flight_takeoff', text: n === 1 ? 'Starts tomorrow' : `Starts in ${n} days` };
+  }
+  if (today > trip.end) return { icon: 'check', text: 'Trip complete' };
+  return { icon: 'today', text: `Day ${daysBetween(trip.start, today) + 1} of ${daysBetween(trip.start, trip.end) + 1}` };
+}
+
 function renderPlan(trip) {
   const days = tripDays(trip);
   const today = todayISO();
-  let dateText = 'No dates set yet';
-  if (trip.start && trip.end) {
-    const n = Math.round((parseDate(trip.end) - parseDate(trip.start)) / 864e5) + 1;
-    dateText = `${fmtDay(trip.start, { month: 'short', day: 'numeric' })} – ${fmtDay(trip.end, { month: 'short', day: 'numeric' })} · ${n} day${n === 1 ? '' : 's'}`;
-  }
+  const hasDates = trip.start && trip.end;
+  const n = hasDates ? daysBetween(trip.start, trip.end) + 1 : 0;
+  const status = tripStatus(trip);
+  const planned = trip.items.filter(i => i.date);
+  const done = planned.filter(i => i.done).length;
+  const ideas = trip.items.length - planned.length;
 
   let html = `
-    <div class="summary">
-      <span class="grow">📆 ${esc(dateText)}</span>
-      <button type="button" class="btn small" data-action="edit-trip">Edit trip</button>
-    </div>`;
+    <section class="hero">
+      ${shape(HERO_SHAPE, 'hero-shape')}
+      ${icon('location_on-fill', 'hero-shape-icon')}
+      <p class="hero-overline">${hasDates ? `${n}-day trip` : 'Your trip'}</p>
+      <h1 class="hero-title">${esc(trip.name)}</h1>
+      <p class="hero-dates">${hasDates
+        ? esc(`${fmtDay(trip.start)} – ${fmtDay(trip.end)}`)
+        : 'No dates yet'}</p>
+      ${status
+        ? `<span class="status-chip">${icon(status.icon, 'sm')}${esc(status.text)}</span>`
+        : `<button type="button" class="btn filled ripple" data-action="edit-trip">${icon('calendar_add_on')}Add dates</button>`}
+      ${planned.length ? `
+        <div class="hero-progress">
+          <span>${done} of ${plural(planned.length, 'plan')} done</span>
+          ${progressBar(done / planned.length, 'Plans done')}
+        </div>` : ''}
+      <button type="button" class="icon-btn hero-edit ripple" data-action="edit-trip" aria-label="Edit trip">${icon('edit')}</button>
+    </section>`;
 
   if (!days.length) {
-    const ideas = trip.items.filter(i => !i.date).length;
-    html += `
-      <div class="card empty">
-        <p>Set the dates for your ${esc(trip.name)} trip to see it day by day.</p>
-        <button type="button" class="btn primary" data-action="edit-trip">Set dates</button>
-        ${ideas ? `<p>You have ${ideas} idea${ideas === 1 ? '' : 's'} waiting in 💡 Ideas.</p>` : ''}
-      </div>`;
+    html += emptyState('event_available', 'Your days will appear here',
+      `Add the dates for ${esc(trip.name)} and you'll see the trip day by day.`,
+      ideas ? `<button type="button" class="btn tonal ripple" data-go="ideas">${icon('lightbulb')}See ${plural(ideas, 'idea')}</button>` : '');
   }
 
-  days.forEach((day, i) => {
+  for (const day of days) {
     const items = trip.items.filter(it => it.date === day).sort(byTime);
-    const inRange = trip.start && trip.end && day >= trip.start && day <= trip.end;
-    const dayNum = inRange ? Math.round((parseDate(day) - parseDate(trip.start)) / 864e5) + 1 : null;
+    const inRange = hasDates && day >= trip.start && day <= trip.end;
+    const isToday = day === today;
+    const sub = [
+      isToday ? '<b>Today</b>' : '',
+      esc(fmtDay(day, { month: 'short', day: 'numeric' })),
+      inRange ? `Day ${daysBetween(trip.start, day) + 1}` : 'Outside trip dates',
+    ].filter(Boolean).join(' · ');
     html += `
-      <div class="card day ${day === today ? 'today' : ''}" id="day-${day}">
+      <section class="day" id="day-${day}">
         <div class="day-head">
-          <h3>${esc(fmtDay(day))}</h3>
-          ${day === today ? '<span class="today-tag">Today</span>' : ''}
-          <small>${dayNum ? 'Day ' + dayNum : 'Outside trip dates'}</small>
+          <div class="date-badge ${isToday ? 'today' : ''}" aria-hidden="true">
+            <small>${esc(fmtDay(day, { weekday: 'short' }))}</small>
+            <strong>${parseDate(day).getDate()}</strong>
+          </div>
+          <div class="day-text">
+            <div class="day-title">${esc(fmtDay(day, { weekday: 'long' }))}</div>
+            <div class="day-sub">${sub}</div>
+          </div>
+          <button type="button" class="icon-btn tonal ripple" data-action="add-on-day" data-date="${day}"
+            aria-label="Add a plan on ${esc(fmtDay(day, { weekday: 'long', month: 'long', day: 'numeric' }))}">${icon('add')}</button>
         </div>
         ${items.length
-          ? `<ul class="items">${items.map(it => itemHTML(it, trip)).join('')}</ul>`
-          : '<p class="empty">Nothing planned yet.</p>'}
-        <button type="button" class="add-row" data-action="add-on-day" data-date="${day}">+ Add to this day</button>
-      </div>`;
-  });
+          ? `<ul class="group">${items.map(it => itemHTML(it, trip)).join('')}</ul>`
+          : `<button type="button" class="empty-day ripple" data-action="add-on-day" data-date="${day}">${icon('add')}Free day — tap to add a plan</button>`}
+      </section>`;
+  }
 
   $('#view-plan').innerHTML = html;
 }
@@ -289,72 +428,109 @@ function renderPlan(trip) {
 function renderIdeas(trip) {
   const ideas = trip.items.filter(i => !i.date);
   $('#view-ideas').innerHTML = `
-    <p class="note">Places and things you might do in ${esc(trip.name)}. Tap one and pick a day to move it into your plan.</p>
+    <h1 class="headline">Ideas</h1>
+    <p class="supporting">Things you might do in ${esc(trip.name)}. Tap one and pick a day to add it to your plan.</p>
     ${ideas.length
-      ? `<div class="card"><ul class="items">${ideas.map(it => itemHTML(it, trip)).join('')}</ul></div>`
-      : '<div class="card empty">No ideas yet. Tap + to add one.</div>'}`;
+      ? `<ul class="group">${ideas.map(it => itemHTML(it, trip)).join('')}</ul>`
+      : emptyState('travel_explore', 'No ideas yet', 'Save places you hear about here, then schedule them later.')}`;
+}
+
+function taskHTML(c) {
+  return `
+    <li class="task ${c.done ? 'done' : ''}" data-check="${c.id}">
+      <button type="button" class="check ripple" data-action="toggle-check" role="checkbox"
+        aria-checked="${c.done}" aria-label="Done: ${esc(c.text)}"><span class="box">${icon('check')}</span></button>
+      <span class="task-text">${esc(c.text)}</span>
+      <button type="button" class="icon-btn ripple" data-action="del-check" aria-label="Remove ${esc(c.text)}">${icon('close')}</button>
+    </li>`;
 }
 
 function renderChecklist() {
   const list = state.checklist;
-  const left = list.filter(c => !c.done).length;
+  const todo = list.filter(c => !c.done);
+  const done = list.filter(c => c.done);
   $('#view-pack').innerHTML = `
-    <h2 class="section-title">Checklist <small class="note">${left} left</small></h2>
-    <form class="add-form" data-form="check">
-      <input name="text" placeholder="Add something to pack or do…" maxlength="200" autocomplete="off" aria-label="New checklist item">
-      <button type="submit" class="btn primary">Add</button>
-    </form>
+    <h1 class="headline">Checklist</h1>
+    <p class="supporting">Packing and to-dos for the whole trip.</p>
     ${list.length ? `
-      <div class="card"><ul class="items">
-        ${list.map(c => `
-          <li class="item ${c.done ? 'done' : ''}" data-check="${c.id}">
-            <button type="button" class="check" data-action="toggle-check" aria-label="${c.done ? 'Mark not done' : 'Mark done'}" aria-pressed="${c.done}"></button>
-            <div class="item-body"><div class="item-title">${esc(c.text)}</div></div>
-            <button type="button" class="del" data-action="del-check" aria-label="Remove">×</button>
-          </li>`).join('')}
-      </ul></div>
-      ${list.length > left ? '<button type="button" class="btn block" data-action="clear-checked">Remove checked items</button>' : ''}
-    ` : '<div class="card empty">Your checklist is empty.</div>'}`;
+      <div class="progress-card">
+        <div><span class="big">${done.length}</span><span class="of"> / ${list.length}</span></div>
+        <p>${done.length === list.length ? "All done — you're ready to go!" : 'packed & done'}</p>
+        ${progressBar(done.length / list.length, 'Checklist progress')}
+      </div>` : ''}
+    <form class="add-bar" data-form="check">
+      <input name="text" placeholder="Add something to pack or do" maxlength="200" autocomplete="off" aria-label="New checklist item">
+      <button type="submit" class="icon-btn filled ripple" aria-label="Add">${icon('add')}</button>
+    </form>
+    ${todo.length ? `<ul class="group">${todo.map(taskHTML).join('')}</ul>` : ''}
+    ${!list.length ? emptyState('luggage', 'Nothing to pack yet', 'Add chargers, tickets, snacks — anything you don’t want to forget.') : ''}
+    ${done.length ? `
+      <div class="label-row">
+        <h2 class="group-label">Completed (${done.length})</h2>
+        <button type="button" class="btn text ripple" data-action="clear-checked">Clear</button>
+      </div>
+      <ul class="group">${done.map(taskHTML).join('')}</ul>` : ''}`;
 }
 
 function renderMore() {
+  const offlineReady = 'serviceWorker' in navigator && navigator.serviceWorker.controller;
   $('#view-more').innerHTML = `
-    <h2 class="section-title">Trips</h2>
-    <div class="card">
+    <h1 class="headline">More</h1>
+
+    <h2 class="group-label">Trips</h2>
+    <ul class="group">
       ${state.trips.map(t => `
-        <div class="row">
-          <span class="dot" style="background:${esc(t.color)}"></span>
-          <div class="grow">
-            <strong>${esc(t.name)}</strong>
-            <small>${t.start && t.end ? esc(fmtDay(t.start) + ' – ' + fmtDay(t.end)) : 'No dates'} · ${t.items.length} plan${t.items.length === 1 ? '' : 's'}</small>
-          </div>
-          <button type="button" class="btn small" data-action="edit-trip" data-trip-id="${t.id}">Edit</button>
-        </div>`).join('')}
-      <div class="btn-stack"><button type="button" class="btn" data-action="new-trip">+ Add a trip</button></div>
-    </div>
+        <li><button type="button" class="row ripple" data-action="edit-trip" data-trip-id="${t.id}">
+          <span class="trip-avatar" style="--c:${esc(t.color)}">${esc(t.name.charAt(0).toUpperCase())}</span>
+          <span class="row-text">
+            <span class="row-title">${esc(t.name)}</span>
+            <span class="row-sub">${t.start && t.end ? esc(fmtDay(t.start) + ' – ' + fmtDay(t.end)) : 'No dates'} · ${plural(t.items.length, 'plan')}</span>
+          </span>
+          <span class="row-trail">${icon('edit')}</span>
+        </button></li>`).join('')}
+      <li><button type="button" class="row ripple" data-action="new-trip">
+        <span class="row-icon">${icon('add')}</span>
+        <span class="row-text"><span class="row-title">Add a trip</span></span>
+      </button></li>
+    </ul>
 
-    <h2 class="section-title">App</h2>
-    <div class="card">
-      <div class="row"><div class="grow">Works offline<small>${'serviceWorker' in navigator && navigator.serviceWorker.controller ? '✅ Ready — the app is saved on this phone' : '⏳ Not yet — open the app once while online'}</small></div></div>
-      <div class="row"><div class="grow">Data protected from cleanup<small>${storagePersisted ? '✅ Yes' : 'Not yet — installing the app usually turns this on'}</small></div></div>
-      ${installPrompt ? '<div class="btn-stack"><button type="button" class="btn primary" data-action="install">📲 Install app on this phone</button></div>' : ''}
-    </div>
+    <h2 class="group-label">App</h2>
+    <ul class="group">
+      ${installPrompt ? `
+        <li><button type="button" class="row accent ripple" data-action="install">
+          <span class="row-icon">${icon('install_mobile')}</span>
+          <span class="row-text"><span class="row-title">Install app</span><span class="row-sub">Add Trip Planner to your home screen</span></span>
+        </button></li>` : ''}
+      <li><div class="row">
+        <span class="row-icon">${icon('offline_pin')}</span>
+        <span class="row-text"><span class="row-title">Works offline</span>
+          <span class="row-sub">${offlineReady ? '<span class="ok">Ready</span> — saved on this phone' : 'Open the app once while online'}</span></span>
+      </div></li>
+      <li><div class="row">
+        <span class="row-icon">${icon('shield')}</span>
+        <span class="row-text"><span class="row-title">Data protected</span>
+          <span class="row-sub">${storagePersisted ? '<span class="ok">On</span> — Android won’t clear it' : 'Installing the app usually turns this on'}</span></span>
+      </div></li>
+    </ul>
 
-    <h2 class="section-title">Your data</h2>
-    <p class="note">Everything is saved only on this phone, inside this app. Nothing is uploaded.</p>
-    <div class="card">
-      <div class="btn-stack">
-        <button type="button" class="btn" data-action="export">💾 Save backup file</button>
-        <button type="button" class="btn" data-action="import">📂 Restore from backup file</button>
-        <input type="file" id="import-file" accept=".json,application/json" hidden>
-      </div>
-    </div>
-    <p class="note">Tip: save a backup before your trip. It lands in your Downloads folder.</p>
-    <div class="card">
-      <div class="btn-stack">
-        <button type="button" class="btn danger" data-action="reset">Erase everything and start over</button>
-      </div>
-    </div>`;
+    <h2 class="group-label">Backup</h2>
+    <ul class="group">
+      <li><button type="button" class="row ripple" data-action="export">
+        <span class="row-icon">${icon('download')}</span>
+        <span class="row-text"><span class="row-title">Save backup file</span><span class="row-sub">Goes to your Downloads folder</span></span>
+      </button></li>
+      <li><button type="button" class="row ripple" data-action="import">
+        <span class="row-icon">${icon('upload')}</span>
+        <span class="row-text"><span class="row-title">Restore from backup</span><span class="row-sub">Replaces what's in the app now</span></span>
+      </button></li>
+      <li><button type="button" class="row danger ripple" data-action="reset">
+        <span class="row-icon">${icon('restart_alt')}</span>
+        <span class="row-text"><span class="row-title">Erase everything</span><span class="row-sub">Start over with a clean slate</span></span>
+      </button></li>
+    </ul>
+    <input type="file" id="import-file" accept=".json,application/json" hidden>
+
+    <p class="footnote">${icon('shield', 'sm')}Your plans are stored only on this phone.</p>`;
 }
 
 /* ---------- Plan form (add / edit) ---------- */
@@ -363,18 +539,20 @@ const itemDialog = $('#item-dialog');
 const itemForm = $('#item-form');
 let editingItemId = null;
 
-$('#item-category').innerHTML = Object.entries(CATEGORIES)
-  .map(([k, c]) => `<option value="${k}">${c.icon} ${esc(c.label)}</option>`).join('');
+$('#item-category').insertAdjacentHTML('beforeend', Object.entries(CATEGORIES).map(([k, c]) => `
+  <label style="--h:${c.hue}"><input type="radio" name="category" value="${k}">
+    <span class="ripple">${icon(c.icon + '-fill')}${esc(c.label)}</span></label>`).join(''));
 
 function openItemForm(item, defaults = {}) {
   editingItemId = item ? item.id : null;
   const v = item || { title: '', category: 'sight', date: '', time: '', place: '', link: '', notes: '', ...defaults };
-  $('#item-dialog-title').textContent = item ? 'Edit plan' : 'Add plan';
+  $('#item-dialog-title').textContent = item ? 'Edit plan' : (v.date ? 'New plan' : 'New idea');
   for (const f of ['title', 'category', 'date', 'time', 'place', 'link', 'notes']) {
     itemForm.elements[f].value = v[f] || '';
   }
   $('#item-delete').hidden = !item;
   itemDialog.showModal();
+  itemDialog.scrollTop = 0;
   if (!item) itemForm.elements.title.focus();
 }
 
@@ -383,7 +561,7 @@ itemForm.addEventListener('submit', (e) => {
   const f = itemForm.elements;
   const data = {
     title: f.title.value.trim(),
-    category: f.category.value,
+    category: f.category.value || 'other',
     date: f.date.value,
     time: f.time.value,
     place: f.place.value.trim(),
@@ -401,18 +579,23 @@ itemForm.addEventListener('submit', (e) => {
   save();
   itemDialog.close();
   render();
-  toast(data.date ? `Saved to ${fmtDay(data.date)}` : 'Saved to Ideas');
+  snackbar(data.date ? `Saved to ${fmtDay(data.date, { weekday: 'long', month: 'short', day: 'numeric' })}` : 'Saved to Ideas');
 });
 
 $('#item-delete').addEventListener('click', () => {
   const found = findItem(editingItemId);
   if (!found) return;
-  if (!confirm(`Delete "${found.item.title}"?`)) return;
-  found.trip.items = found.trip.items.filter(i => i.id !== editingItemId);
+  const { trip, item } = found;
+  const index = trip.items.indexOf(item);
+  trip.items.splice(index, 1);
   save();
   itemDialog.close();
   render();
-  toast('Deleted');
+  snackbar('Plan deleted', 'Undo', () => {
+    trip.items.splice(index, 0, item);
+    save();
+    render();
+  });
 });
 
 /* ---------- Trip form (add / edit) ---------- */
@@ -421,8 +604,9 @@ const tripDialog = $('#trip-dialog');
 const tripForm = $('#trip-form');
 let editingTripId = null;
 
-$('#trip-colors').insertAdjacentHTML('beforeend', COLORS.map(c =>
-  `<label><input type="radio" name="color" value="${c}"><span style="background:${c}"></span></label>`).join(''));
+$('#trip-colors').insertAdjacentHTML('beforeend', COLORS.map(c => `
+  <label><input type="radio" name="color" value="${c}" aria-label="Color ${c}">
+    <span class="ripple" style="--c:${c}">${icon('check')}</span></label>`).join(''));
 
 function openTripForm(trip) {
   editingTripId = trip ? trip.id : null;
@@ -431,8 +615,7 @@ function openTripForm(trip) {
   f.name.value = trip ? trip.name : '';
   f.start.value = trip ? trip.start : '';
   f.end.value = trip ? trip.end : '';
-  const color = trip ? trip.color : COLORS[state.trips.length % COLORS.length];
-  for (const r of f.color) r.checked = r.value === color;
+  f.color.value = trip ? trip.color : COLORS[state.trips.length % COLORS.length];
   $('#trip-delete').hidden = !trip || state.trips.length < 2;
   tripDialog.showModal();
   if (!trip) f.name.focus();
@@ -457,65 +640,89 @@ tripForm.addEventListener('submit', (e) => {
     const trip = { id: uid(), items: [], ...data };
     state.trips.push(trip);
     state.activeTripId = trip.id;
+    ui.view = 'plan';
   }
   save();
   tripDialog.close();
   render();
 });
 
-$('#trip-delete').addEventListener('click', () => {
+$('#trip-delete').addEventListener('click', async () => {
   const trip = state.trips.find(t => t.id === editingTripId);
   if (!trip || state.trips.length < 2) return;
-  if (!confirm(`Delete the whole "${trip.name}" trip and its ${trip.items.length} plans?`)) return;
+  const ok = await askConfirm({
+    icon: 'delete',
+    title: `Delete ${trip.name}?`,
+    text: `This removes the trip and its ${plural(trip.items.length, 'plan')} from this phone.`,
+    ok: 'Delete',
+  });
+  if (!ok) return;
   state.trips = state.trips.filter(t => t.id !== trip.id);
   if (state.activeTripId === trip.id) state.activeTripId = state.trips[0].id;
   save();
   tripDialog.close();
   render();
-  toast('Trip deleted');
+  snackbar(`${trip.name} deleted`);
 });
 
-// Cancel buttons and tapping the dark area outside a form close it.
-for (const dlg of [itemDialog, tripDialog]) {
+// Close buttons and tapping the dark area outside a sheet close it.
+for (const dlg of [itemDialog, tripDialog, $('#confirm-dialog')]) {
   dlg.addEventListener('click', (e) => {
     if (e.target === dlg || e.target.closest('[data-close]')) dlg.close();
   });
 }
 
+/* ---------- Ticking things off (animated in place, then re-sorted) ---------- */
+
+let rerenderTimer;
+function tick(el, done) {
+  el.classList.toggle('done', done);
+  el.querySelector('.check').setAttribute('aria-checked', done);
+  if (done && navigator.vibrate) navigator.vibrate(12);
+  clearTimeout(rerenderTimer);
+  rerenderTimer = setTimeout(render, 550);
+}
+
 /* ---------- Taps anywhere in the app ---------- */
 
-document.addEventListener('click', (e) => {
+document.addEventListener('click', async (e) => {
   const tripChip = e.target.closest('[data-trip]');
   if (tripChip) {
+    if (tripChip.dataset.trip === state.activeTripId) return;
     state.activeTripId = tripChip.dataset.trip;
     save();
-    render();
     window.scrollTo(0, 0);
+    render();
     return;
   }
 
   const go = e.target.closest('[data-go]');
   if (go) {
+    if (ui.view === go.dataset.go) return;
     ui.view = go.dataset.go;
-    render();
     window.scrollTo(0, 0);
+    render();
     return;
   }
 
   const el = e.target.closest('[data-action]');
   if (!el) return;
   const action = el.dataset.action;
-  const itemId = el.closest('[data-id]')?.dataset.id;
-  const checkId = el.closest('[data-check]')?.dataset.check;
+  const itemEl = el.closest('[data-id]');
+  const checkEl = el.closest('[data-check]');
 
   switch (action) {
     case 'toggle': {
-      const found = findItem(itemId);
-      if (found) { found.item.done = !found.item.done; save(); render(); }
+      const found = findItem(itemEl.dataset.id);
+      if (found) {
+        found.item.done = !found.item.done;
+        save();
+        tick(itemEl, found.item.done);
+      }
       break;
     }
     case 'edit': {
-      const found = findItem(itemId);
+      const found = findItem(itemEl.dataset.id);
       if (found) openItemForm(found.item);
       break;
     }
@@ -529,18 +736,39 @@ document.addEventListener('click', (e) => {
       openTripForm(null);
       break;
     case 'toggle-check': {
-      const c = state.checklist.find(x => x.id === checkId);
-      if (c) { c.done = !c.done; save(); render(); }
+      const c = state.checklist.find(x => x.id === checkEl.dataset.check);
+      if (c) {
+        c.done = !c.done;
+        save();
+        tick(checkEl, c.done);
+      }
       break;
     }
-    case 'del-check':
-      state.checklist = state.checklist.filter(x => x.id !== checkId);
-      save(); render();
+    case 'del-check': {
+      const index = state.checklist.findIndex(x => x.id === checkEl.dataset.check);
+      if (index < 0) break;
+      const [removed] = state.checklist.splice(index, 1);
+      save();
+      render();
+      snackbar('Item removed', 'Undo', () => {
+        state.checklist.splice(index, 0, removed);
+        save();
+        render();
+      });
       break;
-    case 'clear-checked':
-      state.checklist = state.checklist.filter(x => !x.done);
-      save(); render();
+    }
+    case 'clear-checked': {
+      const before = state.checklist;
+      state.checklist = before.filter(x => !x.done);
+      save();
+      render();
+      snackbar(`Cleared ${plural(before.length - state.checklist.length, 'item')}`, 'Undo', () => {
+        state.checklist = before;
+        save();
+        render();
+      });
       break;
+    }
     case 'export':
       exportBackup();
       break;
@@ -553,15 +781,23 @@ document.addEventListener('click', (e) => {
         installPrompt.userChoice.finally(() => { installPrompt = null; render(); });
       }
       break;
-    case 'reset':
-      if (confirm('Erase ALL trips, plans and checklist items on this phone? This cannot be undone.')) {
+    case 'reset': {
+      const ok = await askConfirm({
+        icon: 'restart_alt',
+        title: 'Erase everything?',
+        text: 'All trips, plans and checklist items on this phone will be deleted. Save a backup first if you might want them back.',
+        ok: 'Erase',
+      });
+      if (ok) {
         state = defaultState();
         save();
         ui.view = 'plan';
+        window.scrollTo(0, 0);
         render();
-        toast('Started fresh');
+        snackbar('Started fresh');
       }
       break;
+    }
   }
 });
 
@@ -587,6 +823,34 @@ $('#fab').addEventListener('click', () => {
   openItemForm(null, { date: inTrip ? today : (trip.start || '') });
 });
 
+/* ---------- Touch ripple ---------- */
+
+document.addEventListener('pointerdown', (e) => {
+  const el = e.target.closest('.ripple');
+  if (!el) return;
+  const r = el.getBoundingClientRect();
+  const size = Math.hypot(r.width, r.height) * 2;
+  const wave = document.createElement('span');
+  wave.className = 'wave';
+  wave.style.cssText = `width:${size}px;height:${size}px;left:${e.clientX - r.left - size / 2}px;top:${e.clientY - r.top - size / 2}px`;
+  el.append(wave);
+  wave.addEventListener('animationend', () => wave.remove());
+});
+
+/* ---------- Scrolling: tint the top bar, shrink the + button ---------- */
+
+let lastY = 0;
+function onScroll() {
+  const y = window.scrollY;
+  $('#appbar').classList.toggle('scrolled', y > 4);
+  $('#appbar').classList.toggle('show-title', y > 56);
+  if (Math.abs(y - lastY) > 6 || y < 10) {
+    $('#fab').classList.toggle('collapsed', y > lastY && y > 120);
+    lastY = y;
+  }
+}
+window.addEventListener('scroll', onScroll, { passive: true });
+
 /* ---------- Backup & restore ---------- */
 
 function exportBackup() {
@@ -598,7 +862,7 @@ function exportBackup() {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  toast('Backup saved to Downloads');
+  snackbar('Backup saved to Downloads');
 }
 
 // Checks a backup file and keeps only the fields the app understands.
@@ -637,18 +901,26 @@ document.addEventListener('change', async (e) => {
   const file = e.target.files[0];
   e.target.value = '';
   if (!file) return;
+  let restored;
   try {
-    const restored = cleanBackup(JSON.parse(await file.text()));
-    const n = restored.trips.reduce((sum, t) => sum + t.items.length, 0);
-    if (!confirm(`Replace everything on this phone with this backup (${restored.trips.length} trips, ${n} plans)?`)) return;
-    state = restored;
-    save();
-    ui.view = 'plan';
-    render();
-    toast('Backup restored');
+    restored = cleanBackup(JSON.parse(await file.text()));
   } catch {
-    toast("⚠️ That file isn't a Trip Planner backup");
+    snackbar("That file isn't a Trip Planner backup");
+    return;
   }
+  const n = restored.trips.reduce((sum, t) => sum + t.items.length, 0);
+  const ok = await askConfirm({
+    icon: 'upload',
+    title: 'Restore this backup?',
+    text: `It has ${plural(restored.trips.length, 'trip')} and ${plural(n, 'plan')}. It will replace everything currently in the app.`,
+    ok: 'Restore',
+  });
+  if (!ok) return;
+  state = restored;
+  save();
+  ui.view = 'plan';
+  render();
+  snackbar('Backup restored');
 });
 
 /* ---------- Offline & install support ---------- */
@@ -663,7 +935,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
 });
 window.addEventListener('appinstalled', () => {
   installPrompt = null;
-  toast('Installed! Find Trip Planner on your home screen.');
+  snackbar('Installed! Find Trip Planner on your home screen.');
 });
 
 function updateOnlineBadge() { $('#offline-badge').hidden = navigator.onLine; }

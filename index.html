@@ -3,21 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#c62828">
+  <meta name="theme-color" content="#fff8f7">
   <meta name="description" content="Plan your Boston and NYC trip. Works offline.">
   <title>Trip Planner</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="preload" href="fonts/google-sans-flex.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="topbar-row">
-      <h1>Trip Planner</h1>
-      <span id="offline-badge" class="badge" hidden>Offline</span>
+  <header class="appbar" id="appbar">
+    <div class="appbar-inner">
+      <h1 class="appbar-title" id="appbar-title"></h1>
+      <nav id="trip-tabs" class="trip-tabs" aria-label="Trips"></nav>
+      <span id="offline-badge" class="offline-pill" hidden>
+        <svg class="icon sm" aria-hidden="true"><use href="icons/sprite.svg#cloud_off"/></svg>Offline
+      </span>
     </div>
-    <nav id="trip-tabs" class="trip-tabs" aria-label="Trips"></nav>
   </header>
 
   <main id="main">
@@ -27,71 +30,132 @@
     <section id="view-more" class="view" hidden></section>
   </main>
 
-  <button id="fab" class="fab" type="button" aria-label="Add a plan">+</button>
+  <button id="fab" class="fab ripple" type="button">
+    <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#add"/></svg>
+    <span class="fab-label" id="fab-label">New plan</span>
+  </button>
 
-  <nav class="tabbar" aria-label="Sections">
-    <button type="button" data-go="plan" class="active"><span class="ti" aria-hidden="true">📅</span>Plan</button>
-    <button type="button" data-go="ideas"><span class="ti" aria-hidden="true">💡</span>Ideas</button>
-    <button type="button" data-go="pack"><span class="ti" aria-hidden="true">✅</span>Checklist</button>
-    <button type="button" data-go="more"><span class="ti" aria-hidden="true">⚙️</span>More</button>
+  <nav class="navbar" aria-label="Sections">
+    <button type="button" data-go="plan" class="active">
+      <span class="nav-ind">
+        <svg class="icon i-line" aria-hidden="true"><use href="icons/sprite.svg#calendar_month"/></svg>
+        <svg class="icon i-fill" aria-hidden="true"><use href="icons/sprite.svg#calendar_month-fill"/></svg>
+      </span>Plan
+    </button>
+    <button type="button" data-go="ideas">
+      <span class="nav-ind">
+        <svg class="icon i-line" aria-hidden="true"><use href="icons/sprite.svg#lightbulb"/></svg>
+        <svg class="icon i-fill" aria-hidden="true"><use href="icons/sprite.svg#lightbulb-fill"/></svg>
+      </span>Ideas
+    </button>
+    <button type="button" data-go="pack">
+      <span class="nav-ind">
+        <svg class="icon i-line" aria-hidden="true"><use href="icons/sprite.svg#checklist"/></svg>
+        <svg class="icon i-fill" aria-hidden="true"><use href="icons/sprite.svg#checklist-fill"/></svg>
+      </span>Checklist
+    </button>
+    <button type="button" data-go="more">
+      <span class="nav-ind">
+        <svg class="icon i-line" aria-hidden="true"><use href="icons/sprite.svg#settings"/></svg>
+        <svg class="icon i-fill" aria-hidden="true"><use href="icons/sprite.svg#settings-fill"/></svg>
+      </span>More
+    </button>
   </nav>
 
-  <!-- Pop-up form for adding / editing one plan -->
+  <div class="snackbar" id="snackbar" role="status" aria-live="polite">
+    <span class="msg" id="snackbar-msg"></span>
+    <button type="button" class="btn text" id="snackbar-action" hidden></button>
+  </div>
+
+  <!-- Bottom sheet: add / edit one plan -->
   <dialog id="item-dialog" class="sheet">
     <form id="item-form" method="dialog">
-      <h2 id="item-dialog-title">Add plan</h2>
-      <label>What
+      <div class="handle" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 id="item-dialog-title" tabindex="-1" autofocus>New plan</h2>
+        <button type="button" class="icon-btn ripple" data-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#close"/></svg>
+        </button>
+      </div>
+      <label class="field">
+        <span class="field-label">What</span>
         <input name="title" required maxlength="120" placeholder="e.g. Walk the Freedom Trail" autocomplete="off">
       </label>
-      <label>Type
-        <select name="category" id="item-category"></select>
-      </label>
+      <fieldset class="choice-chips" id="item-category">
+        <legend>Type</legend>
+      </fieldset>
       <div class="row2">
-        <label>Day <input type="date" name="date"></label>
-        <label>Time <input type="time" name="time"></label>
+        <label class="field"><span class="field-label">Day</span><input type="date" name="date"></label>
+        <label class="field"><span class="field-label">Time</span><input type="time" name="time"></label>
       </div>
-      <p class="hint">Leave the day empty to keep it in Ideas for later.</p>
-      <label>Place or address
+      <p class="hint">No day? It stays in Ideas until you pick one.</p>
+      <label class="field">
+        <span class="field-label">Place or address</span>
         <input name="place" maxlength="200" placeholder="e.g. Boston Common" autocomplete="off">
       </label>
-      <label>Link (tickets, booking…)
+      <label class="field">
+        <span class="field-label">Link — tickets, booking…</span>
         <input name="link" inputmode="url" maxlength="500" placeholder="https://" autocomplete="off">
       </label>
-      <label>Notes
-        <textarea name="notes" rows="3" maxlength="2000" placeholder="Confirmation #, who's coming, tips…"></textarea>
+      <label class="field">
+        <span class="field-label">Notes</span>
+        <textarea name="notes" rows="2" maxlength="2000" placeholder="Confirmation #, who's coming, tips…"></textarea>
       </label>
       <div class="sheet-actions">
-        <button type="button" class="btn danger" id="item-delete">Delete</button>
+        <button type="button" class="btn text danger ripple" id="item-delete">
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#delete"/></svg>Delete
+        </button>
         <span class="spacer"></span>
-        <button type="button" class="btn" data-close>Cancel</button>
-        <button type="submit" class="btn primary">Save</button>
+        <button type="submit" class="btn filled lg ripple">Save</button>
       </div>
     </form>
   </dialog>
 
-  <!-- Pop-up form for adding / editing a trip (city) -->
+  <!-- Bottom sheet: add / edit a trip (city) -->
   <dialog id="trip-dialog" class="sheet">
     <form id="trip-form" method="dialog">
-      <h2 id="trip-dialog-title">Trip</h2>
-      <label>Name
+      <div class="handle" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 id="trip-dialog-title" tabindex="-1" autofocus>Trip</h2>
+        <button type="button" class="icon-btn ripple" data-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#close"/></svg>
+        </button>
+      </div>
+      <label class="field">
+        <span class="field-label">Name</span>
         <input name="name" required maxlength="40" placeholder="e.g. Boston" autocomplete="off">
       </label>
       <div class="row2">
-        <label>First day <input type="date" name="start"></label>
-        <label>Last day <input type="date" name="end"></label>
+        <label class="field"><span class="field-label">First day</span><input type="date" name="start"></label>
+        <label class="field"><span class="field-label">Last day</span><input type="date" name="end"></label>
       </div>
       <fieldset class="swatches" id="trip-colors">
         <legend>Color</legend>
       </fieldset>
       <div class="sheet-actions">
-        <button type="button" class="btn danger" id="trip-delete">Delete trip</button>
+        <button type="button" class="btn text danger ripple" id="trip-delete">
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#delete"/></svg>Delete trip
+        </button>
         <span class="spacer"></span>
-        <button type="button" class="btn" data-close>Cancel</button>
-        <button type="submit" class="btn primary">Save</button>
+        <button type="submit" class="btn filled lg ripple">Save</button>
       </div>
     </form>
   </dialog>
 
+  <!-- Centered dialog for big decisions -->
+  <dialog id="confirm-dialog" class="alert">
+    <form method="dialog">
+      <svg class="icon alert-icon" aria-hidden="true"><use id="confirm-icon" href="icons/sprite.svg#delete"/></svg>
+      <h2 id="confirm-title" tabindex="-1" autofocus></h2>
+      <p id="confirm-text"></p>
+      <div class="alert-actions">
+        <button value="cancel" class="btn text ripple">Cancel</button>
+        <button value="ok" class="btn text ripple" id="confirm-ok">OK</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="theme-probe" hidden></div>
   <script src="app.js"></script>
 </body>
 </html>
