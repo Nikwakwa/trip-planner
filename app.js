@@ -270,7 +270,7 @@ function suggestionCard(r, day) {
 /* ---------- Snackbar (message bar at the bottom, with optional Undo) ---------- */
 
 let snackTimer;
-function snackbar(msg, actionLabel, onAction) {
+function snackbar(msg, actionLabel, onAction, duration) {
   const bar = $('#snackbar');
   const btn = $('#snackbar-action');
   $('#snackbar-msg').textContent = msg;
@@ -280,7 +280,7 @@ function snackbar(msg, actionLabel, onAction) {
   bar.classList.add('show');
   document.body.classList.add('snack-open');
   clearTimeout(snackTimer);
-  snackTimer = setTimeout(hideSnackbar, actionLabel ? 5000 : 2800);
+  snackTimer = setTimeout(hideSnackbar, duration || (actionLabel ? 5000 : 2800));
 }
 function hideSnackbar() {
   $('#snackbar').classList.remove('show');
@@ -1293,7 +1293,19 @@ window.addEventListener('offline', updateOnlineBadge);
 updateOnlineBadge();
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(err => console.warn('Offline mode unavailable', err));
+  const hadOldVersion = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
+    .then((reg) => {
+      // Android often resumes the app instead of restarting it, so also
+      // check for a new version every time the app comes back on screen.
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') reg.update().catch(() => {});
+      });
+    })
+    .catch(err => console.warn('Offline mode unavailable', err));
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (hadOldVersion) snackbar('A new version is ready', 'Reload', () => location.reload(), 15000);
+  });
 }
 
 // Ask Android not to clear our saved data when the phone is low on space.

@@ -1,7 +1,8 @@
 # Tiny local web server for testing the app on this computer.
 # Usage (in PowerShell, from this folder):   .\serve.ps1
 # Then open http://localhost:8080 in Chrome. Press Ctrl+C to stop.
-param([int]$Port = 8080)
+# -MaxAge 600 mimics GitHub Pages, which lets browsers reuse files for 10 minutes.
+param([int]$Port = 8080, [int]$MaxAge = 0)
 
 $root = [IO.Path]::GetFullPath($PSScriptRoot)
 $types = @{
@@ -37,7 +38,7 @@ try {
       $type = $types[$ext]
       if (-not $type) { $type = 'application/octet-stream' }
       $res.ContentType = $type
-      $res.Headers.Add('Cache-Control', 'no-cache')
+      $res.Headers.Add('Cache-Control', $(if ($MaxAge) { "max-age=$MaxAge" } else { 'no-cache' }))
       $res.ContentLength64 = $bytes.Length
       $res.OutputStream.Write($bytes, 0, $bytes.Length)
     } else {

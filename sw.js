@@ -2,7 +2,7 @@
    Strategy: show the saved copy instantly, and quietly fetch a fresh copy
    in the background (when online) for next time. */
 
-const CACHE = 'trip-planner-v3';
+const CACHE = 'trip-planner-v4';
 const FILES = [
   './',
   'index.html',
@@ -18,9 +18,13 @@ const FILES = [
   'icons/apple-touch-icon.png',
 ];
 
-// First visit: save every app file.
+// First visit or new version: save every app file.
+// cache: 'reload' skips the browser's short-term copy (GitHub Pages keeps files
+// for 10 minutes), so a new version really stores the newest files.
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
+  event.waitUntil(caches.open(CACHE)
+    .then(c => c.addAll(FILES.map(url => new Request(url, { cache: 'reload' }))))
+    .then(() => self.skipWaiting()));
 });
 
 // New version: throw away older saved copies.
@@ -38,10 +42,10 @@ self.addEventListener('fetch', (event) => {
 
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
-    const cached = await cache.match(req, { ignoreSearch: true }) ||
-      (req.mode === 'navigate' ? await cache.match('./') : undefined);
+    const cached = await cache.match(req, { ignoreSearch: true });
 
-    const fresh = fetch(req).then((res) => {
+    // 'no-cache' = always check with the server (cheap when nothing changed).
+    const fresh = fetch(req.mode === 'navigate' ? req.url : req, { cache: 'no-cache' }).then((res) => {
       if (res.ok) cache.put(req, res.clone());
       return res;
     }).catch(() => undefined);
@@ -50,6 +54,13 @@ self.addEventListener('fetch', (event) => {
       event.waitUntil(fresh);
       return cached;
     }
-    return (await fresh) || new Response('Offline and not saved yet.', { status: 503 });
+    const res = await fresh;
+    if (res) return res;
+    // No connection and this page isn't saved: show the app itself.
+    if (req.mode === 'navigate') {
+      const app = await cache.match('./');
+      if (app) return app;
+    }
+    return new Response('Offline and not saved yet.', { status: 503 });
   })());
 });
