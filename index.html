@@ -6,6 +6,12 @@
   <meta name="theme-color" content="#fff8f7">
   <meta name="description" content="Plan your Boston and NYC trip. Works offline.">
   <title>Trip Planner</title>
+  <script>
+    // Pick light or dark before the page is drawn, so it never flashes the wrong color.
+    try { var saved = JSON.parse(localStorage.getItem('tripPlanner.v1')); var pick = saved && saved.settings && saved.settings.theme; } catch (e) {}
+    document.documentElement.dataset.theme = (pick === 'light' || pick === 'dark') ? pick
+      : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  </script>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -156,6 +162,7 @@
   </dialog>
 
   <div id="theme-probe" hidden></div>
+  <script src="guides.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

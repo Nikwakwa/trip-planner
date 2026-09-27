@@ -15,7 +15,9 @@ Write-Host "Font saved."
 # ---- Icons (Material Symbols Rounded) -> one sprite file ----
 $outline = 'calendar_month','lightbulb','checklist','settings','add','edit','location_on','link','close','check',
   'delete','schedule','download','upload','install_mobile','cloud_off','offline_pin','restart_alt','luggage',
-  'travel_explore','today','event_available','palette','shield','arrow_forward','calendar_add_on','flight_takeoff'
+  'travel_explore','today','event_available','palette','shield','arrow_forward','calendar_add_on','flight_takeoff',
+  'directions_walk','directions_subway','auto_awesome','shuffle','explore','light_mode','dark_mode','brightness_auto',
+  'near_me','bedtime','wb_sunny','umbrella','money_off','map','open_in_new'
 $filled = 'calendar_month','lightbulb','checklist','settings',
   'museum','restaurant','local_activity','shopping_bag','train','hotel','push_pin','location_on','luggage'
 

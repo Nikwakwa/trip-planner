@@ -117,6 +117,156 @@ function progressBar(fraction, label) {
     </div>`;
 }
 
+/* ---------- City guides: matching, distances, suggestions ---------- */
+
+const norm = s => String(s || '').toLowerCase().replace(/[‘’]/g, "'").replace(/\s+/g, ' ');
+const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// Prepare each guide place once: a pattern that recognises its name in your plans.
+for (const g of GUIDES) {
+  for (const p of g.places) {
+    const names = [p.name, ...(p.aliases || [])].map(a => escRe(norm(a))).join('|');
+    p.re = new RegExp(`(^|[^a-z0-9])(${names})($|[^a-z0-9])`);
+    p.tags = p.tags || [];
+    p.cat = p.cat || 'sight';
+  }
+}
+
+function guideFor(trip) {
+  return GUIDES.find(g => g.match.test(trip.name)) || null;
+}
+
+// Which guide places does a plan refer to? ("Boston Common" → the Boston Common entry)
+function matchPlaces(item, guide) {
+  if (!guide) return [];
+  if (item.guideId) return guide.places.filter(p => p.id === item.guideId);
+  const text = norm(`${item.place} | ${item.title}`);
+  return guide.places.filter(p => p.re.test(text));
+}
+
+function coordsOf(item, guide) {
+  if (typeof item.lat === 'number' && typeof item.lng === 'number') return { lat: item.lat, lng: item.lng };
+  const p = matchPlaces(item, guide)[0];
+  return p ? { lat: p.lat, lng: p.lng } : null;
+}
+
+// Straight-line distance in miles.
+function miles(a, b) {
+  const rad = Math.PI / 180;
+  const h = Math.sin((b.lat - a.lat) * rad / 2) ** 2 +
+    Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin((b.lng - a.lng) * rad / 2) ** 2;
+  return 2 * 3958.8 * Math.asin(Math.sqrt(h));
+}
+
+// Rough estimate: real streets are ~30% longer than a straight line.
+function travel(d) {
+  if (d <= 1.2) {
+    return { icon: 'directions_walk', mode: 'walking', text: `${Math.max(1, Math.round(d * 1.3 / 3 * 60))} min walk` };
+  }
+  return { icon: 'directions_subway', mode: 'transit', text: `~${Math.round((10 + d * 1.3 / 12 * 60) / 5) * 5} min by transit` };
+}
+const fmtMiles = d => (d < 0.1 ? '<0.1 mi' : `${d.toFixed(d < 10 ? 1 : 0)} mi`);
+const fmtDuration = m => (m < 60 ? `${m} min` : `~${Math.round(m / 30) / 2} h`);
+function directionsUrl(a, b, mode) {
+  return `https://www.google.com/maps/dir/?api=1&origin=${a.lat},${a.lng}&destination=${b.lat},${b.lng}&travelmode=${mode}`;
+}
+const avg = list => list.reduce((s, v) => s + v, 0) / list.length;
+
+// Picks up to 3 suggestions for each upcoming day:
+// near that day's plans, or — for an empty day — around a neighborhood not yet covered.
+function planSuggestions(trip, guide, days) {
+  const out = new Map();
+  if (!guide || !state.settings.suggestions) return out;
+  const today = todayISO();
+  const taken = new Set(trip.items.flatMap(i => matchPlaces(i, guide).map(p => p.id)));
+  const shown = new Set();
+  const usedAreas = new Set();
+  const anchorsByDay = new Map();
+  for (const day of days) {
+    const anchors = [];
+    for (const item of trip.items.filter(i => i.date === day)) {
+      const c = coordsOf(item, guide);
+      if (!c) continue;
+      anchors.push({ item, c });
+      const p = matchPlaces(item, guide)[0];
+      if (p) usedAreas.add(p.area);
+    }
+    anchorsByDay.set(day, anchors);
+  }
+  const freeAreas = guide.dayAreas.filter(a => !usedAreas.has(a));
+  const areaList = freeAreas.length ? freeAreas : guide.dayAreas;
+  let areaIndex = 0;
+
+  for (const day of days) {
+    if (day < today) continue;
+    const anchors = anchorsByDay.get(day);
+    const pool = guide.places.filter(p => !taken.has(p.id) && !shown.has(p.id));
+    let ranked, title;
+    if (anchors.length) {
+      title = 'Nearby ideas';
+      ranked = pool.map(p => {
+        let best = null;
+        for (const a of anchors) {
+          const d = miles(a.c, p);
+          if (!best || d < best.d) best = { d, from: a.item };
+        }
+        return { p, ...best };
+      }).sort((x, y) => x.d - y.d);
+    } else {
+      const area = areaList[areaIndex++ % areaList.length];
+      const inArea = guide.places.filter(p => p.area === area);
+      const center = { lat: avg(inArea.map(p => p.lat)), lng: avg(inArea.map(p => p.lng)) };
+      title = `Ideas for a day in ${area}`;
+      ranked = pool.map(p => ({ p, d: miles(center, p) })).sort((x, y) => x.d - y.d);
+    }
+
+    // Shuffle steps through the 12 closest; keep a mix of types (max 2 of one kind).
+    const top = ranked.slice(0, 12);
+    const start = top.length ? ((ui.shuffle[day] || 0) * 3) % top.length : 0;
+    const ordered = top.map((_, k) => top[(start + k) % top.length]);
+    const picked = [];
+    const perType = {};
+    for (const r of ordered) {
+      if (picked.length === 3) break;
+      if ((perType[r.p.cat] || 0) >= 2) continue;
+      perType[r.p.cat] = (perType[r.p.cat] || 0) + 1;
+      picked.push(r);
+    }
+    for (const r of ordered) if (picked.length < 3 && !picked.includes(r)) picked.push(r);
+    picked.forEach(r => shown.add(r.p.id));
+    out.set(day, { title, cards: picked });
+  }
+  return out;
+}
+
+function whenTag(p) {
+  if (p.when === 'morning') return `<span class="tag">${icon('wb_sunny')}Morning</span>`;
+  if (p.when === 'evening') return `<span class="tag">${icon('bedtime')}Evening</span>`;
+  if (p.tags.includes('rainy')) return `<span class="tag">${icon('umbrella')}Indoors</span>`;
+  return '';
+}
+
+function suggestionCard(r, day) {
+  const p = r.p;
+  const cat = CATEGORIES[p.cat] || CATEGORIES.other;
+  const why = r.from
+    ? `${icon('near_me')}<span>${esc(travel(r.d).text)} from ${esc(r.from.title)}</span>`
+    : `${icon('location_on')}<span>${esc(p.area)}</span>`;
+  return `
+    <article class="s-card" aria-label="${esc(p.name)}">
+      <div class="s-top"><span class="avatar" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}</span>${whenTag(p)}</div>
+      <h4 class="s-name">${esc(p.name)}</h4>
+      <p class="s-why">${why}</p>
+      <p class="s-blurb">${esc(p.blurb)}</p>
+      <div class="s-foot">
+        <span class="tag">${icon('schedule')}${fmtDuration(p.mins)}</span>
+        ${p.tags.includes('free') ? '<span class="tag">Free</span>' : ''}
+        <button type="button" class="btn tonal sm ripple" data-action="add-suggestion" data-place="${p.id}" data-date="${day}"
+          aria-label="Add ${esc(p.name)}">${icon('add')}Add</button>
+      </div>
+    </article>`;
+}
+
 /* ---------- Snackbar (message bar at the bottom, with optional Undo) ---------- */
 
 let snackTimer;
@@ -190,7 +340,12 @@ function defaultState() {
       check('Tap-to-pay set up on phone (subway)'),
       check('Light jacket / layers'),
     ],
+    settings: defaultSettings(),
   };
+}
+
+function defaultSettings() {
+  return { theme: 'auto', suggestions: true };
 }
 
 /* ---------- Loading & saving ---------- */
@@ -217,9 +372,10 @@ function save() {
 }
 
 let state = load();
+state.settings = { ...defaultSettings(), ...state.settings };
 save();
 
-const ui = { view: 'plan' };
+const ui = { view: 'plan', ideasTab: 'mine', filter: 'all', shuffle: {} };
 
 function activeTrip() {
   return state.trips.find(t => t.id === state.activeTripId) || state.trips[0];
@@ -243,13 +399,22 @@ function toHex(css) {
   return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
 }
 
+// Light or dark: your choice in More → Appearance, or the phone's setting when "Automatic".
+const darkQuery = matchMedia('(prefers-color-scheme: dark)');
+function applyAppearance() {
+  const t = state.settings.theme;
+  document.documentElement.dataset.theme =
+    (t === 'light' || t === 'dark') ? t : (darkQuery.matches ? 'dark' : 'light');
+}
+darkQuery.addEventListener('change', () => render());
+
 function applyTheme(seed) {
+  applyAppearance();
   document.documentElement.style.setProperty('--seed', seed);
   // Paint Android's status bar to match the app background.
   const bg = getComputedStyle($('#theme-probe')).backgroundColor;
   $('meta[name="theme-color"]').setAttribute('content', toHex(bg));
 }
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme(activeTrip().color));
 
 /* ---------- Drawing the screen ---------- */
 
@@ -387,10 +552,16 @@ function renderPlan(trip) {
       <button type="button" class="icon-btn hero-edit ripple" data-action="edit-trip" aria-label="Edit trip">${icon('edit')}</button>
     </section>`;
 
+  const guide = guideFor(trip);
+  const suggestions = planSuggestions(trip, guide, days);
+
   if (!days.length) {
     html += emptyState('event_available', 'Your days will appear here',
       `Add the dates for ${esc(trip.name)} and you'll see the trip day by day.`,
-      ideas ? `<button type="button" class="btn tonal ripple" data-go="ideas">${icon('lightbulb')}See ${plural(ideas, 'idea')}</button>` : '');
+      `<div class="empty-actions">
+        ${ideas ? `<button type="button" class="btn tonal ripple" data-action="open-ideas" data-tab="mine">${icon('lightbulb')}See ${plural(ideas, 'idea')}</button>` : ''}
+        ${guide ? `<button type="button" class="btn tonal ripple" data-action="open-ideas" data-tab="explore">${icon('explore')}Explore ${esc(guide.city)}</button>` : ''}
+      </div>`);
   }
 
   for (const day of days) {
@@ -417,22 +588,119 @@ function renderPlan(trip) {
             aria-label="Add a plan on ${esc(fmtDay(day, { weekday: 'long', month: 'long', day: 'numeric' }))}">${icon('add')}</button>
         </div>
         ${items.length
-          ? `<ul class="group">${items.map(it => itemHTML(it, trip)).join('')}</ul>`
+          ? `<ul class="group">${dayListHTML(items, trip, guide)}</ul>`
           : `<button type="button" class="empty-day ripple" data-action="add-on-day" data-date="${day}">${icon('add')}Free day — tap to add a plan</button>`}
+        ${suggestionsHTML(suggestions.get(day), day)}
       </section>`;
   }
 
   $('#view-plan').innerHTML = html;
 }
 
+// A day's plans, with the travel time between each pair of stops.
+function dayListHTML(items, trip, guide) {
+  let html = '';
+  let prev = null;
+  for (const item of items) {
+    const c = coordsOf(item, guide);
+    if (prev && c) {
+      const d = miles(prev, c);
+      if (d >= 0.05) {
+        const t = travel(d);
+        html += `
+          <li class="leg"><a class="leg-link ripple" href="${esc(directionsUrl(prev, c, t.mode))}" target="_blank" rel="noopener"
+            aria-label="Directions: ${esc(t.text)}, ${fmtMiles(d)}">${icon(t.icon)}${esc(t.text)} · ${fmtMiles(d)}${icon('open_in_new', 'open')}</a></li>`;
+      }
+    }
+    html += itemHTML(item, trip);
+    prev = c;
+  }
+  return html;
+}
+
+function suggestionsHTML(s, day) {
+  if (!s || !s.cards.length) return '';
+  return `
+    <div class="suggest">
+      <div class="suggest-head">
+        <span class="suggest-title">${icon('auto_awesome')}${esc(s.title)}</span>
+        <button type="button" class="icon-btn ripple" data-action="shuffle" data-date="${day}" aria-label="Show other suggestions">${icon('shuffle')}</button>
+      </div>
+      <div class="suggest-row">${s.cards.map(r => suggestionCard(r, day)).join('')}</div>
+    </div>`;
+}
+
+const FILTERS = [
+  ['all', 'All', () => true],
+  ['sight', 'Sights', p => p.cat === 'sight'],
+  ['food', 'Food & drink', p => p.cat === 'food'],
+  ['event', 'Shows & sports', p => p.cat === 'event'],
+  ['shopping', 'Shopping', p => p.cat === 'shopping'],
+  ['free', 'Free', p => p.tags.includes('free'), 'money_off'],
+  ['rainy', 'Rainy day', p => p.tags.includes('rainy'), 'umbrella'],
+  ['evening', 'Evening', p => p.when === 'evening', 'bedtime'],
+];
+
+function placeHTML(p, added, trip) {
+  const cat = CATEGORIES[p.cat] || CATEGORIES.other;
+  const over = [p.area, fmtDuration(p.mins), p.tags.includes('free') && 'Free'].filter(Boolean).join(' · ');
+  return `
+    <li class="item place">
+      <div class="item-main">
+        <span class="avatar" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}</span>
+        <span class="item-text">
+          <span class="overline">${esc(over)}</span>
+          <span class="item-title">${esc(p.name)}</span>
+          <span class="item-notes">${esc(p.blurb)}</span>
+        </span>
+      </div>
+      <button type="button" class="icon-btn tonal add-btn ripple ${added ? 'added' : ''}"
+        data-action="${added ? 'noop' : 'add-suggestion'}" data-place="${p.id}" data-date=""
+        aria-label="${added ? `${esc(p.name)} is already in your trip` : `Save ${esc(p.name)} to your ideas`}">${icon(added ? 'check' : 'add')}</button>
+      <div class="item-chips">
+        <a class="assist-chip ripple" href="${esc(mapsUrl(p.place || p.name, trip))}" target="_blank" rel="noopener">${icon('map')}Map</a>
+      </div>
+    </li>`;
+}
+
 function renderIdeas(trip) {
+  const guide = guideFor(trip);
   const ideas = trip.items.filter(i => !i.date);
-  $('#view-ideas').innerHTML = `
+  const tab = ui.ideasTab;
+  let html = `
     <h1 class="headline">Ideas</h1>
-    <p class="supporting">Things you might do in ${esc(trip.name)}. Tap one and pick a day to add it to your plan.</p>
-    ${ideas.length
-      ? `<ul class="group">${ideas.map(it => itemHTML(it, trip)).join('')}</ul>`
-      : emptyState('travel_explore', 'No ideas yet', 'Save places you hear about here, then schedule them later.')}`;
+    <div class="segmented" role="group" aria-label="Ideas view">
+      <button type="button" class="ripple" data-action="ideas-tab" data-tab="mine" aria-pressed="${tab === 'mine'}">${icon('lightbulb')}My ideas${ideas.length ? ` (${ideas.length})` : ''}</button>
+      <button type="button" class="ripple" data-action="ideas-tab" data-tab="explore" aria-pressed="${tab === 'explore'}">${icon('explore')}Explore ${esc(guide ? guide.city : trip.name)}</button>
+    </div>`;
+
+  if (tab === 'mine') {
+    html += `
+      <p class="supporting">Things you might do in ${esc(trip.name)}. Tap one and pick a day to add it to your plan.</p>
+      ${ideas.length
+        ? `<ul class="group">${ideas.map(it => itemHTML(it, trip)).join('')}</ul>`
+        : emptyState('travel_explore', 'No ideas yet', 'Save places you hear about here, then schedule them later.',
+            guide ? `<button type="button" class="btn tonal ripple" data-action="ideas-tab" data-tab="explore">${icon('explore')}Explore ${esc(guide.city)}</button>` : '')}`;
+  } else if (!guide) {
+    html += emptyState('travel_explore', `No built-in guide for ${esc(trip.name)}`,
+      'The guide covers Boston and New York. You can still look for ideas on Google Maps.',
+      `<a class="btn tonal ripple" href="https://www.google.com/maps/search/${encodeURIComponent('things to do in ' + trip.name)}" target="_blank" rel="noopener">${icon('map')}Things to do on Google Maps</a>`);
+  } else {
+    const taken = new Set(trip.items.flatMap(i => matchPlaces(i, guide).map(p => p.id)));
+    const filter = FILTERS.find(f => f[0] === ui.filter) || FILTERS[0];
+    const list = guide.places.filter(filter[2]);
+    html += `
+      <p class="supporting">${guide.places.length} hand-picked places in ${esc(guide.city)}. Tap + to save one to your ideas.</p>
+      <div class="filter-row" role="group" aria-label="Filter places">
+        ${FILTERS.map(([key, label, , ic]) => `
+          <button type="button" class="filter-chip ripple" data-action="filter" data-filter="${key}" aria-pressed="${filter[0] === key}">${ic ? icon(ic) : ''}${label}</button>`).join('')}
+      </div>
+      ${list.length
+        ? `<ul class="group">${list.map(p => placeHTML(p, taken.has(p.id), trip)).join('')}</ul>`
+        : emptyState('travel_explore', 'Nothing here', 'Try another filter.')}
+      <p class="footnote">${icon('schedule', 'sm')}Opening hours change — check before you go.</p>`;
+  }
+  $('#view-ideas').innerHTML = html;
 }
 
 function taskHTML(c) {
@@ -491,6 +759,21 @@ function renderMore() {
       <li><button type="button" class="row ripple" data-action="new-trip">
         <span class="row-icon">${icon('add')}</span>
         <span class="row-text"><span class="row-title">Add a trip</span></span>
+      </button></li>
+    </ul>
+
+    <h2 class="group-label">Appearance</h2>
+    <ul class="group">
+      <li><div class="row">
+        <div class="segmented" role="group" aria-label="Theme">
+          ${[['auto', 'brightness_auto', 'Automatic'], ['light', 'light_mode', 'Light'], ['dark', 'dark_mode', 'Dark']].map(([value, ic, label]) => `
+            <button type="button" class="ripple" data-action="theme" data-value="${value}" aria-pressed="${state.settings.theme === value}">${icon(ic)}${label}</button>`).join('')}
+        </div>
+      </div></li>
+      <li><button type="button" class="row ripple" data-action="toggle-suggestions" role="switch" aria-checked="${state.settings.suggestions}">
+        <span class="row-icon">${icon('auto_awesome')}</span>
+        <span class="row-text"><span class="row-title">Day suggestions</span><span class="row-sub">Ideas under each day, from the built-in city guide</span></span>
+        <span class="switch ${state.settings.suggestions ? 'on' : ''}" aria-hidden="true"></span>
       </button></li>
     </ul>
 
@@ -572,7 +855,15 @@ itemForm.addEventListener('submit', (e) => {
   const trip = activeTrip();
   if (editingItemId) {
     const found = findItem(editingItemId);
-    if (found) Object.assign(found.item, data);
+    if (found) {
+      // A new address means the saved map position no longer applies.
+      if (found.item.place !== data.place) {
+        delete found.item.lat;
+        delete found.item.lng;
+        delete found.item.guideId;
+      }
+      Object.assign(found.item, data);
+    }
   } else {
     trip.items.push({ id: uid(), done: false, ...data });
   }
@@ -769,6 +1060,55 @@ document.addEventListener('click', async (e) => {
       });
       break;
     }
+    case 'add-suggestion': {
+      const trip = activeTrip();
+      const guide = guideFor(trip);
+      const p = guide && guide.places.find(x => x.id === el.dataset.place);
+      if (!p) break;
+      const item = {
+        id: uid(), title: p.name, category: p.cat, date: el.dataset.date || '', time: '',
+        place: p.place || p.name, link: '', notes: '', done: false,
+        lat: p.lat, lng: p.lng, guideId: p.id,
+      };
+      trip.items.push(item);
+      save();
+      render();
+      if (navigator.vibrate) navigator.vibrate(12);
+      snackbar(item.date ? `Added to ${fmtDay(item.date, { weekday: 'long' })}` : 'Saved to your ideas', 'Undo', () => {
+        trip.items = trip.items.filter(i => i !== item);
+        save();
+        render();
+      });
+      break;
+    }
+    case 'shuffle':
+      ui.shuffle[el.dataset.date] = (ui.shuffle[el.dataset.date] || 0) + 1;
+      render();
+      break;
+    case 'ideas-tab':
+      ui.ideasTab = el.dataset.tab;
+      render();
+      break;
+    case 'open-ideas':
+      ui.view = 'ideas';
+      ui.ideasTab = el.dataset.tab;
+      window.scrollTo(0, 0);
+      render();
+      break;
+    case 'filter':
+      ui.filter = el.dataset.filter;
+      render();
+      break;
+    case 'theme':
+      state.settings.theme = el.dataset.value;
+      save();
+      render();
+      break;
+    case 'toggle-suggestions':
+      state.settings.suggestions = !state.settings.suggestions;
+      save();
+      render();
+      break;
     case 'export':
       exportBackup();
       break;
@@ -870,6 +1210,7 @@ function cleanBackup(data) {
   const str = (v, max = 2000) => (typeof v === 'string' ? v.slice(0, max) : '');
   const date = v => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '');
   const time = v => (/^\d{2}:\d{2}$/.test(v) ? v : '');
+  const coord = (v, max) => (typeof v === 'number' && Math.abs(v) <= max ? v : undefined);
   if (!data || !Array.isArray(data.trips) || !data.trips.length) throw new Error('not a backup');
   const trips = data.trips.map(t => ({
     id: str(t.id, 100) || uid(),
@@ -887,13 +1228,21 @@ function cleanBackup(data) {
       link: str(i.link, 500),
       notes: str(i.notes),
       done: i.done === true,
+      lat: coord(i.lat, 90),
+      lng: coord(i.lng, 180),
+      guideId: str(i.guideId, 60) || undefined,
     })),
   }));
   const checklist = (Array.isArray(data.checklist) ? data.checklist : [])
     .map(c => ({ id: str(c.id, 100) || uid(), text: str(c.text, 200), done: c.done === true }))
     .filter(c => c.text);
   const activeTripId = trips.some(t => t.id === data.activeTripId) ? data.activeTripId : trips[0].id;
-  return { version: 1, activeTripId, trips, checklist };
+  const s = data.settings || {};
+  const settings = {
+    theme: ['auto', 'light', 'dark'].includes(s.theme) ? s.theme : 'auto',
+    suggestions: s.suggestions !== false,
+  };
+  return { version: 1, activeTripId, trips, checklist, settings };
 }
 
 document.addEventListener('change', async (e) => {
