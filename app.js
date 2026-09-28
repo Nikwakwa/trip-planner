@@ -75,7 +75,8 @@ function hostLabel(url) {
 }
 
 function mapsUrl(place, trip) {
-  const q = place.toLowerCase().includes(trip.name.toLowerCase()) ? place : `${place}, ${trip.name}`;
+  const where = trip.place ? trip.place.label : trip.name;
+  const q = place.toLowerCase().includes((trip.place ? trip.place.name : trip.name).toLowerCase()) ? place : `${place}, ${where}`;
   return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
 }
 
@@ -123,18 +124,27 @@ const norm = s => String(s || '').toLowerCase().replace(/[‘’]/g, "'").replac
 const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // Prepare each guide place once: a pattern that recognises its name in your plans.
-for (const g of GUIDES) {
+function prepGuide(g) {
   for (const p of g.places) {
     const names = [p.name, ...(p.aliases || [])].map(a => escRe(norm(a))).join('|');
     p.re = new RegExp(`(^|[^a-z0-9])(${names})($|[^a-z0-9])`);
     p.tags = p.tags || [];
     p.cat = p.cat || 'sight';
   }
+  g.dayAreas = g.dayAreas || [];
+  return g;
+}
+GUIDES.forEach(prepGuide);
+
+// The built-in Boston / NYC guides when the trip is there; otherwise the guide
+// fetched for the trip's place (see places.js).
+function guideFor(trip) {
+  const builtIn = GUIDES.find(g => g.match.test(trip.name));
+  if (builtIn && (!trip.place || miles(trip.place, builtIn.places[0]) < 30)) return builtIn;
+  return placeGuide(trip);
 }
 
-function guideFor(trip) {
-  return GUIDES.find(g => g.match.test(trip.name)) || null;
-}
+const placeLabel = trip => (trip.place ? trip.place.label : trip.name);
 
 // Which guide places does a plan refer to? ("Boston Common" → the Boston Common entry)
 function matchPlaces(item, guide) {
@@ -162,6 +172,9 @@ function miles(a, b) {
 function travel(d) {
   if (d <= 1.2) {
     return { icon: 'directions_walk', mode: 'walking', text: `${Math.max(1, Math.round(d * 1.3 / 3 * 60))} min walk` };
+  }
+  if (d > 25) {
+    return { icon: 'directions_car', mode: 'driving', text: `${fmtDuration(Math.round(d * 1.3 / 50 * 60 / 5) * 5)} drive` };
   }
   return { icon: 'directions_subway', mode: 'transit', text: `~${Math.round((10 + d * 1.3 / 12 * 60) / 5) * 5} min by transit` };
 }
@@ -212,12 +225,16 @@ function planSuggestions(trip, guide, days) {
         }
         return { p, ...best };
       }).sort((x, y) => x.d - y.d);
-    } else {
+    } else if (areaList.length) {
       const area = areaList[areaIndex++ % areaList.length];
       const inArea = guide.places.filter(p => p.area === area);
       const center = { lat: avg(inArea.map(p => p.lat)), lng: avg(inArea.map(p => p.lng)) };
-      title = `Ideas for a day in ${area}`;
+      title = (guide.dayTitles && guide.dayTitles[area]) || `Ideas for a day in ${area}`;
       ranked = pool.map(p => ({ p, d: miles(center, p) })).sort((x, y) => x.d - y.d);
+    } else {
+      // A small town, or a country / region's destinations: best known first.
+      title = guide.kind === 'destinations' ? `Places to go in ${guide.city}` : `Ideas for a day in ${guide.city}`;
+      ranked = pool.map(p => ({ p }));
     }
 
     // Shuffle steps through the 12 closest; keep a mix of types (max 2 of one kind).
@@ -251,15 +268,15 @@ function suggestionCard(r, day) {
   const cat = CATEGORIES[p.cat] || CATEGORIES.other;
   const why = r.from
     ? `${icon('near_me')}<span>${esc(travel(r.d).text)} from ${esc(r.from.title)}</span>`
-    : `${icon('location_on')}<span>${esc(p.area)}</span>`;
+    : p.area ? `${icon('location_on')}<span>${esc(p.area)}</span>` : '';
   return `
     <article class="s-card" aria-label="${esc(p.name)}">
       <div class="s-top"><span class="avatar" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}</span>${whenTag(p)}</div>
       <h4 class="s-name">${esc(p.name)}</h4>
-      <p class="s-why">${why}</p>
+      ${why ? `<p class="s-why">${why}</p>` : ''}
       <p class="s-blurb">${esc(p.blurb)}</p>
       <div class="s-foot">
-        <span class="tag">${icon('schedule')}${fmtDuration(p.mins)}</span>
+        ${p.mins < 360 ? `<span class="tag">${icon('schedule')}${fmtDuration(p.mins)}</span>` : ''}
         ${p.tags.includes('free') ? '<span class="tag">Free</span>' : ''}
         <button type="button" class="btn tonal sm ripple" data-action="add-suggestion" data-place="${p.id}" data-date="${day}"
           aria-label="Add ${esc(p.name)}">${icon('add')}Add</button>
@@ -289,12 +306,13 @@ function hideSnackbar() {
 
 /* ---------- Confirmation dialog for big decisions ---------- */
 
-function askConfirm({ icon: ic, title, text, ok }) {
+function askConfirm({ icon: ic, title, text, ok, cancel = 'Cancel' }) {
   const dlg = $('#confirm-dialog');
   $('#confirm-icon').setAttribute('href', `${SPRITE}#${ic}`);
   $('#confirm-title').textContent = title;
   $('#confirm-text').textContent = text;
   $('#confirm-ok').textContent = ok;
+  $('#confirm-cancel').textContent = cancel;
   dlg.returnValue = '';
   dlg.showModal();
   return new Promise(resolve =>
@@ -363,7 +381,7 @@ function load() {
   return defaultState();
 }
 
-function save() {
+function saveLocal() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (e) {
@@ -371,9 +389,15 @@ function save() {
   }
 }
 
+// Saves on the phone, and sends the change to the account when signed in (sync.js).
+function save() {
+  saveLocal();
+  pushChanges();
+}
+
 let state = load();
 state.settings = { ...defaultSettings(), ...state.settings };
-save();
+saveLocal();
 
 const ui = { view: 'plan', ideasTab: 'mine', filter: 'all', shuffle: {} };
 
@@ -420,9 +444,39 @@ function applyTheme(seed) {
 
 const TITLES = { plan: '', ideas: '', pack: 'Checklist', more: 'More' };
 
+// Trips made before place search (or saved while offline) get their place looked up once.
+const placeTried = new Set();
+function ensurePlace(trip) {
+  if (trip.place || placeTried.has(trip.id) || !navigator.onLine) return;
+  if (GUIDES.some(g => g.match.test(trip.name))) return;
+  placeTried.add(trip.id);
+  findPlace(trip.name).then((place) => {
+    if (!place || trip.place || !state.trips.includes(trip)) return;
+    trip.place = place;
+    save();
+    render();
+  });
+}
+
+// A guide has just been fetched for a place (places.js).
+function onGuideReady(place, guide) {
+  readyGuides.delete(placeKey(place));
+  render();
+  const trip = activeTrip();
+  if (trip.place && placeKey(trip.place) === placeKey(place) && ui.view !== 'ideas') {
+    snackbar(`${plural(guide.places.length, 'idea')} for ${place.name} ready`, 'Explore', () => {
+      ui.view = 'ideas';
+      ui.ideasTab = 'explore';
+      window.scrollTo(0, 0);
+      render();
+    });
+  }
+}
+
 function render() {
   const trip = activeTrip();
   state.activeTripId = trip.id;
+  ensurePlace(trip);
   applyTheme(trip.color);
 
   for (const v of ['plan', 'ideas', 'pack', 'more']) {
@@ -551,6 +605,9 @@ function renderPlan(trip) {
 
   const guide = guideFor(trip);
   const suggestions = planSuggestions(trip, guide, days);
+  if (!guide && guideState(trip) === 'loading' && state.settings.suggestions) {
+    html += `<p class="guide-note" role="status">${icon('auto_awesome')}Finding things to do in ${esc(trip.place.name)}…</p>`;
+  }
 
   if (!days.length) {
     html += emptyState('event_available', 'Your days will appear here',
@@ -643,7 +700,7 @@ const FILTERS = [
 
 function placeHTML(p, added, trip) {
   const cat = CATEGORIES[p.cat] || CATEGORIES.other;
-  const over = [p.area, fmtDuration(p.mins), p.tags.includes('free') && 'Free'].filter(Boolean).join(' · ');
+  const over = [p.area, p.mins < 360 && fmtDuration(p.mins), p.tags.includes('free') && 'Free'].filter(Boolean).join(' · ');
   return `
     <li class="item place">
       <div class="item-main">
@@ -682,23 +739,56 @@ function renderIdeas(trip) {
         : emptyState('travel_explore', 'No ideas yet', 'Save places you hear about here, then schedule them later.',
             guide ? `<button type="button" class="btn tonal ripple" data-action="ideas-tab" data-tab="explore">${icon('explore')}Explore ${esc(guide.city)}</button>` : '')}`;
   } else if (!guide) {
-    html += emptyState('travel_explore', `No built-in guide for ${esc(trip.name)}`,
-      'The guide covers Boston and New York. You can still look for ideas on Google Maps.',
-      `<a class="btn tonal ripple" href="https://www.google.com/maps/search/${encodeURIComponent('things to do in ' + trip.name)}" target="_blank" rel="noopener">${icon('map')}Things to do on Google Maps</a>`);
+    const googleIdeas = `<a class="btn tonal ripple" href="https://www.google.com/maps/search/${encodeURIComponent('things to do in ' + placeLabel(trip))}" target="_blank" rel="noopener">${icon('map')}Things to do on Google Maps</a>`;
+    const changePlace = `<button type="button" class="btn tonal ripple" data-action="edit-trip">${icon('search')}Change place</button>`;
+    const status = guideState(trip);
+    if (status === 'loading') {
+      html += emptyState('travel_explore', `Finding things to do in ${esc(trip.place.name)}…`,
+        'Looking up sights, food and more in the Wikivoyage travel guide.');
+    } else if (!trip.place && !navigator.onLine) {
+      html += emptyState('cloud_off', `Ideas for ${esc(trip.name)} need a connection`,
+        'Connect to the internet once, and the guide is saved on your phone for later.');
+    } else if (!trip.place) {
+      html += emptyState('location_off', `Couldn’t find ${esc(trip.name)} on the map`,
+        'Edit the trip and pick the city or country from the list to get ideas for it.',
+        `<div class="empty-actions">${changePlace}${googleIdeas}</div>`);
+    } else if (status === 'failed') {
+      html += emptyState('travel_explore', `No guide found for ${esc(trip.place.label)}`,
+        'The travel guide may not cover it, or the connection dropped. You can still look for ideas on Google Maps.',
+        `<div class="empty-actions">
+          <button type="button" class="btn tonal ripple" data-action="retry-guide">${icon('restart_alt')}Try again</button>
+          ${changePlace}${googleIdeas}
+        </div>`);
+    } else {
+      html += emptyState('cloud_off', `Ideas for ${esc(trip.place.name)} need a connection`,
+        'Connect to the internet once, and the guide is saved on your phone for later.');
+    }
   } else {
     const taken = new Set(trip.items.flatMap(i => matchPlaces(i, guide).map(p => p.id)));
-    const filter = FILTERS.find(f => f[0] === ui.filter) || FILTERS[0];
+    const destinations = guide.kind === 'destinations';
+    const filter = destinations ? FILTERS[0] : FILTERS.find(f => f[0] === ui.filter) || FILTERS[0];
     const list = guide.places.filter(filter[2]);
+    const intro = !guide.source ? `${guide.places.length} hand-picked places in ${esc(guide.city)}.`
+      : destinations ? `${guide.places.length} cities and destinations in ${esc(guide.city)}, from the ${guide.source} travel guide.`
+      : `${guide.places.length} places in ${esc(guide.city)}, from ${guide.source}.`;
     html += `
-      <p class="supporting">${guide.places.length} hand-picked places in ${esc(guide.city)}. Tap + to save one to your ideas.</p>
-      <div class="filter-row" role="group" aria-label="Filter places">
-        ${FILTERS.map(([key, label, , ic]) => `
-          <button type="button" class="filter-chip ripple" data-action="filter" data-filter="${key}" aria-pressed="${filter[0] === key}">${ic ? icon(ic) : ''}${label}</button>`).join('')}
-      </div>
+      <p class="supporting">${intro} Tap + to save one to your ideas.</p>
+      ${trip.place && guide.source ? `
+        <div class="place-row">
+          <span class="place-pin">${icon('location_on')}${esc(trip.place.label)}</span>
+          <button type="button" class="btn text ripple" data-action="edit-trip">Change</button>
+        </div>` : ''}
+      ${destinations ? '' : `
+        <div class="filter-row" role="group" aria-label="Filter places">
+          ${FILTERS.map(([key, label, , ic]) => `
+            <button type="button" class="filter-chip ripple" data-action="filter" data-filter="${key}" aria-pressed="${filter[0] === key}">${ic ? icon(ic) : ''}${label}</button>`).join('')}
+        </div>`}
       ${list.length
         ? `<ul class="group">${list.map(p => placeHTML(p, taken.has(p.id), trip)).join('')}</ul>`
         : emptyState('travel_explore', 'Nothing here', 'Try another filter.')}
-      <p class="footnote">${icon('schedule', 'sm')}Opening hours change — check before you go.</p>`;
+      <p class="footnote">${icon('schedule', 'sm')}Opening hours change — check before you go.</p>
+      ${guide.source === 'Wikivoyage' ? `<p class="footnote"><span>Places and descriptions: <a href="${esc(guide.sourceUrl)}" target="_blank" rel="noopener">Wikivoyage</a>, CC BY-SA.</span></p>` : ''}
+      ${guide.source === 'Wikipedia' ? '<p class="footnote">Places and descriptions: Wikipedia, CC BY-SA.</p>' : ''}`;
   }
   $('#view-ideas').innerHTML = html;
 }
@@ -742,8 +832,40 @@ function renderChecklist() {
 
 function renderMore() {
   const offlineReady = 'serviceWorker' in navigator && navigator.serviceWorker.controller;
+  const signedIn = !!sync.saved;
+  let account;
+  if (!sync.configured) {
+    account = `
+      <li><div class="row">
+        <span class="row-icon">${icon('sync')}</span>
+        <span class="row-text"><span class="row-title">Sync between phones</span>
+          <span class="row-sub">Not set up yet — see “Sync between phones” in the README</span></span>
+      </div></li>`;
+  } else if (!signedIn) {
+    account = `
+      <li><button type="button" class="row accent ripple" data-action="sign-in">
+        <span class="row-icon">${icon('login')}</span>
+        <span class="row-text"><span class="row-title">Sign in to sync</span>
+          <span class="row-sub">Share trips and plans with another phone using the same login</span></span>
+      </button></li>`;
+  } else {
+    account = `
+      <li><div class="row">
+        <span class="row-icon">${icon(sync.status === 'error' ? 'error' : navigator.onLine ? 'cloud_done' : 'cloud_off')}</span>
+        <span class="row-text"><span class="row-title">${esc(sync.saved.email)}</span>
+          <span class="row-sub">${syncStatusText()}</span></span>
+      </div></li>
+      <li><button type="button" class="row ripple" data-action="sign-out">
+        <span class="row-icon">${icon('logout')}</span>
+        <span class="row-text"><span class="row-title">Sign out</span><span class="row-sub">Plans stay on this phone but stop syncing</span></span>
+      </button></li>`;
+  }
+
   $('#view-more').innerHTML = `
     <h1 class="headline">More</h1>
+
+    <h2 class="group-label">Account</h2>
+    <ul class="group">${account}</ul>
 
     <h2 class="group-label">Trips</h2>
     <ul class="group">
@@ -772,7 +894,7 @@ function renderMore() {
       </div></li>
       <li><button type="button" class="row ripple" data-action="toggle-suggestions" role="switch" aria-checked="${state.settings.suggestions}">
         <span class="row-icon">${icon('auto_awesome')}</span>
-        <span class="row-text"><span class="row-title">Day suggestions</span><span class="row-sub">Ideas under each day, from the built-in city guide</span></span>
+        <span class="row-text"><span class="row-title">Day suggestions</span><span class="row-sub">Ideas under each day, from the city’s travel guide</span></span>
         <span class="switch ${state.settings.suggestions ? 'on' : ''}" aria-hidden="true"></span>
       </button></li>
       <li><button type="button" class="row ripple" data-action="toggle-lookup" role="switch" aria-checked="${state.settings.lookup}">
@@ -818,8 +940,10 @@ function renderMore() {
     </ul>
     <input type="file" id="import-file" accept=".json,application/json" hidden>
 
-    <p class="footnote">${icon('shield', 'sm')}Your plans are stored only on this phone.</p>
-    <p class="footnote">Maps and address lookup: © OpenStreetMap contributors.</p>`;
+    <p class="footnote">${icon('shield', 'sm')}${signedIn
+      ? 'Your plans are stored on this phone and in your account.'
+      : 'Your plans are stored only on this phone.'}</p>
+    <p class="footnote">Maps, address and place search: © OpenStreetMap contributors. City guides: Wikivoyage and Wikipedia, CC BY-SA.</p>`;
 }
 
 /* ---------- Plan form (add / edit) ---------- */
@@ -908,6 +1032,59 @@ $('#trip-colors').insertAdjacentHTML('beforeend', COLORS.map(c => `
   <label><input type="radio" name="color" value="${c}" aria-label="Color ${c}">
     <span class="ripple" style="--c:${c}">${icon('check')}</span></label>`).join(''));
 
+/* Place search: as you type the trip's name, matching cities and countries
+   appear below it. Picking one ties the trip to that real place. */
+const placeSearch = { chosen: null, results: [], timer: 0, ctl: null };
+
+function showChosenPlace() {
+  const p = placeSearch.chosen;
+  $('#place-chosen').hidden = !p;
+  if (p) $('#place-chosen').innerHTML = `${icon('location_on')}<span>${esc(p.label)}</span><span class="kind">${KIND_LABEL[p.kind]}</span>`;
+}
+
+function showPlaceResults(results, note = '') {
+  placeSearch.results = results;
+  const box = $('#place-list');
+  box.hidden = !results.length && !note;
+  box.innerHTML = note ? `<li class="place-note">${esc(note)}</li>` : results.map((p, i) => `
+    <li><button type="button" class="place-opt ripple" data-place-index="${i}">
+      ${icon(p.kind === 'city' ? 'location_on' : 'public')}
+      <span class="row-text"><span class="row-title">${esc(p.name)}</span><span class="row-sub">${esc([p.label.split(', ').slice(1).join(', '), KIND_LABEL[p.kind]].filter(Boolean).join(' · '))}</span></span>
+    </button></li>`).join('');
+}
+
+function onTripNameInput() {
+  const q = tripForm.elements.name.value.trim();
+  // Typed something else than the chosen place: it will be looked up again.
+  if (placeSearch.chosen && !norm(q).includes(norm(placeSearch.chosen.name))) {
+    placeSearch.chosen = null;
+    showChosenPlace();
+  }
+  clearTimeout(placeSearch.timer);
+  if (placeSearch.ctl) placeSearch.ctl.abort();
+  if (q.length < 2 || !navigator.onLine) return showPlaceResults([]);
+  placeSearch.timer = setTimeout(async () => {
+    const ctl = placeSearch.ctl = new AbortController();
+    try {
+      const results = await searchPlaces(q, ctl.signal);
+      showPlaceResults(results, results.length ? '' : 'No matching city or country found');
+    } catch (err) {
+      if (err.name !== 'AbortError') showPlaceResults([]);
+    }
+  }, 300);
+}
+tripForm.elements.name.addEventListener('input', onTripNameInput);
+
+$('#place-list').addEventListener('click', (e) => {
+  const opt = e.target.closest('[data-place-index]');
+  if (!opt) return;
+  const place = placeSearch.results[Number(opt.dataset.placeIndex)];
+  placeSearch.chosen = place;
+  tripForm.elements.name.value = place.name.slice(0, 40);
+  showChosenPlace();
+  showPlaceResults([]);
+});
+
 function openTripForm(trip) {
   editingTripId = trip ? trip.id : null;
   $('#trip-dialog-title').textContent = trip ? 'Edit trip' : 'New trip';
@@ -916,12 +1093,15 @@ function openTripForm(trip) {
   f.start.value = trip ? trip.start : '';
   f.end.value = trip ? trip.end : '';
   f.color.value = trip ? trip.color : COLORS[state.trips.length % COLORS.length];
+  placeSearch.chosen = (trip && trip.place) || null;
+  showChosenPlace();
+  showPlaceResults([]);
   $('#trip-delete').hidden = !trip || state.trips.length < 2;
   tripDialog.showModal();
   if (!trip) f.name.focus();
 }
 
-tripForm.addEventListener('submit', (e) => {
+tripForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const f = tripForm.elements;
   let start = f.start.value, end = f.end.value;
@@ -934,17 +1114,38 @@ tripForm.addEventListener('submit', (e) => {
     color: f.color.value || COLORS[0],
   };
   if (!data.name) return;
+
+  // No place picked from the list: use the best match for the name.
+  let place = placeSearch.chosen;
+  const builtIn = GUIDES.some(g => g.match.test(data.name));
+  if (!place && !builtIn && navigator.onLine) {
+    const btn = tripForm.querySelector('[type="submit"]');
+    btn.disabled = true;
+    showPlaceResults([], `Finding ${data.name}…`);
+    place = await findPlace(data.name);
+    btn.disabled = false;
+    showPlaceResults([]);
+  }
+  if (!tripDialog.open) return;
+
+  let trip;
   if (editingTripId) {
-    Object.assign(state.trips.find(t => t.id === editingTripId), data);
+    trip = state.trips.find(t => t.id === editingTripId);
+    if (!trip) return;
+    Object.assign(trip, data);
   } else {
-    const trip = { id: uid(), items: [], ...data };
+    trip = { id: uid(), items: [], ...data };
     state.trips.push(trip);
     state.activeTripId = trip.id;
     ui.view = 'plan';
   }
+  if (place) trip.place = place;
+  else if (!builtIn) delete trip.place;
   save();
   tripDialog.close();
   render();
+  if (place && !guideFor(trip) && guideState(trip) === 'loading') snackbar(`Found ${place.label} — getting ideas…`);
+  else if (!place && !builtIn && navigator.onLine) snackbar(`Couldn’t find ${data.name} on the map — no suggestions for it`);
 });
 
 $('#trip-delete').addEventListener('click', async () => {
@@ -965,8 +1166,65 @@ $('#trip-delete').addEventListener('click', async () => {
   snackbar(`${trip.name} deleted`);
 });
 
+/* ---------- Sign in (for sync between phones) ---------- */
+
+const authDialog = $('#auth-dialog');
+const authForm = $('#auth-form');
+
+function openAuthForm() {
+  authForm.reset();
+  $('#auth-error').hidden = true;
+  authDialog.showModal();
+  authForm.elements.email.focus();
+}
+
+function authError(text) {
+  $('#auth-error').textContent = text;
+  $('#auth-error').hidden = !text;
+}
+
+async function runAuth(create) {
+  const f = authForm.elements;
+  const email = f.email.value.trim();
+  const password = f.password.value;
+  if (!email || !password) return authError('Enter the email and password.');
+  if (create && password.length < 6) return authError('Use at least 6 characters for the password.');
+  authError('');
+  authForm.querySelectorAll('button').forEach(b => { b.disabled = true; });
+  try {
+    await signIn(email, password, create);
+    authDialog.close();
+    snackbar(create ? 'Account created — connecting…' : 'Signed in — connecting…');
+  } catch (err) {
+    authError(syncErrorText(err));
+  } finally {
+    authForm.querySelectorAll('button').forEach(b => { b.disabled = false; });
+  }
+}
+
+authForm.addEventListener('submit', (e) => { e.preventDefault(); runAuth(false); });
+$('#auth-create').addEventListener('click', () => runAuth(true));
+$('#auth-forgot').addEventListener('click', async () => {
+  const email = authForm.elements.email.value.trim();
+  if (!email) return authError('Enter your email first, then tap “Forgot password?” again.');
+  try {
+    await resetPassword(email);
+    authError('');
+    snackbar(`If ${email} has an account, a reset link is on its way`);
+  } catch (err) {
+    authError(syncErrorText(err));
+  }
+});
+$('#auth-show').addEventListener('click', (e) => {
+  const input = authForm.elements.password;
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  e.currentTarget.setAttribute('aria-pressed', String(show));
+  e.currentTarget.querySelector('use').setAttribute('href', `${SPRITE}#${show ? 'visibility_off' : 'visibility'}`);
+});
+
 // Close buttons and tapping the dark area outside a sheet close it.
-for (const dlg of [itemDialog, tripDialog, $('#confirm-dialog'), $('#map-dialog')]) {
+for (const dlg of [itemDialog, tripDialog, authDialog, $('#confirm-dialog'), $('#map-dialog')]) {
   dlg.addEventListener('click', (e) => {
     if (e.target === dlg || e.target.closest('[data-close]')) dlg.close();
   });
@@ -1142,6 +1400,28 @@ document.addEventListener('click', async (e) => {
     case 'share-trip':
       shareTrip();
       break;
+    case 'retry-guide': {
+      const trip = activeTrip();
+      if (trip.place) loadGuide(trip.place, { retry: true });
+      break;
+    }
+    case 'sign-in':
+      openAuthForm();
+      break;
+    case 'sign-out': {
+      const ok = await askConfirm({
+        icon: 'logout',
+        title: 'Sign out?',
+        text: 'Your plans stay on this phone, but changes will no longer sync with other phones until you sign in again.',
+        ok: 'Sign out',
+      });
+      if (ok) {
+        await signOut();
+        render();
+        snackbar('Signed out');
+      }
+      break;
+    }
     case 'export':
       exportBackup();
       break;
@@ -1158,7 +1438,9 @@ document.addEventListener('click', async (e) => {
       const ok = await askConfirm({
         icon: 'restart_alt',
         title: 'Erase everything?',
-        text: 'All trips, plans and checklist items on this phone will be deleted. Save a backup first if you might want them back.',
+        text: sync.saved
+          ? 'All trips, plans and checklist items will be deleted — on this phone and on every phone signed in to your account. Save a backup first if you might want them back.'
+          : 'All trips, plans and checklist items on this phone will be deleted. Save a backup first if you might want them back.',
         ok: 'Erase',
       });
       if (ok) {
@@ -1244,6 +1526,15 @@ function cleanBackup(data) {
   const date = v => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '');
   const time = v => (/^\d{2}:\d{2}$/.test(v) ? v : '');
   const coord = (v, max) => (typeof v === 'number' && Math.abs(v) <= max ? v : undefined);
+  const cleanPlace = (p) => {
+    if (!p || typeof p !== 'object' || coord(p.lat, 90) === undefined || coord(p.lng, 180) === undefined || !str(p.name)) return undefined;
+    const bbox = Array.isArray(p.bbox) && p.bbox.length === 4 && p.bbox.every(v => typeof v === 'number') ? p.bbox : null;
+    return {
+      name: str(p.name, 100), label: str(p.label, 200) || str(p.name, 100),
+      kind: KIND_LABEL[p.kind] ? p.kind : 'city',
+      lat: p.lat, lng: p.lng, bbox, osm: /^[NWR]\d+$/.test(p.osm) ? p.osm : '',
+    };
+  };
   if (!data || !Array.isArray(data.trips) || !data.trips.length) throw new Error('not a backup');
   const trips = data.trips.map(t => ({
     id: str(t.id, 100) || uid(),
@@ -1251,6 +1542,7 @@ function cleanBackup(data) {
     color: /^#[0-9a-f]{6}$/i.test(t.color) ? t.color : COLORS[0],
     start: date(t.start),
     end: date(t.end),
+    place: cleanPlace(t.place),
     items: (Array.isArray(t.items) ? t.items : []).map(i => ({
       id: str(i.id, 100) || uid(),
       title: str(i.title, 120) || 'Untitled',
@@ -1297,7 +1589,8 @@ document.addEventListener('change', async (e) => {
   const ok = await askConfirm({
     icon: 'upload',
     title: 'Restore this backup?',
-    text: `It has ${plural(restored.trips.length, 'trip')} and ${plural(n, 'plan')}. It will replace everything currently in the app.`,
+    text: `It has ${plural(restored.trips.length, 'trip')} and ${plural(n, 'plan')}. It will replace everything currently in the app` +
+      (sync.saved ? ' — also on the other phones signed in to your account.' : '.'),
     ok: 'Restore',
   });
   if (!ok) return;
@@ -1324,8 +1617,14 @@ window.addEventListener('appinstalled', () => {
 });
 
 function updateOnlineBadge() { $('#offline-badge').hidden = navigator.onLine; }
-window.addEventListener('online', updateOnlineBadge);
-window.addEventListener('offline', updateOnlineBadge);
+function onConnectionChange() {
+  updateOnlineBadge();
+  // Back online: look up places and guides that couldn't be fetched offline.
+  if (navigator.onLine) placeTried.clear();
+  render();
+}
+window.addEventListener('online', onConnectionChange);
+window.addEventListener('offline', onConnectionChange);
 updateOnlineBadge();
 
 if ('serviceWorker' in navigator) {
@@ -1355,6 +1654,7 @@ if (navigator.storage && navigator.storage.persist) {
 /* ---------- Start ---------- */
 
 render();
+startSync();
 
 // If the trip is happening now, jump to today's card.
 const todayCard = document.getElementById('day-' + todayISO());

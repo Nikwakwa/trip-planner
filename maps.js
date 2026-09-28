@@ -46,10 +46,12 @@ function lookupMissing(trip, items) {
       const waitMs = geoLast + 1100 - Date.now();
       if (waitMs > 0) await new Promise(r => setTimeout(r, waitMs));
       geoLast = Date.now();
-      const city = guide ? guide.city : trip.name;
-      const q = norm(item.place).includes(norm(city)) ? item.place : `${item.place}, ${city}`;
+      const city = trip.place ? trip.place.name : guide ? guide.city : trip.name;
+      const where = trip.place ? trip.place.label : city;
+      const q = norm(item.place).includes(norm(city)) ? item.place : `${item.place}, ${where}`;
       const params = new URLSearchParams({ format: 'jsonv2', limit: '1', q, 'accept-language': 'en' });
       if (guide && GEO_AREAS[guide.id]) params.set('viewbox', GEO_AREAS[guide.id]);
+      else if (trip.place && trip.place.bbox) params.set('viewbox', trip.place.bbox.join(','));
       try {
         const res = await fetch('https://nominatim.openstreetmap.org/search?' + params);
         if (!res.ok) return;
@@ -346,7 +348,8 @@ function drawMap(fit) {
   else {
     const guide = guideFor(trip);
     const places = guide ? guide.places : [];
-    if (places.length) mapView.map.setView([avg(places.map(p => p.lat)), avg(places.map(p => p.lng))], 12);
+    if (trip.place) mapView.map.setView([trip.place.lat, trip.place.lng], { city: 12, region: 8, country: 6 }[trip.place.kind] || 10);
+    else if (places.length) mapView.map.setView([avg(places.map(p => p.lat)), avg(places.map(p => p.lng))], 12);
     else mapView.map.setView([39.5, -98.35], 3);
   }
 }

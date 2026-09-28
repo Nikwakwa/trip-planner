@@ -1319,3 +1319,84 @@ dialog.map-sheet[open] { display: flex; flex-direction: column; }
     transition-duration: .01ms !important;
   }
 }
+
+/* ---------- Trip place search ---------- */
+.place-chosen {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -8px 4px 0;
+  color: var(--on-surface-variant);
+  font-size: 14px;
+  line-height: 20px;
+}
+.place-chosen .icon { width: 18px; height: 18px; color: var(--primary); }
+.place-chosen .kind {
+  margin-left: auto;
+  padding: 2px 10px;
+  border-radius: 10px;
+  background: var(--secondary-container);
+  color: var(--on-secondary-container);
+  font-size: 12px;
+  font-weight: 600;
+}
+.place-list {
+  list-style: none;
+  margin: -8px 0 0;
+  padding: 4px 0;
+  border-radius: 16px;
+  background: var(--surface-container-high);
+}
+.place-opt {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 16px;
+  text-align: left;
+}
+.place-opt .icon { color: var(--primary); }
+.place-opt .row-title { font-size: 16px; line-height: 22px; }
+.place-note { padding: 14px 16px; color: var(--on-surface-variant); font-size: 14px; }
+
+/* Explore: which place the guide is for */
+.place-row { display: flex; align-items: center; gap: 8px; margin: -8px 0 12px 4px; }
+.place-pin {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--on-surface-variant);
+  font-size: 14px;
+  font-weight: 550;
+}
+.place-pin .icon { width: 18px; height: 18px; color: var(--primary); flex: none; }
+
+.guide-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 4px 20px;
+  color: var(--on-surface-variant);
+  font-size: 14px;
+  line-height: 20px;
+}
+.guide-note .icon { width: 18px; height: 18px; color: var(--primary); animation: pulse 1.4s var(--ease) infinite alternate; }
+@keyframes pulse { to { opacity: .35; } }
+
+/* ---------- Sign-in sheet ---------- */
+.sheet-text { margin: -4px 4px 0; color: var(--on-surface-variant); font-size: 14px; line-height: 20px; }
+.field.with-btn { display: flex; align-items: center; gap: 4px; padding-right: 4px; }
+.field-main { flex: 1; display: grid; min-width: 0; }
+.form-error {
+  margin: -4px 4px 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--error-container);
+  color: var(--on-error-container);
+  font-size: 14px;
+  line-height: 20px;
+}
+.btn.forgot { justify-self: center; }
+.btn:disabled { opacity: .5; pointer-events: none; }

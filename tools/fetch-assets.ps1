@@ -18,7 +18,8 @@ $outline = 'calendar_month','lightbulb','checklist','settings','add','edit','loc
   'travel_explore','today','event_available','palette','shield','arrow_forward','calendar_add_on','flight_takeoff',
   'directions_walk','directions_subway','auto_awesome','shuffle','explore','light_mode','dark_mode','brightness_auto',
   'near_me','bedtime','wb_sunny','umbrella','money_off','map','open_in_new',
-  'route','directions','share','pin_drop','location_off'
+  'route','directions','share','pin_drop','location_off',
+  'login','logout','sync','cloud_done','person','search','public','directions_car','error','visibility','visibility_off'
 $filled = 'calendar_month','lightbulb','checklist','settings',
   'museum','restaurant','local_activity','shopping_bag','train','hotel','push_pin','location_on','luggage'
 
@@ -35,3 +36,11 @@ $symbols = foreach ($set in @(@{ names = $outline; suffix = ''; id = '' }, @{ na
 $sprite = "<svg xmlns=`"http://www.w3.org/2000/svg`">`n" + ($symbols -join "`n") + "`n</svg>`n"
 [IO.File]::WriteAllText((Join-Path $root 'icons/sprite.svg'), $sprite)
 Write-Host "Icons saved: $($symbols.Count)"
+
+# ---- Firebase (login + sync between phones), "compat" builds that work as plain scripts ----
+$fbVersion = '12.19.0'
+New-Item -ItemType Directory -Force (Join-Path $root 'vendor/firebase') | Out-Null
+foreach ($part in 'app', 'auth', 'firestore') {
+  Invoke-WebRequest "https://www.gstatic.com/firebasejs/$fbVersion/firebase-$part-compat.js" -OutFile (Join-Path $root "vendor/firebase/firebase-$part-compat.js") -UseBasicParsing
+}
+Write-Host "Firebase $fbVersion saved."

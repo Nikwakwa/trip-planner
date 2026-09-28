@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#fff8f7">
-  <meta name="description" content="Plan your Boston and NYC trip. Works offline.">
+  <meta name="description" content="Plan your trips day by day, together. Works offline.">
   <title>Trip Planner</title>
   <script>
     // Pick light or dark before the page is drawn, so it never flashes the wrong color.
@@ -128,9 +128,11 @@
         </button>
       </div>
       <label class="field">
-        <span class="field-label">Name</span>
-        <input name="name" required maxlength="40" placeholder="e.g. Boston" autocomplete="off">
+        <span class="field-label">City or country</span>
+        <input name="name" required maxlength="40" placeholder="e.g. Lisbon, Japan, Tuscany" autocomplete="off">
       </label>
+      <p id="place-chosen" class="place-chosen" hidden></p>
+      <ul id="place-list" class="place-list" aria-label="Matching places" aria-live="polite" hidden></ul>
       <div class="row2">
         <label class="field"><span class="field-label">First day</span><input type="date" name="start"></label>
         <label class="field"><span class="field-label">Last day</span><input type="date" name="end"></label>
@@ -145,6 +147,40 @@
         <span class="spacer"></span>
         <button type="submit" class="btn filled lg ripple">Save</button>
       </div>
+    </form>
+  </dialog>
+
+  <!-- Bottom sheet: sign in, so phones with the same login share plans -->
+  <dialog id="auth-dialog" class="sheet">
+    <form id="auth-form" method="dialog" novalidate>
+      <div class="handle" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 tabindex="-1" autofocus>Sign in to sync</h2>
+        <button type="button" class="icon-btn ripple" data-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#close"/></svg>
+        </button>
+      </div>
+      <p class="sheet-text">Use the same email and password on every phone that should share these trips. First time? Tap <b>Create account</b>.</p>
+      <label class="field">
+        <span class="field-label">Email</span>
+        <input name="email" type="email" required autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false">
+      </label>
+      <div class="field with-btn">
+        <label class="field-main">
+          <span class="field-label">Password</span>
+          <input name="password" type="password" required minlength="6" autocomplete="current-password">
+        </label>
+        <button type="button" class="icon-btn ripple" id="auth-show" aria-label="Show password" aria-pressed="false">
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#visibility"/></svg>
+        </button>
+      </div>
+      <p id="auth-error" class="form-error" role="alert" hidden></p>
+      <div class="sheet-actions">
+        <button type="button" class="btn text ripple" id="auth-create">Create account</button>
+        <span class="spacer"></span>
+        <button type="submit" class="btn filled lg ripple">Sign in</button>
+      </div>
+      <button type="button" class="btn text ripple forgot" id="auth-forgot">Forgot password?</button>
     </form>
   </dialog>
 
@@ -171,15 +207,18 @@
       <h2 id="confirm-title" tabindex="-1" autofocus></h2>
       <p id="confirm-text"></p>
       <div class="alert-actions">
-        <button value="cancel" class="btn text ripple">Cancel</button>
+        <button value="cancel" class="btn text ripple" id="confirm-cancel">Cancel</button>
         <button value="ok" class="btn text ripple" id="confirm-ok">OK</button>
       </div>
     </form>
   </dialog>
 
   <div id="theme-probe" hidden></div>
+  <script src="firebase-config.js"></script>
   <script src="guides.js"></script>
+  <script src="places.js"></script>
   <script src="maps.js"></script>
+  <script src="sync.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

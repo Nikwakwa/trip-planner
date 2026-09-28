@@ -2,7 +2,7 @@
    Strategy: show the saved copy instantly, and quietly fetch a fresh copy
    in the background (when online) for next time. */
 
-const CACHE = 'trip-planner-v5';
+const CACHE = 'trip-planner-v6';
 const TILES = 'trip-planner-map-tiles';   // map images you've viewed, kept across versions
 const MAX_TILES = 800;                     // roughly 15 MB at most
 const FILES = [
@@ -10,8 +10,11 @@ const FILES = [
   'index.html',
   'styles.css',
   'app.js',
+  'firebase-config.js',
   'guides.js',
+  'places.js',
   'maps.js',
+  'sync.js',
   'vendor/leaflet/leaflet.js',
   'vendor/leaflet/leaflet.css',
   'manifest.webmanifest',
@@ -69,6 +72,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(mapTile(req));
     return;
   }
+  // Firebase (sign-in and sync) talks to Google's servers directly and handles being offline itself.
   // Only handle this app's own files; links to Google Maps etc. go straight to the internet.
   if (url.origin !== self.location.origin) return;
 
