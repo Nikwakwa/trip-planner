@@ -321,36 +321,13 @@ function askConfirm({ icon: ic, title, text, ok, cancel = 'Cancel' }) {
 
 /* ---------- Starting data (only used the very first time) ---------- */
 
-function idea(title, category, place, notes = '') {
-  return { id: uid(), title, category, date: '', time: '', place, link: '', notes, done: false };
-}
-
+// No trips at first: the app asks where the user wants to go.
 function defaultState() {
-  const boston = {
-    id: uid(), name: 'Boston', color: COLORS[0], start: '', end: '',
-    items: [
-      idea('Walk the Freedom Trail', 'sight', 'Boston Common', '2.5 mile red-brick path past 16 historic sites.'),
-      idea('Cannoli in the North End', 'food', 'Hanover Street, North End'),
-      idea('Quincy Market & Faneuil Hall', 'food', 'Faneuil Hall Marketplace'),
-      idea('Fenway Park tour or game', 'event', 'Fenway Park'),
-      idea('Harvard Square stroll', 'sight', 'Harvard Square, Cambridge'),
-    ],
-  };
-  const nyc = {
-    id: uid(), name: 'NYC', color: COLORS[1], start: '', end: '',
-    items: [
-      idea('Train from Boston to NYC', 'transport', 'Boston South Station', 'Book ahead for better fares. Arrives at Penn Station / Moynihan Hall.'),
-      idea('Central Park', 'sight', 'Central Park, New York'),
-      idea('The Met museum', 'sight', 'The Metropolitan Museum of Art'),
-      idea('Walk the Brooklyn Bridge', 'sight', 'Brooklyn Bridge'),
-      idea('Broadway show', 'event', 'Times Square, New York'),
-    ],
-  };
   const check = (text) => ({ id: uid(), text, done: false });
   return {
     version: 1,
-    activeTripId: boston.id,
-    trips: [boston, nyc],
+    activeTripId: null,
+    trips: [],
     checklist: [
       check('Phone charger + power bank'),
       check('Comfortable walking shoes'),
@@ -373,7 +350,7 @@ function load() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const data = JSON.parse(raw);
-      if (data && Array.isArray(data.trips) && data.trips.length) return data;
+      if (data && Array.isArray(data.trips)) return data;
     }
   } catch (e) {
     console.warn('Could not read saved data', e);
@@ -401,8 +378,9 @@ saveLocal();
 
 const ui = { view: 'plan', ideasTab: 'mine', filter: 'all', shuffle: {} };
 
+// The trip on screen, or null before the first trip is added.
 function activeTrip() {
-  return state.trips.find(t => t.id === state.activeTripId) || state.trips[0];
+  return state.trips.find(t => t.id === state.activeTripId) || state.trips[0] || null;
 }
 function findItem(id) {
   for (const t of state.trips) {
@@ -463,7 +441,7 @@ function onGuideReady(place, guide) {
   readyGuides.delete(placeKey(place));
   render();
   const trip = activeTrip();
-  if (trip.place && placeKey(trip.place) === placeKey(place) && ui.view !== 'ideas') {
+  if (trip && trip.place && placeKey(trip.place) === placeKey(place) && ui.view !== 'ideas') {
     snackbar(`${plural(guide.places.length, 'idea')} for ${place.name} ready`, 'Explore', () => {
       ui.view = 'ideas';
       ui.ideasTab = 'explore';
@@ -475,9 +453,9 @@ function onGuideReady(place, guide) {
 
 function render() {
   const trip = activeTrip();
-  state.activeTripId = trip.id;
-  ensurePlace(trip);
-  applyTheme(trip.color);
+  state.activeTripId = trip ? trip.id : null;
+  if (trip) ensurePlace(trip);
+  applyTheme(trip ? trip.color : COLORS[0]);
 
   for (const v of ['plan', 'ideas', 'pack', 'more']) {
     $('#view-' + v).hidden = v !== ui.view;
@@ -489,19 +467,36 @@ function render() {
   });
 
   const tripViews = ui.view === 'plan' || ui.view === 'ideas';
-  $('#trip-tabs').hidden = !tripViews;
+  $('#trip-tabs').hidden = !tripViews || !trip;
   $('#appbar-title').hidden = tripViews;
   $('#appbar-title').textContent = TITLES[ui.view];
-  $('#fab').hidden = !tripViews;
+  $('#fab').hidden = !tripViews || !trip;
   $('#fab-label').textContent = ui.view === 'ideas' ? 'New idea' : 'New plan';
   $('#fab').setAttribute('aria-label', $('#fab-label').textContent);
-  if (tripViews) renderTripTabs(trip);
+  if (tripViews && !trip) renderWelcome();
+  else if (tripViews) renderTripTabs(trip);
 
-  if (ui.view === 'plan') renderPlan(trip);
-  if (ui.view === 'ideas') renderIdeas(trip);
+  if (trip && ui.view === 'plan') renderPlan(trip);
+  if (trip && ui.view === 'ideas') renderIdeas(trip);
   if (ui.view === 'pack') renderChecklist();
   if (ui.view === 'more') renderMore();
   onScroll();
+}
+
+// No trip yet: ask where the user wants to go.
+function renderWelcome() {
+  $('#view-' + ui.view).innerHTML = `
+    <section class="hero welcome">
+      ${shape(HERO_SHAPE, 'hero-shape')}
+      ${icon('flight_takeoff', 'hero-shape-icon')}
+      <p class="hero-overline">Plan a trip</p>
+      <h1 class="hero-title">Where do you want to go?</h1>
+      <button type="button" class="where-btn ripple" data-action="new-trip">
+        ${icon('search')}<span>Search a city or country</span>
+      </button>
+    </section>
+    <p class="welcome-note">Pick a place and you’ll get ideas for things to do there, day by day.
+      Already planning on another phone? Sign in under <b>More</b> to bring your trips here.</p>`;
 }
 
 function renderTripTabs(trip) {
@@ -1087,7 +1082,7 @@ $('#place-list').addEventListener('click', (e) => {
 
 function openTripForm(trip) {
   editingTripId = trip ? trip.id : null;
-  $('#trip-dialog-title').textContent = trip ? 'Edit trip' : 'New trip';
+  $('#trip-dialog-title').textContent = trip ? 'Edit trip' : state.trips.length ? 'New trip' : 'Where to?';
   const f = tripForm.elements;
   f.name.value = trip ? trip.name : '';
   f.start.value = trip ? trip.start : '';
@@ -1096,7 +1091,7 @@ function openTripForm(trip) {
   placeSearch.chosen = (trip && trip.place) || null;
   showChosenPlace();
   showPlaceResults([]);
-  $('#trip-delete').hidden = !trip || state.trips.length < 2;
+  $('#trip-delete').hidden = !trip;
   tripDialog.showModal();
   if (!trip) f.name.focus();
 }
@@ -1150,7 +1145,7 @@ tripForm.addEventListener('submit', async (e) => {
 
 $('#trip-delete').addEventListener('click', async () => {
   const trip = state.trips.find(t => t.id === editingTripId);
-  if (!trip || state.trips.length < 2) return;
+  if (!trip) return;
   const ok = await askConfirm({
     icon: 'delete',
     title: `Delete ${trip.name}?`,
@@ -1159,7 +1154,7 @@ $('#trip-delete').addEventListener('click', async () => {
   });
   if (!ok) return;
   state.trips = state.trips.filter(t => t.id !== trip.id);
-  if (state.activeTripId === trip.id) state.activeTripId = state.trips[0].id;
+  if (state.activeTripId === trip.id) state.activeTripId = state.trips.length ? state.trips[0].id : null;
   save();
   tripDialog.close();
   render();
@@ -1535,7 +1530,7 @@ function cleanBackup(data) {
       lat: p.lat, lng: p.lng, bbox, osm: /^[NWR]\d+$/.test(p.osm) ? p.osm : '',
     };
   };
-  if (!data || !Array.isArray(data.trips) || !data.trips.length) throw new Error('not a backup');
+  if (!data || !Array.isArray(data.trips)) throw new Error('not a backup');
   const trips = data.trips.map(t => ({
     id: str(t.id, 100) || uid(),
     name: str(t.name, 40) || 'Trip',
@@ -1563,7 +1558,7 @@ function cleanBackup(data) {
   const checklist = (Array.isArray(data.checklist) ? data.checklist : [])
     .map(c => ({ id: str(c.id, 100) || uid(), text: str(c.text, 200), done: c.done === true }))
     .filter(c => c.text);
-  const activeTripId = trips.some(t => t.id === data.activeTripId) ? data.activeTripId : trips[0].id;
+  const activeTripId = trips.some(t => t.id === data.activeTripId) ? data.activeTripId : trips.length ? trips[0].id : null;
   const s = data.settings || {};
   const settings = {
     theme: ['auto', 'light', 'dark'].includes(s.theme) ? s.theme : 'auto',

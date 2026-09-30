@@ -85,7 +85,6 @@ function applyDocs(docs) {
   const all = Object.values(docs).map(j => JSON.parse(j));
   const byPos = (a, b) => (a.pos - b.pos) || (a.id < b.id ? -1 : 1);
   const tripDocs = all.filter(d => d.k === 'trip').sort(byPos);
-  if (!tripDocs.length) return false;
 
   const reuse = (old, data) => {
     if (!old) return data;
@@ -109,7 +108,7 @@ function applyDocs(docs) {
   }
   state.trips = trips;
   state.checklist = all.filter(d => d.k === 'check').sort(byPos).map(({ k, pos, ...c }) => reuse(oldChecks.get(c.id), c));
-  if (!trips.some(t => t.id === state.activeTripId)) state.activeTripId = trips[0].id;
+  if (!trips.some(t => t.id === state.activeTripId)) state.activeTripId = trips.length ? trips[0].id : null;
   return true;
 }
 

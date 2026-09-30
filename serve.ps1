@@ -40,7 +40,8 @@ try {
       $res.ContentType = $type
       $res.Headers.Add('Cache-Control', $(if ($MaxAge) { "max-age=$MaxAge" } else { 'no-cache' }))
       $res.ContentLength64 = $bytes.Length
-      $res.OutputStream.Write($bytes, 0, $bytes.Length)
+      # HEAD requests (some tools send them to check the server is up) get headers only.
+      if ($ctx.Request.HttpMethod -ne 'HEAD') { $res.OutputStream.Write($bytes, 0, $bytes.Length) }
     } else {
       $res.StatusCode = 404
     }

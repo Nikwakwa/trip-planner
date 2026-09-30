@@ -36,6 +36,9 @@ happen after startup. Top-level names must stay unique across all files.
 - One `state` object (`{ version, activeTripId, trips[{id,name,color,start,end,place,items[]}], checklist[], settings }`)
   is saved as JSON in localStorage under `tripPlanner.v1`. Plans ("items") store dates as `YYYY-MM-DD` strings. An item
   with no date is an "idea".
+- `state.trips` can be empty (a fresh install starts with no trips). Then `activeTrip()` returns `null`, and the Plan
+  and Ideas tabs show `renderWelcome()` ("Where do you want to go?") instead of a trip. Code reachable without a trip
+  must handle `null`.
 - `ui` holds temporary view state that isn't saved (current tab/filter).
 - After any change, call `save()` then `render()`. `save()` writes localStorage *and* calls `pushChanges()`
   (sync.js). `render()` rebuilds the current view's HTML from scratch using template strings. Put all
