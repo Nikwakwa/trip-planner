@@ -237,6 +237,15 @@ function planSuggestions(trip, guide, days) {
       ranked = pool.map(p => ({ p }));
     }
 
+    // Rain likely (weather.js): indoor places nearby come first.
+    if (isWetDay(trip, day)) {
+      const indoor = ranked.slice(0, 30).filter(r => r.p.tags.includes('rainy'));
+      if (indoor.length) {
+        ranked = [...indoor, ...ranked.filter(r => !indoor.includes(r))];
+        title = 'Rain likely — indoor ideas';
+      }
+    }
+
     // Shuffle steps through the 12 closest; keep a mix of types (max 2 of one kind).
     const top = ranked.slice(0, 12);
     const start = top.length ? ((ui.shuffle[day] || 0) * 3) % top.length : 0;
@@ -426,7 +435,6 @@ const TITLES = { plan: '', ideas: '', pack: 'Checklist', more: 'More' };
 const placeTried = new Set();
 function ensurePlace(trip) {
   if (trip.place || placeTried.has(trip.id) || !navigator.onLine) return;
-  if (GUIDES.some(g => g.match.test(trip.name))) return;
   placeTried.add(trip.id);
   findPlace(trip.name).then((place) => {
     if (!place || trip.place || !state.trips.includes(trip)) return;
@@ -509,7 +517,8 @@ function renderTripTabs(trip) {
     `<button type="button" class="trip-chip add ripple" data-action="new-trip" aria-label="Add a trip">${icon('add', 'sm')}</button>`;
 }
 
-function itemHTML(item, trip, { showDate = false } = {}) {
+// drag: can be held and dragged to another day (Plan view). note: opening hours line (hours.js).
+function itemHTML(item, trip, { showDate = false, drag = false, note = null } = {}) {
   const cat = CATEGORIES[item.category] || CATEGORIES.other;
   const link = safeUrl(item.link);
   const over = [
@@ -522,13 +531,14 @@ function itemHTML(item, trip, { showDate = false } = {}) {
     link && `<a class="assist-chip ripple" href="${esc(link)}" target="_blank" rel="noopener">${icon('link')}${esc(hostLabel(link))}</a>`,
   ].filter(Boolean).join('');
   return `
-    <li class="item ${item.done ? 'done' : ''}" data-id="${item.id}">
+    <li class="item ${item.done ? 'done' : ''}" data-id="${item.id}" ${drag ? 'data-drag' : ''}>
       <button type="button" class="item-main ripple" data-action="edit">
         <span class="avatar" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}</span>
         <span class="item-text">
           <span class="overline">${esc(over)}</span>
           <span class="item-title">${esc(item.title)}</span>
           ${item.place ? `<span class="item-sub">${esc(item.place)}</span>` : ''}
+          ${note && !item.done ? `<span class="item-hours ${note.warn ? 'warn' : ''}">${icon(note.warn ? 'event_busy' : 'schedule')}${esc(note.text)}</span>` : ''}
           ${item.notes ? `<span class="item-notes">${esc(item.notes)}</span>` : ''}
         </span>
       </button>
@@ -593,6 +603,7 @@ function renderPlan(trip) {
         </div>` : ''}
       <div class="hero-actions">
         ${planned.length ? `<button type="button" class="hero-btn ripple" data-action="trip-map">${icon('map')}Trip map</button>` : ''}
+        ${trip.place ? `<button type="button" class="hero-btn ripple" data-action="essentials">${icon('info')}Essentials</button>` : ''}
         <button type="button" class="hero-btn ripple" data-action="share-trip">${icon('share')}Share</button>
       </div>
       <button type="button" class="icon-btn hero-edit ripple" data-action="edit-trip" aria-label="Edit trip">${icon('edit')}</button>
@@ -611,6 +622,26 @@ function renderPlan(trip) {
         ${ideas ? `<button type="button" class="btn tonal ripple" data-action="open-ideas" data-tab="mine">${icon('lightbulb')}See ${plural(ideas, 'idea')}</button>` : ''}
         ${guide ? `<button type="button" class="btn tonal ripple" data-action="open-ideas" data-tab="explore">${icon('explore')}Explore ${esc(guide.city)}</button>` : ''}
       </div>`);
+  }
+
+  // Ideas not on a day yet, ready to be dragged onto one.
+  const unplanned = trip.items.filter(i => !i.date);
+  if (days.length && unplanned.length) {
+    html += `
+      <section class="idea-tray" aria-label="Ideas to schedule">
+        <p class="tray-head">${icon('lightbulb')}<span><b>Ideas</b> · hold one and drag it onto a day</span></p>
+        <ul class="tray-row">
+          ${unplanned.map((it) => {
+            const cat = CATEGORIES[it.category] || CATEGORIES.other;
+            return `
+              <li class="idea-chip" data-id="${it.id}" data-drag>
+                <button type="button" class="ripple" data-action="edit">
+                  <span class="avatar" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}</span>${esc(it.title)}
+                </button>
+              </li>`;
+          }).join('')}
+        </ul>
+      </section>`;
   }
 
   for (const day of days) {
@@ -633,6 +664,7 @@ function renderPlan(trip) {
             <div class="day-title">${esc(fmtDay(day, { weekday: 'long' }))}</div>
             <div class="day-sub">${sub}</div>
           </div>
+          ${weatherHTML(trip, day)}
           <button type="button" class="icon-btn tonal ripple" data-action="add-on-day" data-date="${day}"
             aria-label="Add a plan on ${esc(fmtDay(day, { weekday: 'long', month: 'long', day: 'numeric' }))}">${icon('add')}</button>
         </div>
@@ -645,8 +677,11 @@ function renderPlan(trip) {
   }
 
   $('#view-plan').innerHTML = html;
-  // Plans with an address that isn't in the guide get looked up on the map.
+  // Plans with an address that isn't in the guide get looked up on the map, then their opening hours.
   lookupMissing(trip, planned);
+  lookupHours(trip, planned);
+  // Save the trip's essentials while online, so they're there on arrival.
+  essentialsFor(trip);
 }
 
 // A day's plans, with the travel time between each pair of stops.
@@ -664,7 +699,7 @@ function dayListHTML(items, trip, guide) {
             aria-label="Directions: ${esc(t.text)}, ${fmtMiles(d)}">${icon(t.icon)}${esc(t.text)} · ${fmtMiles(d)}${icon('open_in_new', 'open')}</a></li>`;
       }
     }
-    html += itemHTML(item, trip);
+    html += itemHTML(item, trip, { drag: true, note: hoursNote(item, guide) });
     prev = c;
   }
   return html;
@@ -894,7 +929,7 @@ function renderMore() {
       </button></li>
       <li><button type="button" class="row ripple" data-action="toggle-lookup" role="switch" aria-checked="${state.settings.lookup}">
         <span class="row-icon">${icon('pin_drop')}</span>
-        <span class="row-text"><span class="row-title">Find addresses on the map</span><span class="row-sub">Sends the place name you typed (not your plans) to OpenStreetMap's search</span></span>
+        <span class="row-text"><span class="row-title">Find addresses and opening hours</span><span class="row-sub">Sends the place names you typed (not your plans) to OpenStreetMap</span></span>
         <span class="switch ${state.settings.lookup ? 'on' : ''}" aria-hidden="true"></span>
       </button></li>
     </ul>
@@ -1113,7 +1148,7 @@ tripForm.addEventListener('submit', async (e) => {
   // No place picked from the list: use the best match for the name.
   let place = placeSearch.chosen;
   const builtIn = GUIDES.some(g => g.match.test(data.name));
-  if (!place && !builtIn && navigator.onLine) {
+  if (!place && navigator.onLine) {
     const btn = tripForm.querySelector('[type="submit"]');
     btn.disabled = true;
     showPlaceResults([], `Finding ${data.name}…`);
@@ -1219,7 +1254,7 @@ $('#auth-show').addEventListener('click', (e) => {
 });
 
 // Close buttons and tapping the dark area outside a sheet close it.
-for (const dlg of [itemDialog, tripDialog, authDialog, $('#confirm-dialog'), $('#map-dialog')]) {
+for (const dlg of [itemDialog, tripDialog, authDialog, $('#confirm-dialog'), $('#map-dialog'), $('#info-dialog')]) {
   dlg.addEventListener('click', (e) => {
     if (e.target === dlg || e.target.closest('[data-close]')) dlg.close();
   });
@@ -1395,6 +1430,18 @@ document.addEventListener('click', async (e) => {
     case 'share-trip':
       shareTrip();
       break;
+    case 'essentials':
+      openEssentials(activeTrip());
+      break;
+    case 'retry-essentials': {
+      const trip = state.trips.find(t => t.id === essentials.tripId);
+      if (trip && trip.place) {
+        essentials.status.delete(placeKey(trip.place));
+        loadEssentials(trip.place);
+        renderEssentials();
+      }
+      break;
+    }
     case 'retry-guide': {
       const trip = activeTrip();
       if (trip.place) loadGuide(trip.place, { retry: true });

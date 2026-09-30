@@ -7,6 +7,11 @@ A small, installable web app (PWA) for planning a trip on your phone.
 - Optional: sign in to share trips between phones (e.g. yours and your partner's).
 - Type a city or country for a new trip: the app finds the real place and suggests
   things to do there (from the Wikivoyage travel guide).
+- Each trip day shows the weather forecast; on rainy days the suggestions favor indoor places.
+- **Essentials** for each trip: emergency number, plugs, currency, local time, and tips
+  on getting around and staying safe, saved for offline use.
+- Hold a plan or an idea and drag it onto a day, or to another spot in the day.
+- Warns when a plan is on a day or at a time the place is usually closed.
 - Works offline once it has been opened one time.
 
 ## Files
@@ -23,6 +28,10 @@ A small, installable web app (PWA) for planning a trip on your phone.
 | `firestore.rules` | Database rules: each account only sees its own plans. |
 | `vendor/firebase/` | Firebase library, stored in the app. |
 | `maps.js` | Day and trip maps, Optimize route, address lookup, sharing. |
+| `weather.js` | The forecast for each trip day (Open-Meteo). |
+| `essentials.js` | The Essentials sheet (Wikidata facts, Wikivoyage tips). |
+| `hours.js` | Opening hours and "usually closed" warnings (OpenStreetMap). |
+| `drag.js` | Hold and drag plans and ideas onto days. |
 | `vendor/leaflet/` | Leaflet map library (BSD-2 license), stored in the app. |
 | `fonts/`, `icons/sprite.svg` | Google Sans Flex and Material Symbols, stored for offline use (`tools/fetch-assets.ps1`). |
 | `manifest.webmanifest` | Tells the phone the app's name, icon and colors so it can be installed. |
@@ -93,3 +102,13 @@ best match is used). The app then fetches that place's
 - No Wikivoyage page → the best-known places nearby from Wikipedia.
 
 Boston and New York keep their hand-picked built-in guides.
+
+## Weather, essentials and opening hours
+
+All free services, no account or key needed:
+
+- **Weather** (Open-Meteo) shows up to about 16 days ahead. Days already fetched stay visible offline.
+  Temperatures are in °F when the phone's language is set to US English, °C otherwise.
+- **Essentials** (the button on the trip's card) are fetched once while online and kept on the phone.
+- **Opening hours** come from OpenStreetMap, or the travel guide. They're hints: always check before
+  going. Turn off **More → Find addresses and opening hours** to stop these lookups.

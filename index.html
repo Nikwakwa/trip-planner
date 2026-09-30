@@ -200,6 +200,20 @@
     <div id="map-body" class="map-body"></div>
   </dialog>
 
+  <!-- Sheet: the trip's essentials (emergency number, plugs, local time, tips) -->
+  <dialog id="info-dialog" class="sheet info-sheet">
+    <div class="info-inner">
+      <div class="handle" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 id="info-title" tabindex="-1" autofocus>Essentials</h2>
+        <button type="button" class="icon-btn ripple" data-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#close"/></svg>
+        </button>
+      </div>
+      <div id="info-body" class="info-body"></div>
+    </div>
+  </dialog>
+
   <!-- Centered dialog for big decisions -->
   <dialog id="confirm-dialog" class="alert">
     <form method="dialog">
@@ -217,7 +231,11 @@
   <script src="firebase-config.js"></script>
   <script src="guides.js"></script>
   <script src="places.js"></script>
+  <script src="weather.js"></script>
+  <script src="hours.js"></script>
+  <script src="essentials.js"></script>
   <script src="maps.js"></script>
+  <script src="drag.js"></script>
   <script src="sync.js"></script>
   <script src="app.js"></script>
 </body>

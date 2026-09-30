@@ -1428,3 +1428,158 @@ dialog.map-sheet[open] { display: flex; flex-direction: column; }
 }
 .btn.forgot { justify-self: center; }
 .btn:disabled { opacity: .5; pointer-events: none; }
+
+/* ---------- Weather in each day's header (weather.js) ---------- */
+.wx {
+  flex: none;
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  column-gap: 4px;
+  padding: 4px 10px 4px 6px;
+  border-radius: 16px;
+  background: var(--surface-container);
+  color: var(--on-surface);
+}
+.wx > .icon { width: 26px; height: 26px; color: var(--primary); }
+.wx.wet > .icon { color: oklch(from var(--primary) l .12 250); }
+.wx-t { display: grid; line-height: 16px; text-align: right; }
+.wx-t b { font-size: 15px; font-weight: 650; }
+.wx-t small { font-size: 12px; color: var(--on-surface-variant); }
+.wx-rain {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 650;
+  color: var(--on-surface-variant);
+}
+.wx-rain .icon { width: 12px; height: 12px; }
+
+/* ---------- Opening hours on a plan (hours.js) ---------- */
+.item-hours {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--on-surface-variant);
+}
+.item-hours .icon { width: 16px; height: 16px; flex: none; }
+.item-hours.warn { color: var(--error); font-weight: 600; }
+
+/* ---------- Drag to plan (drag.js) ---------- */
+[data-drag] { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+.drag-src { opacity: .35; }
+.drag-ghost {
+  position: fixed;
+  z-index: 50;
+  margin: 0;
+  list-style: none;
+  pointer-events: none;
+  border-radius: 20px;
+  background: var(--surface-container-highest);
+  box-shadow: var(--elev-3);
+  opacity: .95;
+  will-change: transform;
+}
+body.dragging { cursor: grabbing; }
+body.dragging .fab, body.dragging .snackbar { opacity: 0; pointer-events: none; }
+.group > li.drop-line {
+  height: 4px;
+  margin: 2px 16px;
+  border-radius: 2px;
+  background: var(--primary);
+}
+.drop-on { outline: 2px solid var(--primary); outline-offset: 2px; }
+.empty-day.drop-on { border-color: var(--primary); color: var(--primary); outline: none; }
+
+.idea-tray { margin: 0 0 24px; }
+.tray-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 4px 8px;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--on-surface-variant);
+}
+.tray-head .icon { width: 18px; height: 18px; color: var(--primary); }
+.tray-head b { color: var(--on-surface); font-weight: 650; }
+.tray-row {
+  list-style: none;
+  display: flex;
+  gap: 8px;
+  margin: 0 -16px;
+  padding: 2px 16px 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tray-row::-webkit-scrollbar { display: none; }
+.idea-chip { flex: none; border-radius: 20px; }
+.idea-chip button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 240px;
+  height: 48px;
+  padding: 0 16px 0 6px;
+  border-radius: 20px;
+  background: var(--surface-container);
+  font-size: 14px;
+  font-weight: 550;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.idea-chip .avatar { width: 36px; height: 36px; border-radius: 14px; }
+.idea-chip .avatar .icon { width: 20px; height: 20px; }
+.idea-tray.drop-on { outline-offset: 6px; border-radius: 20px; }
+
+/* ---------- Essentials sheet (essentials.js) ---------- */
+dialog.info-sheet { height: 94dvh; }
+.info-inner { display: flex; flex-direction: column; height: 100%; }
+.info-inner .sheet-head { padding: 0 12px 8px 20px; margin: 0; }
+.info-body {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 16px calc(20px + env(safe-area-inset-bottom));
+}
+.facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-bottom: 20px; }
+.fact {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 20px;
+  background: var(--surface-container-high);
+  color: var(--on-surface);
+  text-decoration: none;
+}
+a.fact { background: var(--error-container); color: var(--on-error-container); }
+a.fact .fact-icon { background: var(--error); color: var(--error-container); }
+.fact-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+}
+.fact-icon .icon { width: 20px; height: 20px; }
+.fact-text { display: grid; min-width: 0; }
+.fact-label { font-size: 12px; line-height: 16px; font-weight: 650; opacity: .75; }
+.fact-value { font-size: 15px; line-height: 20px; font-weight: 550; overflow-wrap: anywhere; }
+.tip { padding: 16px; margin-bottom: 8px; border-radius: 24px; background: var(--surface-container); }
+.tip h3 { display: flex; align-items: center; gap: 10px; margin: 0 0 6px; font-size: 16px; line-height: 22px; font-weight: 650; }
+.tip h3 .icon { width: 20px; height: 20px; color: var(--primary); }
+.tip p { margin: 0 0 10px; font-size: 14px; line-height: 20px; color: var(--on-surface-variant); }
+.tip-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.tip-links:empty { display: none; }

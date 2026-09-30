@@ -27,8 +27,8 @@ Asset scripts (they download from the internet and rewrite files in the repo):
 ## Architecture
 
 **Classic scripts that share one global scope.** `index.html` loads, in this order:
-`firebase-config.js` → `guides.js` → `places.js` → `maps.js` → `sync.js` → `app.js`. The files are not
-modules. `places.js`, `maps.js` and `sync.js` call helpers defined in `app.js` (`$`, `esc`, `icon`,
+`firebase-config.js` → `guides.js` → `places.js` → `weather.js` → `hours.js` → `essentials.js` → `maps.js` →
+`drag.js` → `sync.js` → `app.js`. The files are not modules. The feature files call helpers defined in `app.js` (`$`, `esc`, `icon`,
 `save`, `render`, `snackbar`, `state`, …) at runtime, which works because `app.js` loads last and the calls
 happen after startup. Top-level names must stay unique across all files.
 
@@ -57,6 +57,21 @@ localStorage `tripPlanner.guides` (up to 10). `planSuggestions` in `app.js` and 
 **Maps (`maps.js`).** Leaflet (vendored) is loaded on first use. Tiles come from OSM, and addresses are looked up with
 Nominatim. Plans are ordered by `time`, then by `slot` (written by Optimize route, e.g. `"12:30~01"`),
 then everything else (`byPlanOrder`).
+
+**Weather, hours, essentials, drag.**
+- Each of `weather.js` (Open-Meteo), `hours.js` (Overpass/OSM `opening_hours`, falling back to the Wikivoyage listing's
+  `hours`) and `essentials.js` (Wikidata SPARQL + Wikivoyage sections) keeps a cache on the phone only
+  (`tripPlanner.weather` / `.hours` / `.essentials`). These caches are never synced.
+- Each fetches in the background from a render path. When it finishes, it calls `renderSoon()`; after a failure it
+  waits before retrying.
+- The hours parser supports a subset of OSM's format and returns `null` (no note shown) for anything it
+  can't read, rather than guessing.
+- Weather is only fetched for city-sized places. Rainy days reorder `planSuggestions` toward `rainy`-tagged places.
+- `drag.js` uses a long-press, then pointer events plus a non-passive `touchmove` to stop the page scrolling. Elements
+  marked `data-drag` (plan cards in the Plan view, `.idea-chip`s in the ideas tray) can be dragged. A drop rewrites
+  `date` and renumbers the untimed plans' `slot`s for that day.
+- Built-in Boston/NYC trips also get a `trip.place` now (for weather and essentials). `guideFor` still prefers the
+  built-in guide.
 
 **Sync (`sync.js`).** This is optional and switched on only when `firebase-config.js` sets `window.FIREBASE_CONFIG`.
 Firebase compat SDKs are vendored and loaded lazily. The state is split into Firestore documents

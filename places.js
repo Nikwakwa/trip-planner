@@ -189,12 +189,15 @@ async function wikivoyagePages(titles) {
 
 /* ---------- Which Wikivoyage page is this place? ---------- */
 
-async function wikidataIdFor(place) {
-  if (!place.osm) return null;
-  try {
-    const [hit] = await getJSON('https://nominatim.openstreetmap.org/lookup', { osm_ids: place.osm, format: 'jsonv2', extratags: '1' });
-    return (hit && hit.extratags && hit.extratags.wikidata) || null;
-  } catch { return null; }
+const wikidataIds = new Map();     // asked once per place (the guide and Essentials both need it)
+function wikidataIdFor(place) {
+  if (!place.osm) return Promise.resolve(null);
+  if (!wikidataIds.has(place.osm)) {
+    wikidataIds.set(place.osm, getJSON('https://nominatim.openstreetmap.org/lookup', { osm_ids: place.osm, format: 'jsonv2', extratags: '1' })
+      .then(([hit]) => (hit && hit.extratags && hit.extratags.wikidata) || null)
+      .catch(() => { wikidataIds.delete(place.osm); return null; }));
+  }
+  return wikidataIds.get(place.osm);
 }
 
 async function wikivoyageTitle(place) {
@@ -257,6 +260,7 @@ function readListings(page, area) {
       alt: plainText(p.alt),
       blurb: shortBlurb(content),
       price: plainText(p.price),
+      hours: plainText(p.hours).slice(0, 200),
       wikidata: /^Q\d+$/.test(p.wikidata || '') ? p.wikidata : '',
       lat: Number.isFinite(lat) && Math.abs(lat) <= 90 ? lat : null,
       lng: Number.isFinite(lng) && Math.abs(lng) <= 180 ? lng : null,
@@ -358,6 +362,7 @@ async function wikivoyageGuide(place) {
     if (!had) byKey.set(key, x);
     else {
       if (!had.area) had.area = x.area;
+      if (!had.hours) had.hours = x.hours;
       if (x.blurb.length > had.blurb.length) had.blurb = x.blurb;
       had.notable = Math.max(had.notable, x.notable) + 0.5;
     }
@@ -383,6 +388,7 @@ async function wikivoyageGuide(place) {
       x.type !== 'city' && RAINY.test(x.name) ? 'rainy' : '',
     ].filter(Boolean),
     blurb: x.blurb || (x.type === 'city' ? `A destination in ${place.name}.` : ''),
+    ...(x.hours ? { hours: x.hours } : {}),
   }));
 
   // Neighborhoods for empty days: the city's districts, or groups of nearby places.

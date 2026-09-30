@@ -19,7 +19,10 @@ $outline = 'calendar_month','lightbulb','checklist','settings','add','edit','loc
   'directions_walk','directions_subway','auto_awesome','shuffle','explore','light_mode','dark_mode','brightness_auto',
   'near_me','bedtime','wb_sunny','umbrella','money_off','map','open_in_new',
   'route','directions','share','pin_drop','location_off',
-  'login','logout','sync','cloud_done','person','search','public','directions_car','error','visibility','visibility_off'
+  'login','logout','sync','cloud_done','person','search','public','directions_car','error','visibility','visibility_off',
+  'sunny','partly_cloudy_day','cloud','foggy','rainy','weather_snowy','thunderstorm','water_drop',
+  'info','emergency','call','translate','payments','power','handshake','directions_bus','health_and_safety','wifi',
+  'event_busy','drag_indicator'
 $filled = 'calendar_month','lightbulb','checklist','settings',
   'museum','restaurant','local_activity','shopping_bag','train','hotel','push_pin','location_on','luggage'
 
