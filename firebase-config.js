@@ -3,7 +3,23 @@
    These values are not secret — they identify the project, and the database
    rules (firestore.rules) make sure each account only sees its own plans.
    Leave it as null to use the app without sync. */
-window.FIREBASE_CONFIG = null;
+window.FIREBASE_CONFIG = {
+
+  apiKey: "AIzaSyDH-NsZev3GT4SG7P6LuTY7tfg0LwF2DCM",
+
+  authDomain: "first-app-trip-planner.firebaseapp.com",
+
+  projectId: "first-app-trip-planner",
+
+  storageBucket: "first-app-trip-planner.firebasestorage.app",
+
+  messagingSenderId: "704808563206",
+
+  appId: "1:704808563206:web:98c35099d8a9c697418987",
+
+  measurementId: "G-NE54WHEQ4K"
+
+};
 
 /* Example (yours will have different values):
 window.FIREBASE_CONFIG = {
