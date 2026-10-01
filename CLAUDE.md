@@ -53,6 +53,11 @@ happen after startup. Top-level names must stay unique across all files.
 on the trip name) or a generated one (`places.js`). `places.js` looks up the trip's place with Photon (OSM),
 then builds a guide from Wikivoyage listings, falling back to Wikipedia geosearch. Generated guides are cached in
 localStorage `tripPlanner.guides` (up to 10). `planSuggestions` in `app.js` and Explore both use this guide.
+- Places may carry `about` (the full description, shown in the details sheet `openPlaceInfo`) and `hours`.
+- Saved guides are stamped with `GUIDE_VERSION`. Bump it when the guide shape changes: older saved guides keep
+  working, and are re-fetched quietly in the background.
+- Place search (`searchPlaces`) re-ranks Photon's results so countries and cities come before villages with the
+  same name.
 
 **Maps (`maps.js`).** Leaflet (vendored) is loaded on first use. Tiles come from OSM, and addresses are looked up with
 Nominatim. Plans are ordered by `time`, then by `slot` (written by Optimize route, e.g. `"12:30~01"`),

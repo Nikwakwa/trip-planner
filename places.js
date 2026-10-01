@@ -11,6 +11,7 @@
    ========================================================= */
 
 const GUIDES_KEY = 'tripPlanner.guides';
+const GUIDE_VERSION = 2;          // 2: full descriptions ("about") and opening hours. Older saved guides are refreshed.
 const MAX_SAVED_GUIDES = 10;
 const WIKIVOYAGE = 'https://en.wikivoyage.org/w/api.php';
 
@@ -34,8 +35,9 @@ function placeFromPhoton(f) {
   // A big area (over ~60 miles across) gets a guide of destinations, not streets.
   const wide = bbox && miles({ lat: bbox[1], lng: bbox[0] }, { lat: bbox[3], lng: bbox[2] }) > 60;
   const kind = p.type === 'country' ? 'country' : (p.type === 'state' || wide) ? 'region' : 'city';
-  const within = [kind === 'city' && p.country === 'United States' ? p.state : '', kind !== 'country' ? p.country : '']
-    .filter(v => v && v !== p.name);
+  // A city named like its country keeps the country ("Luxembourg, Luxembourg"), so it isn't mistaken for it.
+  const within = [kind === 'city' && p.country === 'United States' && p.state !== p.name ? p.state : '', kind !== 'country' ? p.country : '']
+    .filter(Boolean);
   return {
     name: p.name,
     label: [p.name, ...within].join(', '),
@@ -47,19 +49,27 @@ function placeFromPhoton(f) {
   };
 }
 
+// Countries and cities before towns and villages that happen to share the name
+// (so "Luxemburg" shows Luxembourg City before Luxemburg, Iowa). Otherwise the search's own order.
+const PLACE_RANK = { country: 0, city: 1, state: 2, region: 2, province: 2, county: 3, town: 3 };
+
 async function searchPlaces(q, signal) {
-  const params = new URLSearchParams({ q, limit: '8', lang: 'en' });
+  const params = new URLSearchParams({ q, limit: '12', lang: 'en' });
   params.append('osm_tag', 'place');
   params.append('osm_tag', 'boundary:administrative');
   const res = await fetch('https://photon.komoot.io/api/?' + params, { signal });
   if (!res.ok) throw new Error('place search failed');
   const data = await res.json();
   const seen = new Set();
+  // Map areas (boundaries) by their type; places by what they are (a village's "type" says city).
+  const rank = ({ properties: p }) => (p.osm_key === 'boundary' ? { country: 0, state: 2, city: 3 }[p.type] : PLACE_RANK[p.osm_value]) ?? 4;
   return data.features
     .filter(f => f.properties.name && !SKIP_PLACE_TYPES.has(f.properties.osm_value))
-    .map(placeFromPhoton)
-    .filter(p => !seen.has(p.label) && seen.add(p.label))
-    .slice(0, 5);
+    .map((f, i) => ({ f, i }))
+    .sort((a, b) => (rank(a.f) - rank(b.f)) || (a.i - b.i))
+    .map(({ f }) => placeFromPhoton(f))
+    .filter(p => !seen.has(p.label + p.kind) && seen.add(p.label + p.kind))
+    .slice(0, 6);
 }
 
 // The best match for a name, or null. Gives up after a few seconds.
@@ -164,6 +174,20 @@ function shortBlurb(s) {
   return (out || text.slice(0, 165).replace(/\s+\S*$/, '') + '…').trim();
 }
 
+// The full description for the details sheet: whole sentences, at most ~700 characters.
+function longBlurb(s) {
+  let text = plainText(s);
+  text = text.charAt(0).toUpperCase() + text.slice(1);
+  if (text.length <= 700) return text;
+  const sentences = text.match(/[^.!?]+[.!?]+(\s|$)/g) || [text];
+  let out = '';
+  for (const sen of sentences) {
+    if ((out + sen).length > 700) break;
+    out += sen;
+  }
+  return (out || text.slice(0, 695).replace(/\s+\S*$/, '') + '…').trim();
+}
+
 // Text of one top-level section, e.g. "Districts" (up to the next "== … ==").
 function section(text, title) {
   const m = new RegExp(`^==\\s*${title}\\s*==\\s*$`, 'mi').exec(text);
@@ -259,6 +283,7 @@ function readListings(page, area) {
       type, name,
       alt: plainText(p.alt),
       blurb: shortBlurb(content),
+      about: longBlurb(content),
       price: plainText(p.price),
       hours: plainText(p.hours).slice(0, 200),
       wikidata: /^Q\d+$/.test(p.wikidata || '') ? p.wikidata : '',
@@ -364,6 +389,7 @@ async function wikivoyageGuide(place) {
       if (!had.area) had.area = x.area;
       if (!had.hours) had.hours = x.hours;
       if (x.blurb.length > had.blurb.length) had.blurb = x.blurb;
+      if (x.about.length > had.about.length) had.about = x.about;
       had.notable = Math.max(had.notable, x.notable) + 0.5;
     }
   }
@@ -389,6 +415,7 @@ async function wikivoyageGuide(place) {
     ].filter(Boolean),
     blurb: x.blurb || (x.type === 'city' ? `A destination in ${place.name}.` : ''),
     ...(x.hours ? { hours: x.hours } : {}),
+    ...(x.about.length > x.blurb.length ? { about: x.about } : {}),
   }));
 
   // Neighborhoods for empty days: the city's districts, or groups of nearby places.
@@ -480,7 +507,7 @@ const guideStatus = new Map();    // place key → 'loading' | 'failed'
 const placeKey = place => place.osm || `${place.lat},${place.lng}`;
 
 function storeGuide(key, guide) {
-  savedGuides[key] = { ...guide, saved: Date.now() };
+  savedGuides[key] = { ...guide, v: GUIDE_VERSION, saved: Date.now() };
   const keys = Object.keys(savedGuides).sort((a, b) => savedGuides[b].saved - savedGuides[a].saved);
   for (const old of keys.slice(MAX_SAVED_GUIDES)) delete savedGuides[old];
   for (;;) {
@@ -505,13 +532,15 @@ function placeGuide(trip) {
   if (savedGuides[key]) {
     const guide = prepGuide({ ...savedGuides[key], id: key });
     readyGuides.set(key, guide);
+    // Saved by an older version: keep using it, and quietly fetch the newer kind.
+    if (savedGuides[key].v !== GUIDE_VERSION) loadGuide(place, { quiet: true });
     return guide;
   }
   loadGuide(place);
   return null;
 }
 
-function loadGuide(place, { retry = false } = {}) {
+function loadGuide(place, { retry = false, quiet = false } = {}) {
   const key = placeKey(place);
   const status = guideStatus.get(key);
   if (status === 'loading' || (status === 'failed' && !retry) || !navigator.onLine) return;
@@ -522,15 +551,15 @@ function loadGuide(place, { retry = false } = {}) {
       if (!guide) throw new Error('nothing found');
       storeGuide(key, guide);
       guideStatus.delete(key);
-      onGuideReady(place, guide);
+      onGuideReady(place, guide, quiet);
     } catch (e) {
       console.warn('No guide for', place.label, e);
       guideStatus.set(key, 'failed');
-      render();
+      if (!quiet) render();
     }
   })();
   // Called while the screen is being drawn: redraw (with "Finding ideas…") right after.
-  setTimeout(render, 0);
+  if (!quiet) setTimeout(render, 0);
 }
 
 function guideState(trip) {

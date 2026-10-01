@@ -265,6 +265,45 @@ function planSuggestions(trip, guide, days) {
   return out;
 }
 
+/* ---------- Details sheet for a guide place (full description, add or save) ---------- */
+
+function openPlaceInfo(id, day) {
+  const trip = activeTrip();
+  const guide = trip && guideFor(trip);
+  const p = guide && guide.places.find(x => x.id === id);
+  if (!p) return;
+  const cat = CATEGORIES[p.cat] || CATEGORIES.other;
+  const added = trip.items.some(i => matchPlaces(i, guide).some(m => m.id === p.id));
+  const over = [cat.label, p.area, p.mins < 360 && fmtDuration(p.mins), p.tags.includes('free') && 'Free'].filter(Boolean).join(' · ');
+  const tags = [whenTag(p), p.tags.includes('rainy') && (p.when === 'morning' || p.when === 'evening') ? `<span class="tag">${icon('umbrella')}Indoors</span>` : ''].join('');
+  const dayName = day && fmtDay(day, { weekday: 'long' });
+  $('#place-body').innerHTML = `
+    <div class="pi-head">
+      <span class="avatar" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}</span>
+      <div class="pi-heading">
+        <p class="overline">${esc(over)}</p>
+        <h2 tabindex="-1" autofocus>${esc(p.name)}</h2>
+      </div>
+      <button type="button" class="icon-btn ripple" data-close aria-label="Close">${icon('close')}</button>
+    </div>
+    ${tags.trim() ? `<div class="pi-tags">${tags}</div>` : ''}
+    <p class="pi-text">${esc(p.about || p.blurb)}</p>
+    ${p.hours ? `<p class="pi-hours">${icon('schedule')}<span>${esc(p.hours)}</span></p>` : ''}
+    <div class="pi-links">
+      <a class="assist-chip ripple" href="${esc(mapsUrl(p.place || p.name, trip))}" target="_blank" rel="noopener">${icon('map')}Map</a>
+      ${guide.sourceUrl ? `<a class="assist-chip ripple" href="${esc(guide.sourceUrl)}" target="_blank" rel="noopener">${icon('open_in_new')}${esc(guide.source)}</a>` : ''}
+    </div>
+    <div class="sheet-actions">
+      ${added
+        ? `<span class="pi-added">${icon('check')}Already in your trip</span>`
+        : `${day ? `<button type="button" class="btn text ripple" data-action="add-suggestion" data-place="${p.id}" data-date="">Save to ideas</button>` : ''}
+           <span class="spacer"></span>
+           <button type="button" class="btn filled lg ripple" data-action="add-suggestion" data-place="${p.id}" data-date="${day || ''}">
+             ${icon('add')}${day ? `Add to ${esc(dayName)}` : 'Save to ideas'}</button>`}
+    </div>`;
+  $('#place-dialog').showModal();
+}
+
 function whenTag(p) {
   if (p.when === 'morning') return `<span class="tag">${icon('wb_sunny')}Morning</span>`;
   if (p.when === 'evening') return `<span class="tag">${icon('bedtime')}Evening</span>`;
@@ -280,10 +319,13 @@ function suggestionCard(r, day) {
     : p.area ? `${icon('location_on')}<span>${esc(p.area)}</span>` : '';
   return `
     <article class="s-card" aria-label="${esc(p.name)}">
-      <div class="s-top"><span class="avatar" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}</span>${whenTag(p)}</div>
-      <h4 class="s-name">${esc(p.name)}</h4>
-      ${why ? `<p class="s-why">${why}</p>` : ''}
-      <p class="s-blurb">${esc(p.blurb)}</p>
+      <button type="button" class="s-body ripple" data-action="place-info" data-place="${p.id}" data-date="${day}" aria-label="More about ${esc(p.name)}">
+        <span class="s-top"><span class="avatar" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}</span>${whenTag(p)}</span>
+        <span class="s-name">${esc(p.name)}</span>
+        ${why ? `<span class="s-why">${why}</span>` : ''}
+        <span class="s-blurb">${esc(p.blurb)}</span>
+        <span class="more-link">More${icon('arrow_forward')}</span>
+      </button>
       <div class="s-foot">
         ${p.mins < 360 ? `<span class="tag">${icon('schedule')}${fmtDuration(p.mins)}</span>` : ''}
         ${p.tags.includes('free') ? '<span class="tag">Free</span>' : ''}
@@ -445,11 +487,12 @@ function ensurePlace(trip) {
 }
 
 // A guide has just been fetched for a place (places.js).
-function onGuideReady(place, guide) {
+// quiet: an older saved guide was refreshed in the background, so no message.
+function onGuideReady(place, guide, quiet) {
   readyGuides.delete(placeKey(place));
-  render();
+  renderSoon();
   const trip = activeTrip();
-  if (trip && trip.place && placeKey(trip.place) === placeKey(place) && ui.view !== 'ideas') {
+  if (!quiet && trip && trip.place && placeKey(trip.place) === placeKey(place) && ui.view !== 'ideas') {
     snackbar(`${plural(guide.places.length, 'idea')} for ${place.name} ready`, 'Explore', () => {
       ui.view = 'ideas';
       ui.ideasTab = 'explore';
@@ -733,14 +776,15 @@ function placeHTML(p, added, trip) {
   const over = [p.area, p.mins < 360 && fmtDuration(p.mins), p.tags.includes('free') && 'Free'].filter(Boolean).join(' · ');
   return `
     <li class="item place">
-      <div class="item-main">
+      <button type="button" class="item-main ripple" data-action="place-info" data-place="${p.id}" data-date="">
         <span class="avatar" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}</span>
         <span class="item-text">
           <span class="overline">${esc(over)}</span>
           <span class="item-title">${esc(p.name)}</span>
           <span class="item-notes">${esc(p.blurb)}</span>
+          <span class="more-link">More${icon('arrow_forward')}</span>
         </span>
-      </div>
+      </button>
       <button type="button" class="icon-btn tonal add-btn ripple ${added ? 'added' : ''}"
         data-action="${added ? 'noop' : 'add-suggestion'}" data-place="${p.id}" data-date=""
         aria-label="${added ? `${esc(p.name)} is already in your trip` : `Save ${esc(p.name)} to your ideas`}">${icon(added ? 'check' : 'add')}</button>
@@ -1254,7 +1298,7 @@ $('#auth-show').addEventListener('click', (e) => {
 });
 
 // Close buttons and tapping the dark area outside a sheet close it.
-for (const dlg of [itemDialog, tripDialog, authDialog, $('#confirm-dialog'), $('#map-dialog'), $('#info-dialog')]) {
+for (const dlg of [itemDialog, tripDialog, authDialog, $('#confirm-dialog'), $('#map-dialog'), $('#info-dialog'), $('#place-dialog')]) {
   dlg.addEventListener('click', (e) => {
     if (e.target === dlg || e.target.closest('[data-close]')) dlg.close();
   });
@@ -1370,6 +1414,7 @@ document.addEventListener('click', async (e) => {
       trip.items.push(item);
       save();
       render();
+      if ($('#place-dialog').open) $('#place-dialog').close();
       if (navigator.vibrate) navigator.vibrate(12);
       snackbar(item.date ? `Added to ${fmtDay(item.date, { weekday: 'long' })}` : 'Saved to your ideas', 'Undo', () => {
         trip.items = trip.items.filter(i => i !== item);
@@ -1432,6 +1477,9 @@ document.addEventListener('click', async (e) => {
       break;
     case 'essentials':
       openEssentials(activeTrip());
+      break;
+    case 'place-info':
+      openPlaceInfo(el.dataset.place, el.dataset.date);
       break;
     case 'retry-essentials': {
       const trip = state.trips.find(t => t.id === essentials.tripId);
