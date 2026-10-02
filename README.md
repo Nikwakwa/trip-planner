@@ -12,7 +12,10 @@ A small, installable web app (PWA) for planning a trip on your phone.
   on getting around and staying safe, saved for offline use.
 - Hold a plan or an idea and drag it onto a day, or to another spot in the day.
 - Warns when a plan is on a day or at a time the place is usually closed.
-- An **AI assistant** that plans days and edits your trip when you ask (free, see below).
+- An **AI Assistant** that plans days and edits your trip when you ask (free, see below).
+- Each trip gets around by **public transit + walk** or **drive + walk** (set in the trip; a day can differ),
+  for travel times, directions and route links. Distances and temperatures in metric or imperial units
+  (**More → Appearance → Units**).
 - Works offline once it has been opened one time.
 
 ## Files
@@ -110,14 +113,14 @@ Boston and New York keep their hand-picked built-in guides.
 All free services, no account or key needed:
 
 - **Weather** (Open-Meteo) shows up to about 16 days ahead. Days already fetched stay visible offline.
-  Temperatures are in °F when the phone's language is set to US English, °C otherwise.
+  Temperatures follow **More → Appearance → Units** (°C or °F).
 - **Essentials** (the button on the trip's card) are fetched once while online and kept on the phone.
 - **Opening hours** come from OpenStreetMap, or the travel guide. They're hints: always check before
   going. Turn off **More → Find addresses and opening hours** to stop these lookups.
 
-## AI assistant
+## AI Assistant
 
-Tap **Assistant** on the trip's card and ask in your own words, e.g. "Plan Saturday around Belém,
+Tap **AI Assistant** on the trip's card and ask in your own words, e.g. "Plan Saturday around Belém,
 nothing before 10" or "Move the museum to Monday". The assistant shows the changes first; nothing
 changes until you tap **Apply** (and **Undo** puts things back).
 

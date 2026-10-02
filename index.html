@@ -137,6 +137,9 @@
         <label class="field"><span class="field-label">First day</span><input type="date" name="start"></label>
         <label class="field"><span class="field-label">Last day</span><input type="date" name="end"></label>
       </div>
+      <fieldset class="choice-chips" id="trip-travel">
+        <legend>Getting around</legend>
+      </fieldset>
       <fieldset class="swatches" id="trip-colors">
         <legend>Color</legend>
       </fieldset>
@@ -226,7 +229,7 @@
       <div class="handle" aria-hidden="true"></div>
       <div class="sheet-head ai-head">
         <div class="ai-heading">
-          <h2 tabindex="-1" autofocus>Assistant</h2>
+          <h2 tabindex="-1" autofocus>AI Assistant</h2>
           <p id="ai-sub" class="map-sub"></p>
         </div>
         <button type="button" class="icon-btn ripple" data-close aria-label="Close">
@@ -235,7 +238,7 @@
       </div>
       <div id="ai-body" class="ai-body" aria-live="polite"></div>
       <form id="ai-form" class="ai-form">
-        <textarea id="ai-input" rows="1" maxlength="2000" placeholder="Ask or tell the assistant…" aria-label="Message to the assistant"></textarea>
+        <textarea id="ai-input" rows="1" maxlength="2000" placeholder="Ask or tell the AI Assistant…" aria-label="Message to the AI Assistant"></textarea>
         <button type="submit" id="ai-send" class="icon-btn filled ripple" aria-label="Send">
           <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#send"/></svg>
         </button>

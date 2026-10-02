@@ -1723,3 +1723,6 @@ dialog.ai-sheet { height: 94dvh; }
   line-height: 18px;
 }
 .ai-notice .icon { width: 18px; height: 18px; flex: none; color: var(--primary); }
+
+/* A day getting around differently from the rest of the trip */
+.assist-chip.selected { background: var(--secondary-container); color: var(--on-secondary-container); border-color: transparent; }

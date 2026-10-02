@@ -60,6 +60,12 @@ localStorage `tripPlanner.guides` (up to 10). `planSuggestions` in `app.js` and 
 - Place search (`searchPlaces`) re-ranks Photon's results so countries and cities come before villages with the
   same name.
 
+**Travel mode and units.**
+- `trip.travel` is `'transit'` (the default when missing) or `'drive'`. `trip.dayTravel[day]` overrides it for a
+  day, and both sync. Always go through `modeFor(trip, day)` and `travel(miles, mode)`.
+- Distances are computed in miles. Show them with `fmtDist()`, and temperatures with `temp()`. Both follow
+  `state.settings.units` (`'metric'`/`'imperial'`, per phone, defaulting from the phone's language).
+
 **Maps (`maps.js`).** Leaflet (vendored) is loaded on first use. Tiles come from OSM, and addresses are looked up with
 Nominatim. Plans are ordered by `time`, then by `slot` (written by Optimize route, e.g. `"12:30~01"`),
 then everything else (`byPlanOrder`).

@@ -11,9 +11,6 @@ const WEATHER_KEY = 'tripPlanner.weather';
 const WEATHER_MAX_AGE = 3 * 3600e3;     // fetch a fresh forecast every 3 hours
 const FORECAST_DAYS = 16;
 
-// Fahrenheit where people expect it; Celsius everywhere else.
-const USE_F = /-(US|LR|MM)$/i.test(navigator.language || '');
-
 // Open-Meteo's weather codes (WMO), grouped.
 function weatherLook(code) {
   if (code === 0) return { icon: 'sunny', text: 'Clear' };
@@ -102,7 +99,8 @@ function refreshWeather(trip, spot, entry) {
     .finally(() => weather.loading.delete(key));
 }
 
-const temp = c => `${Math.round(USE_F ? c * 9 / 5 + 32 : c)}°`;
+// °F or °C, following More → Appearance → Units.
+const temp = c => `${Math.round(imperial() ? c * 9 / 5 + 32 : c)}°`;
 
 // The little forecast shown in each day's header.
 function weatherHTML(trip, day) {

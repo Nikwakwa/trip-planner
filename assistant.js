@@ -52,6 +52,10 @@ function tripContext(trip) {
   lines.push(trip.start && trip.end
     ? `Dates: ${trip.start} to ${trip.end}. Days: ${days.map(d => `${d} (${fmtDay(d, { weekday: 'short' })})`).join(', ')}.`
     : 'The trip has no dates yet. Plans can still be saved as ideas (date "").');
+  const own = Object.entries(trip.dayTravel || {}).map(([d, m]) => `${d}: ${TRAVEL_MODES[m].label}`);
+  lines.push(`Getting around: ${TRAVEL_MODES[trip.travel || 'transit'].label} (short distances on foot)`
+    + `${own.length ? `, except ${own.join('; ')}` : ''}. Plan travel times for that.`);
+  lines.push(`Use ${imperial() ? 'miles and °F' : 'kilometres and °C'} when you mention distances or temperatures.`);
 
   const plans = trip.items.map((i) => {
     const note = hoursNote(i, guide);

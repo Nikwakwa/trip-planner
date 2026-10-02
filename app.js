@@ -168,17 +168,39 @@ function miles(a, b) {
   return 2 * 3958.8 * Math.asin(Math.sqrt(h));
 }
 
-// Rough estimate: real streets are ~30% longer than a straight line.
-function travel(d) {
-  if (d <= 1.2) {
-    return { icon: 'directions_walk', mode: 'walking', text: `${Math.max(1, Math.round(d * 1.3 / 3 * 60))} min walk` };
+/* How the trip gets around: "transit" (public transit + walk) or "drive" (drive + walk).
+   Each trip has its own, and a day can use the other one. */
+const TRAVEL_MODES = {
+  transit: { label: 'Public transit + walk', short: 'Transit', icon: 'directions_subway' },
+  drive: { label: 'Drive + walk', short: 'Driving', icon: 'directions_car' },
+};
+const modeFor = (trip, day) => (day && trip.dayTravel && trip.dayTravel[day]) || trip.travel || 'transit';
+
+// Rough estimate: real streets are ~30% longer than a straight line. Short hops are walked.
+function travel(d, mode = 'transit') {
+  const street = d * 1.3;
+  if (d <= (mode === 'drive' ? 0.8 : 1.2)) {
+    const mins = Math.max(1, Math.round(street / 3 * 60));
+    return { icon: 'directions_walk', mode: 'walking', mins, text: `${mins} min walk` };
   }
-  if (d > 25) {
-    return { icon: 'directions_car', mode: 'driving', text: `${fmtDuration(Math.round(d * 1.3 / 50 * 60 / 5) * 5)} drive` };
+  if (mode === 'drive') {
+    // City streets are slow (plus parking); open roads are quicker.
+    const mins = Math.round((5 + street / (d > 25 ? 50 : 18) * 60) / 5) * 5;
+    return { icon: 'directions_car', mode: 'driving', mins, text: `${fmtDuration(mins)} drive` };
   }
-  return { icon: 'directions_subway', mode: 'transit', text: `~${Math.round((10 + d * 1.3 / 12 * 60) / 5) * 5} min by transit` };
+  const mins = Math.round((10 + street / (d > 25 ? 35 : 12) * 60) / 5) * 5;
+  return { icon: 'directions_subway', mode: 'transit', mins, text: `${mins < 60 ? '~' : ''}${fmtDuration(mins)} by transit` };
 }
-const fmtMiles = d => (d < 0.1 ? '<0.1 mi' : `${d.toFixed(d < 10 ? 1 : 0)} mi`);
+
+// Metric or imperial (More → Appearance → Units). Distances are worked out in miles.
+const usesImperial = () => /-(US|LR|MM)$/i.test(navigator.language || '');
+const imperial = () => (state.settings.units || (usesImperial() ? 'imperial' : 'metric')) === 'imperial';
+function fmtDist(d) {
+  if (imperial()) return d < 0.1 ? '<0.1 mi' : `${d.toFixed(d < 10 ? 1 : 0)} mi`;
+  const km = d * 1.609;
+  if (km < 1) return `${Math.max(50, Math.round(km * 20) * 50)} m`;
+  return `${km.toFixed(km < 10 ? 1 : 0)} km`;
+}
 const fmtDuration = m => (m < 60 ? `${m} min` : `~${Math.round(m / 30) / 2} h`);
 function directionsUrl(a, b, mode) {
   return `https://www.google.com/maps/dir/?api=1&origin=${a.lat},${a.lng}&destination=${b.lat},${b.lng}&travelmode=${mode}`;
@@ -315,7 +337,7 @@ function suggestionCard(r, day) {
   const p = r.p;
   const cat = CATEGORIES[p.cat] || CATEGORIES.other;
   const why = r.from
-    ? `${icon('near_me')}<span>${esc(travel(r.d).text)} from ${esc(r.from.title)}</span>`
+    ? `${icon('near_me')}<span>${esc(travel(r.d, modeFor(activeTrip(), day)).text)} from ${esc(r.from.title)}</span>`
     : p.area ? `${icon('location_on')}<span>${esc(p.area)}</span>` : '';
   return `
     <article class="s-card" aria-label="${esc(p.name)}">
@@ -391,7 +413,7 @@ function defaultState() {
 }
 
 function defaultSettings() {
-  return { theme: 'auto', suggestions: true, lookup: true };
+  return { theme: 'auto', suggestions: true, lookup: true, units: usesImperial() ? 'imperial' : 'metric' };
 }
 
 /* ---------- Loading & saving ---------- */
@@ -646,7 +668,7 @@ function renderPlan(trip) {
         </div>` : ''}
       <div class="hero-actions">
         ${planned.length ? `<button type="button" class="hero-btn ripple" data-action="trip-map">${icon('map')}Trip map</button>` : ''}
-        <button type="button" class="hero-btn ripple" data-action="assistant">${icon('auto_awesome')}Assistant</button>
+        <button type="button" class="hero-btn ripple" data-action="assistant">${icon('auto_awesome')}AI Assistant</button>
         ${trip.place ? `<button type="button" class="hero-btn ripple" data-action="essentials">${icon('info')}Essentials</button>` : ''}
         <button type="button" class="hero-btn ripple" data-action="share-trip">${icon('share')}Share</button>
       </div>
@@ -737,10 +759,10 @@ function dayListHTML(items, trip, guide) {
     if (prev && c) {
       const d = miles(prev, c);
       if (d >= 0.05) {
-        const t = travel(d);
+        const t = travel(d, modeFor(trip, item.date));
         html += `
           <li class="leg"><a class="leg-link ripple" href="${esc(directionsUrl(prev, c, t.mode))}" target="_blank" rel="noopener"
-            aria-label="Directions: ${esc(t.text)}, ${fmtMiles(d)}">${icon(t.icon)}${esc(t.text)} · ${fmtMiles(d)}${icon('open_in_new', 'open')}</a></li>`;
+            aria-label="Directions: ${esc(t.text)}, ${fmtDist(d)}">${icon(t.icon)}${esc(t.text)} · ${fmtDist(d)}${icon('open_in_new', 'open')}</a></li>`;
       }
     }
     html += itemHTML(item, trip, { drag: true, note: hoursNote(item, guide) });
@@ -967,6 +989,12 @@ function renderMore() {
             <button type="button" class="ripple" data-action="theme" data-value="${value}" aria-pressed="${state.settings.theme === value}">${icon(ic)}${label}</button>`).join('')}
         </div>
       </div></li>
+      <li><div class="row">
+        <div class="segmented" role="group" aria-label="Units">
+          ${[['metric', 'Metric · km, °C'], ['imperial', 'Imperial · mi, °F']].map(([value, label]) => `
+            <button type="button" class="ripple" data-action="units" data-value="${value}" aria-pressed="${imperial() === (value === 'imperial')}">${label}</button>`).join('')}
+        </div>
+      </div></li>
       <li><button type="button" class="row ripple" data-action="toggle-suggestions" role="switch" aria-checked="${state.settings.suggestions}">
         <span class="row-icon">${icon('auto_awesome')}</span>
         <span class="row-text"><span class="row-title">Day suggestions</span><span class="row-sub">Ideas under each day, from the city’s travel guide</span></span>
@@ -1107,6 +1135,10 @@ $('#trip-colors').insertAdjacentHTML('beforeend', COLORS.map(c => `
   <label><input type="radio" name="color" value="${c}" aria-label="Color ${c}">
     <span class="ripple" style="--c:${c}">${icon('check')}</span></label>`).join(''));
 
+$('#trip-travel').insertAdjacentHTML('beforeend', Object.entries(TRAVEL_MODES).map(([k, m]) => `
+  <label style="--h:${k === 'drive' ? 25 : 205}"><input type="radio" name="travel" value="${k}">
+    <span class="ripple">${icon(m.icon)}${esc(m.label)}</span></label>`).join(''));
+
 /* Place search: as you type the trip's name, matching cities and countries
    appear below it. Picking one ties the trip to that real place. */
 const placeSearch = { chosen: null, results: [], timer: 0, ctl: null };
@@ -1168,6 +1200,7 @@ function openTripForm(trip) {
   f.start.value = trip ? trip.start : '';
   f.end.value = trip ? trip.end : '';
   f.color.value = trip ? trip.color : COLORS[state.trips.length % COLORS.length];
+  f.travel.value = (trip && trip.travel) || 'transit';
   placeSearch.chosen = (trip && trip.place) || null;
   showChosenPlace();
   showPlaceResults([]);
@@ -1187,6 +1220,7 @@ tripForm.addEventListener('submit', async (e) => {
     name: f.name.value.trim(),
     start, end,
     color: f.color.value || COLORS[0],
+    travel: TRAVEL_MODES[f.travel.value] ? f.travel.value : 'transit',
   };
   if (!data.name) return;
 
@@ -1216,6 +1250,11 @@ tripForm.addEventListener('submit', async (e) => {
   }
   if (place) trip.place = place;
   else if (!builtIn) delete trip.place;
+  // Days set to what is now the trip's own way of getting around don't need their own setting.
+  if (trip.dayTravel) {
+    for (const d of Object.keys(trip.dayTravel)) if (trip.dayTravel[d] === trip.travel) delete trip.dayTravel[d];
+    if (!Object.keys(trip.dayTravel).length) delete trip.dayTravel;
+  }
   save();
   tripDialog.close();
   render();
@@ -1447,6 +1486,25 @@ document.addEventListener('click', async (e) => {
       save();
       render();
       break;
+    case 'units':
+      state.settings.units = el.dataset.value;
+      save();
+      render();
+      break;
+    case 'day-travel': {
+      // Switches this day to the other way of getting around (or back to the trip's own).
+      const trip = activeTrip();
+      const day = el.dataset.date;
+      const next = modeFor(trip, day) === 'drive' ? 'transit' : 'drive';
+      trip.dayTravel = trip.dayTravel || {};
+      if (next === (trip.travel || 'transit')) delete trip.dayTravel[day];
+      else trip.dayTravel[day] = next;
+      if (!Object.keys(trip.dayTravel).length) delete trip.dayTravel;
+      save();
+      render();
+      snackbar(`${fmtDay(day, { weekday: 'long' })}: ${TRAVEL_MODES[next].label}`);
+      break;
+    }
     case 'toggle-suggestions':
       state.settings.suggestions = !state.settings.suggestions;
       save();
@@ -1637,6 +1695,8 @@ function cleanBackup(data) {
     start: date(t.start),
     end: date(t.end),
     place: cleanPlace(t.place),
+    travel: TRAVEL_MODES[t.travel] ? t.travel : 'transit',
+    ...(t.dayTravel && typeof t.dayTravel === 'object' ? { dayTravel: Object.fromEntries(Object.entries(t.dayTravel).filter(([d, m]) => date(d) && TRAVEL_MODES[m])) } : {}),
     items: (Array.isArray(t.items) ? t.items : []).map(i => ({
       id: str(i.id, 100) || uid(),
       title: str(i.title, 120) || 'Untitled',
@@ -1663,6 +1723,7 @@ function cleanBackup(data) {
     theme: ['auto', 'light', 'dark'].includes(s.theme) ? s.theme : 'auto',
     suggestions: s.suggestions !== false,
     lookup: s.lookup !== false,
+    units: ['metric', 'imperial'].includes(s.units) ? s.units : defaultSettings().units,
   };
   return { version: 1, activeTripId, trips, checklist, settings };
 }

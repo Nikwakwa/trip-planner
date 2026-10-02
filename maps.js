@@ -138,7 +138,7 @@ function optimizeDay(trip, day) {
     else it.slot = `${anchor}~${String(++n).padStart(2, '0')}`;
   }
   return {
-    message: `Route optimized — ${fmtMiles(saved)} less travel.`,
+    message: `Route optimized — ${fmtDist(saved)} less travel.`,
     undo: () => undo.forEach(([it, slot]) => { if (slot === undefined) delete it.slot; else it.slot = slot; }),
   };
 }
@@ -149,10 +149,15 @@ function dayToolsHTML(trip, day, items, guide) {
   const located = items.filter(it => coordsOf(it, guide));
   if (!located.length) return '';
   const canOptimize = located.length >= 3 && located.some(it => !it.time);
+  // With 2+ stops there are travel times: this day can get around differently from the rest of the trip.
+  const mode = TRAVEL_MODES[modeFor(trip, day)];
+  const own = trip.dayTravel && trip.dayTravel[day];
   return `
     <div class="day-tools">
       <button type="button" class="assist-chip ripple" data-action="day-map" data-date="${day}">${icon('map')}Map</button>
       ${canOptimize ? `<button type="button" class="assist-chip ripple" data-action="optimize" data-date="${day}">${icon('route')}Optimize route</button>` : ''}
+      ${located.length >= 2 ? `<button type="button" class="assist-chip ripple ${own ? 'selected' : ''}" data-action="day-travel" data-date="${day}"
+        aria-label="Getting around this day: ${mode.label}. Tap to switch">${icon(mode.icon)}${mode.short}${own ? ' this day' : ''}</button>` : ''}
     </div>`;
 }
 
@@ -200,13 +205,15 @@ function mapGroups(trip) {
   });
 }
 
-function googleRouteUrl(points) {
+function googleRouteUrl(points, mode) {
   const fmt = p => `${p.lat},${p.lng}`;
   const params = new URLSearchParams({ api: '1', origin: fmt(points[0]), destination: fmt(points[points.length - 1]) });
   const middle = points.slice(1, -1);
   if (middle.length) params.set('waypoints', middle.map(fmt).join('|'));
-  const long = points.some((p, k) => k && miles(points[k - 1], p) > 1.2);
+  const long = points.some((p, k) => k && travel(miles(points[k - 1], p), mode).mode !== 'walking');
   if (!long) params.set('travelmode', 'walking');
+  else if (mode === 'drive') params.set('travelmode', 'driving');
+  // Google Maps can't do transit with stops in between: it then picks the mode itself.
   else if (!middle.length) params.set('travelmode', 'transit');
   return 'https://www.google.com/maps/dir/?' + params;
 }
@@ -261,11 +268,11 @@ function renderMapBody() {
     if (!k) return;
     const d = miles(located[k - 1].c, s.c);
     total += d;
-    minutes += d <= 1.2 ? d * 1.3 / 3 * 60 : 10 + d * 1.3 / 12 * 60;
+    minutes += travel(d, modeFor(trip, g.day)).mins;
   });
   $('#map-title').textContent = fmtDay(g.day, { weekday: 'long', month: 'short', day: 'numeric' });
   $('#map-sub').textContent = pending ? 'Finding places on the map…'
-    : located.length > 1 ? `${plural(located.length, 'stop')} · ${fmtMiles(total)} · ${fmtDuration(Math.round(minutes))} of travel`
+    : located.length > 1 ? `${plural(located.length, 'stop')} · ${fmtDist(total)} · ${fmtDuration(Math.round(minutes))} of travel`
     : `${plural(located.length, 'stop')} on the map`;
 
   const canOptimize = located.length >= 3 && located.some(s => !s.it.time);
@@ -278,7 +285,7 @@ function renderMapBody() {
       </div>` : ''}
     <div class="map-actions">
       ${canOptimize ? `<button type="button" class="btn tonal ripple" data-action="optimize" data-date="${g.day}">${icon('route')}Optimize route</button>` : ''}
-      ${located.length >= 2 ? `<a class="btn filled ripple" href="${esc(googleRouteUrl(located.map(s => s.c)))}" target="_blank" rel="noopener">${icon('directions')}Open in Google Maps</a>` : ''}
+      ${located.length >= 2 ? `<a class="btn filled ripple" href="${esc(googleRouteUrl(located.map(s => s.c), modeFor(trip, g.day)))}" target="_blank" rel="noopener">${icon('directions')}Open in Google Maps</a>` : ''}
     </div>
     <ol class="stops">
       ${g.stops.map(s => {
