@@ -12,6 +12,7 @@ A small, installable web app (PWA) for planning a trip on your phone.
   on getting around and staying safe, saved for offline use.
 - Hold a plan or an idea and drag it onto a day, or to another spot in the day.
 - Warns when a plan is on a day or at a time the place is usually closed.
+- An **AI assistant** that plans days and edits your trip when you ask (free, see below).
 - Works offline once it has been opened one time.
 
 ## Files
@@ -32,6 +33,7 @@ A small, installable web app (PWA) for planning a trip on your phone.
 | `essentials.js` | The Essentials sheet (Wikidata facts, Wikivoyage tips). |
 | `hours.js` | Opening hours and "usually closed" warnings (OpenStreetMap). |
 | `drag.js` | Hold and drag plans and ideas onto days. |
+| `assistant.js` | The AI assistant chat (Gemini through Firebase, or the Claude / Gemini app). |
 | `vendor/leaflet/` | Leaflet map library (BSD-2 license), stored in the app. |
 | `fonts/`, `icons/sprite.svg` | Google Sans Flex and Material Symbols, stored for offline use (`tools/fetch-assets.ps1`). |
 | `manifest.webmanifest` | Tells the phone the app's name, icon and colors so it can be installed. |
@@ -112,3 +114,38 @@ All free services, no account or key needed:
 - **Essentials** (the button on the trip's card) are fetched once while online and kept on the phone.
 - **Opening hours** come from OpenStreetMap, or the travel guide. They're hints: always check before
   going. Turn off **More → Find addresses and opening hours** to stop these lookups.
+
+## AI assistant
+
+Tap **Assistant** on the trip's card and ask in your own words, e.g. "Plan Saturday around Belém,
+nothing before 10" or "Move the museum to Monday". The assistant shows the changes first; nothing
+changes until you tap **Apply** (and **Undo** puts things back).
+
+It uses Google's Gemini through your Firebase project, on the **free** tier:
+- **Gemini 3.8 Flash**, about 20 requests a day (shared by both phones). When that's used up,
+  it switches by itself to **Gemini 3.5 Flash-Lite** (about 500 a day) until the next day.
+- It can't cost anything: the Firebase project has no billing account. At worst it pauses until tomorrow.
+- On the free tier, Google may use what you send (your trip and requests) to improve its products.
+
+Prefer another AI app (for example one you have a subscription for)? In the assistant, tap **Use another
+AI app instead**: copy the request, paste it into that app, then paste its answer back.
+
+### One-time setup (about 10 minutes)
+
+1. **Switch on AI Logic.** <https://console.firebase.google.com> → your project → **AI Logic**
+   (under "AI services" in the menu) → **Get started** → choose **Gemini Developer API** (the no-cost one)
+   → follow the steps to the end. It switches on the needed services. Don't add a billing account.
+2. **Create a reCAPTCHA key** (Google's free bot check, which proves requests come from your app):
+   <https://console.cloud.google.com/security/recaptcha> → pick the same project at the top →
+   **Create key** → Platform **Website** → domains: `nikwakwa.github.io` and `localhost` → **Create**.
+   Copy the **key ID**.
+3. **Connect it to App Check.** Firebase console → **App Check** (under "Security" in the menu) → **Apps** →
+   your web app → **reCAPTCHA Enterprise** → paste the key ID → **Save**.
+4. **Put the key ID in the app:** in `firebase-config.js`, replace `window.RECAPTCHA_SITE_KEY = null;` with
+   `window.RECAPTCHA_SITE_KEY = 'your-key-id';` (it isn't secret), and upload the change.
+
+Notes:
+- From 2 November 2026, Firebase requires App Check for the assistant, so steps 2–4 aren't optional.
+- reCAPTCHA is free up to 10,000 checks a month, far more than the assistant uses.
+- Testing on this computer (`localhost`) needs one more step: the browser console prints an
+  "App Check debug token" — add it in Firebase → App Check → your web app → **Manage debug tokens**.

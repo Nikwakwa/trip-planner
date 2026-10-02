@@ -28,7 +28,8 @@ Asset scripts (they download from the internet and rewrite files in the repo):
 
 **Classic scripts that share one global scope.** `index.html` loads, in this order:
 `firebase-config.js` → `guides.js` → `places.js` → `weather.js` → `hours.js` → `essentials.js` → `maps.js` →
-`drag.js` → `sync.js` → `app.js`. The files are not modules. The feature files call helpers defined in `app.js` (`$`, `esc`, `icon`,
+`drag.js` → `assistant.js` → `sync.js` → `app.js`. Don't use `app.js` names (`$`, `CATEGORIES`, …) at load time
+in the earlier files, only inside functions. The files are not modules. The feature files call helpers defined in `app.js` (`$`, `esc`, `icon`,
 `save`, `render`, `snackbar`, `state`, …) at runtime, which works because `app.js` loads last and the calls
 happen after startup. Top-level names must stay unique across all files.
 
@@ -77,6 +78,18 @@ then everything else (`byPlanOrder`).
   `date` and renumbers the untimed plans' `slot`s for that day.
 - Built-in Boston/NYC trips also get a `trip.place` now (for weather and essentials). `guideFor` still prefers the
   built-in guide.
+
+**AI assistant (`assistant.js`).**
+- It calls the Firebase AI Logic REST endpoint (`firebasevertexai.googleapis.com/v1beta/projects/{id}/models/{model}:generateContent`)
+  directly with the Firebase web key, because the AI SDK has no compat build. Requests carry an App Check token
+  (reCAPTCHA Enterprise; site key in `firebase-config.js` as `RECAPTCHA_SITE_KEY`). App Check is required by Firebase
+  from 2026-11-02.
+- It uses the Gemini free tier only: `gemini-3.8-flash` (~20 requests/day), and on a daily 429 it switches to
+  `gemini-3.5-flash-lite` for the rest of the day (`liteDay`).
+- The model returns JSON `{reply, changes[]}` (structured output, `aiSchema()`). `checkChanges` validates the
+  changes against the trip, and nothing is applied until the user taps Apply (with Undo).
+- The same prompt can be copied to the Claude or Gemini app, and the pasted answer goes through `parseAnswer`.
+- Chats are stored per trip on the phone only (`tripPlanner.assistant`).
 
 **Sync (`sync.js`).** This is optional and switched on only when `firebase-config.js` sets `window.FIREBASE_CONFIG`.
 Firebase compat SDKs are vendored and loaded lazily. The state is split into Firestore documents

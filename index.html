@@ -220,6 +220,29 @@
     <div id="place-body" class="place-body"></div>
   </dialog>
 
+  <!-- Full-height sheet: chat with the AI assistant -->
+  <dialog id="ai-dialog" class="sheet ai-sheet">
+    <div class="ai-inner">
+      <div class="handle" aria-hidden="true"></div>
+      <div class="sheet-head ai-head">
+        <div class="ai-heading">
+          <h2 tabindex="-1" autofocus>Assistant</h2>
+          <p id="ai-sub" class="map-sub"></p>
+        </div>
+        <button type="button" class="icon-btn ripple" data-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#close"/></svg>
+        </button>
+      </div>
+      <div id="ai-body" class="ai-body" aria-live="polite"></div>
+      <form id="ai-form" class="ai-form">
+        <textarea id="ai-input" rows="1" maxlength="2000" placeholder="Ask or tell the assistant…" aria-label="Message to the assistant"></textarea>
+        <button type="submit" id="ai-send" class="icon-btn filled ripple" aria-label="Send">
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#send"/></svg>
+        </button>
+      </form>
+    </div>
+  </dialog>
+
   <!-- Centered dialog for big decisions -->
   <dialog id="confirm-dialog" class="alert">
     <form method="dialog">
@@ -242,6 +265,7 @@
   <script src="essentials.js"></script>
   <script src="maps.js"></script>
   <script src="drag.js"></script>
+  <script src="assistant.js"></script>
   <script src="sync.js"></script>
   <script src="app.js"></script>
 </body>

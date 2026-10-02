@@ -22,7 +22,7 @@ $outline = 'calendar_month','lightbulb','checklist','settings','add','edit','loc
   'login','logout','sync','cloud_done','person','search','public','directions_car','error','visibility','visibility_off',
   'sunny','partly_cloudy_day','cloud','foggy','rainy','weather_snowy','thunderstorm','water_drop',
   'info','emergency','call','translate','payments','power','handshake','directions_bus','health_and_safety','wifi',
-  'event_busy','drag_indicator'
+  'event_busy','drag_indicator','send','content_copy','undo'
 $filled = 'calendar_month','lightbulb','checklist','settings',
   'museum','restaurant','local_activity','shopping_bag','train','hotel','push_pin','location_on','luggage'
 
@@ -43,7 +43,7 @@ Write-Host "Icons saved: $($symbols.Count)"
 # ---- Firebase (login + sync between phones), "compat" builds that work as plain scripts ----
 $fbVersion = '12.19.0'
 New-Item -ItemType Directory -Force (Join-Path $root 'vendor/firebase') | Out-Null
-foreach ($part in 'app', 'auth', 'firestore') {
+foreach ($part in 'app', 'auth', 'firestore', 'app-check') {
   Invoke-WebRequest "https://www.gstatic.com/firebasejs/$fbVersion/firebase-$part-compat.js" -OutFile (Join-Path $root "vendor/firebase/firebase-$part-compat.js") -UseBasicParsing
 }
 Write-Host "Firebase $fbVersion saved."

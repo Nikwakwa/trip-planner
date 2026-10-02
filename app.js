@@ -646,6 +646,7 @@ function renderPlan(trip) {
         </div>` : ''}
       <div class="hero-actions">
         ${planned.length ? `<button type="button" class="hero-btn ripple" data-action="trip-map">${icon('map')}Trip map</button>` : ''}
+        <button type="button" class="hero-btn ripple" data-action="assistant">${icon('auto_awesome')}Assistant</button>
         ${trip.place ? `<button type="button" class="hero-btn ripple" data-action="essentials">${icon('info')}Essentials</button>` : ''}
         <button type="button" class="hero-btn ripple" data-action="share-trip">${icon('share')}Share</button>
       </div>
@@ -1298,7 +1299,7 @@ $('#auth-show').addEventListener('click', (e) => {
 });
 
 // Close buttons and tapping the dark area outside a sheet close it.
-for (const dlg of [itemDialog, tripDialog, authDialog, $('#confirm-dialog'), $('#map-dialog'), $('#info-dialog'), $('#place-dialog')]) {
+for (const dlg of [itemDialog, tripDialog, authDialog, $('#confirm-dialog'), $('#map-dialog'), $('#info-dialog'), $('#place-dialog'), $('#ai-dialog')]) {
   dlg.addEventListener('click', (e) => {
     if (e.target === dlg || e.target.closest('[data-close]')) dlg.close();
   });
@@ -1477,6 +1478,9 @@ document.addEventListener('click', async (e) => {
       break;
     case 'essentials':
       openEssentials(activeTrip());
+      break;
+    case 'assistant':
+      openAssistant();
       break;
     case 'place-info':
       openPlaceInfo(el.dataset.place, el.dataset.date);

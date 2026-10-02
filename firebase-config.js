@@ -21,6 +21,10 @@ window.FIREBASE_CONFIG = {
 
 };
 
+/* AI assistant: the reCAPTCHA Enterprise "site key" that App Check uses to prove requests come
+   from this app (see "AI assistant" in README.md). Not secret either. Leave null until it's set up. */
+window.RECAPTCHA_SITE_KEY = '6Le14NotAAAAAGl2udC2aSPkAw8-VDJa03WxH0K8';
+
 /* Example (yours will have different values):
 window.FIREBASE_CONFIG = {
   apiKey: 'AIza…',

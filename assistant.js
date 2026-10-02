@@ -1,0 +1,498 @@
+'use strict';
+
+/* =========================================================
+   AI assistant: chat about the trip, and let it draft changes.
+   - Built in: Google's Gemini, through the Firebase project (Firebase AI Logic,
+     free tier, no billing). Gemini 3.8 Flash first; when its free daily
+     allowance is used up, Gemini 3.5 Flash-Lite until the next day.
+     Firebase App Check (reCAPTCHA Enterprise) proves requests come from this app.
+   - Or copy the request to another AI app (a chatbot), and paste the answer back.
+   Nothing changes until "Apply" is tapped on the assistant's proposal, and Apply can be undone.
+   Functions here use helpers from app.js, which is loaded after this file.
+   ========================================================= */
+
+const AI_KEY = 'tripPlanner.assistant';
+const AI_MODELS = [
+  { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash' },
+  { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite' },
+];
+const AI_HISTORY = 12;      // messages sent along as the conversation so far
+const AI_KEEP = 40;         // messages kept per trip on this phone
+
+const ai = {
+  saved: (() => { try { return JSON.parse(localStorage.getItem(AI_KEY)) || {}; } catch { return {}; } })(),
+  busy: false,
+  error: '',
+  appCheck: null,           // promise of the App Check instance
+  paste: false,             // the "use another AI app" panel is open
+};
+ai.saved.chats = ai.saved.chats || {};
+
+function saveAI() {
+  for (const id of Object.keys(ai.saved.chats)) {
+    if (!state.trips.some(t => t.id === id)) delete ai.saved.chats[id];
+    else {
+      const list = ai.saved.chats[id];           // trimmed in place: open chats keep using the same list
+      if (list.length > AI_KEEP) list.splice(0, list.length - AI_KEEP);
+    }
+  }
+  try { localStorage.setItem(AI_KEY, JSON.stringify(ai.saved)); } catch { /* storage full */ }
+}
+const chatOf = trip => (ai.saved.chats[trip.id] = ai.saved.chats[trip.id] || []);
+const aiReady = () => !!(window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.apiKey);
+
+/* ---------- What the assistant knows about the trip ---------- */
+
+function tripContext(trip) {
+  const guide = guideFor(trip);
+  const days = tripDays(trip);
+  const lines = [];
+  lines.push(`Today is ${todayISO()} (${fmtDay(todayISO(), { weekday: 'long' })}).`);
+  lines.push(`Trip: "${trip.name}"${trip.place ? ` — ${trip.place.label} (${trip.place.kind})` : ''}.`);
+  lines.push(trip.start && trip.end
+    ? `Dates: ${trip.start} to ${trip.end}. Days: ${days.map(d => `${d} (${fmtDay(d, { weekday: 'short' })})`).join(', ')}.`
+    : 'The trip has no dates yet. Plans can still be saved as ideas (date "").');
+
+  const plans = trip.items.map((i) => {
+    const note = hoursNote(i, guide);
+    return {
+      id: i.id, title: i.title, category: i.category, date: i.date, time: i.time, place: i.place,
+      ...(i.notes ? { notes: i.notes.slice(0, 200) } : {}),
+      ...(i.done ? { done: true } : {}),
+      ...(note ? { hours: note.text } : {}),
+    };
+  });
+  lines.push(`Plans and ideas (an empty date means an idea, not scheduled yet):\n${JSON.stringify(plans)}`);
+
+  const weatherDays = days.map((d) => {
+    const w = dayWeather(trip, d);
+    return w && `${d}: ${w.text}, ${temp(w.lo)}–${temp(w.hi)}, rain ${w.rain}%`;
+  }).filter(Boolean);
+  if (weatherDays.length) lines.push(`Forecast:\n${weatherDays.join('\n')}`);
+
+  if (guide) {
+    const places = guide.places.slice(0, 90).map(p => ({
+      id: p.id, name: p.name, cat: p.cat, area: p.area || undefined, mins: p.mins,
+      when: p.when !== 'any' ? p.when : undefined, tags: p.tags.length ? p.tags : undefined,
+      hours: p.hours || undefined, about: (p.about || p.blurb || '').slice(0, 140),
+    }));
+    lines.push(`Travel guide for ${guide.city} (use guide_id when adding one of these):\n${JSON.stringify(places)}`);
+  }
+  return lines.join('\n\n');
+}
+
+const AI_RULES = `You are the trip-planning assistant inside a trip planner app. Help plan the trip described below.
+
+How to answer:
+- Answer with JSON only: {"reply": string, "changes": [...]}.
+- "reply" is short plain text (no markdown), in the user's language. Say what you suggest and why, briefly.
+- "changes" lists edits to the trip. Leave it empty for questions or advice. The user sees your changes
+  as a preview and decides whether to apply them, so only propose what the user asked for.
+- Change types:
+  {"action":"add","title":..,"category":..,"date":"YYYY-MM-DD" or "" for an idea,"time":"HH:MM" or "","place":..,"notes":..,"guide_id":..}
+  {"action":"update","id":<existing plan id>, then only the fields that change}
+  {"action":"delete","id":<existing plan id>}
+  {"action":"set_dates","start":"YYYY-MM-DD","end":"YYYY-MM-DD"}
+- category is one of: sight, food, event, shopping, transport, stay, other.
+- When adding a place from the travel guide, set guide_id to its id and use its name as the title.
+- Use 24-hour times. Leave time "" when the exact time doesn't matter.
+- Plan realistic days: respect opening hours and visit lengths (mins), group nearby places (same area),
+  leave time for meals and travel, and prefer indoor places (tag "rainy") on rainy days.
+- Never delete or move plans the user didn't ask about. Don't add a place that is already in the plans.`;
+
+const aiSchema = () => ({
+  type: 'object',
+  properties: {
+    reply: { type: 'string' },
+    changes: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          action: { type: 'string', enum: ['add', 'update', 'delete', 'set_dates'] },
+          id: { type: 'string' },
+          guide_id: { type: 'string' },
+          title: { type: 'string' },
+          category: { type: 'string', enum: Object.keys(CATEGORIES) },
+          date: { type: 'string' },
+          time: { type: 'string' },
+          place: { type: 'string' },
+          notes: { type: 'string' },
+          start: { type: 'string' },
+          end: { type: 'string' },
+        },
+        required: ['action'],
+      },
+    },
+  },
+  required: ['reply', 'changes'],
+});
+
+/* ---------- Talking to Gemini (Firebase AI Logic) ---------- */
+
+// App Check token: proves the request comes from this app, not someone copying its settings.
+function appCheck() {
+  if (!window.RECAPTCHA_SITE_KEY) return Promise.resolve(null);
+  ai.appCheck = ai.appCheck || (async () => {
+    await loadFirebase();
+    // On a computer during development, a "debug token" stands in (it's printed in the console).
+    if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+    await loadScript('vendor/firebase/firebase-app-check-compat.js');
+    const check = firebase.appCheck();
+    check.activate(new firebase.appCheck.ReCaptchaEnterpriseProvider(window.RECAPTCHA_SITE_KEY), true);
+    return check;
+  })().catch((e) => { ai.appCheck = null; throw e; });
+  return ai.appCheck;
+}
+
+class AIError extends Error {
+  constructor(kind, message) { super(message); this.kind = kind; }
+}
+
+async function callGemini(model, body) {
+  const c = window.FIREBASE_CONFIG;
+  const headers = { 'Content-Type': 'application/json', 'x-goog-api-key': c.apiKey };
+  try {
+    const check = await appCheck();
+    if (check) headers['X-Firebase-AppCheck'] = (await check.getToken(false)).token;
+  } catch (e) {
+    throw new AIError(navigator.onLine ? 'appcheck' : 'other', e.message);
+  }
+  const res = await fetch(`https://firebasevertexai.googleapis.com/v1beta/projects/${c.projectId}/models/${model}:generateContent`,
+    { method: 'POST', headers, body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = (data.error && data.error.message) || `HTTP ${res.status}`;
+    if (res.status === 429) throw new AIError(/day/i.test(msg) ? 'daily' : 'busy', msg);
+    if (/SERVICE_DISABLED|has not been used|not enabled/i.test(msg)) throw new AIError('setup', msg);
+    if (/app ?check/i.test(msg) || res.status === 401) throw new AIError('appcheck', msg);
+    throw new AIError('other', msg);
+  }
+  const parts = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [];
+  const text = parts.filter(p => !p.thought && p.text).map(p => p.text).join('');
+  if (!text) throw new AIError('other', 'empty answer');
+  return text;
+}
+
+// Gemini 3.8 Flash, or Flash-Lite once the day's free allowance is used up.
+async function askGemini(trip, chat) {
+  const contents = chat.slice(-AI_HISTORY).map(m => ({
+    role: m.role,
+    parts: [{ text: m.role === 'model' ? JSON.stringify({ reply: m.text, changes: m.changes || [] }) + (m.status ? `\n(The user ${m.status === 'applied' ? 'applied' : 'did not apply'} these changes.)` : '') : m.text }],
+  }));
+  const body = {
+    systemInstruction: { parts: [{ text: `${AI_RULES}\n\n${tripContext(trip)}` }] },
+    contents,
+    generationConfig: { responseMimeType: 'application/json', responseSchema: aiSchema(), temperature: 0.5 },
+  };
+  let first = ai.saved.liteDay === todayISO() ? 1 : 0;
+  for (let k = first; k < AI_MODELS.length; k++) {
+    try {
+      const text = await callGemini(AI_MODELS[k].id, body);
+      return { ...parseAnswer(text), model: AI_MODELS[k].label };
+    } catch (e) {
+      if (e.kind === 'daily' && k === 0) { ai.saved.liteDay = todayISO(); saveAI(); continue; }
+      if (e.kind === 'busy' && k === 0) continue;
+      throw e;
+    }
+  }
+  throw new AIError('daily', 'all models used up');
+}
+
+// The answer's JSON, also when it comes wrapped in text or a ```json block (pasted from another app).
+function parseAnswer(text) {
+  const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(text);
+  let raw = fenced ? fenced[1] : text;
+  const a = raw.indexOf('{'), b = raw.lastIndexOf('}');
+  if (a < 0 || b < a) throw new AIError('format', 'no JSON found');
+  raw = raw.slice(a, b + 1);
+  let data;
+  try { data = JSON.parse(raw); } catch { throw new AIError('format', 'JSON could not be read'); }
+  return {
+    text: typeof data.reply === 'string' ? data.reply.trim() : '',
+    changes: Array.isArray(data.changes) ? data.changes.filter(c => c && typeof c === 'object') : [],
+  };
+}
+
+/* ---------- Turning proposed changes into real edits ---------- */
+
+const aiIsDate = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(parseDate(v).getTime());
+const aiIsTime = v => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+const aiText = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+
+// Checks each proposed change against the trip; returns the ones that can be applied, with a line of text each.
+function checkChanges(trip, changes) {
+  const guide = guideFor(trip);
+  const out = [];
+  for (const c of changes) {
+    if (c.action === 'add') {
+      const p = guide && c.guide_id ? guide.places.find(x => x.id === c.guide_id) : null;
+      const title = aiText(c.title, 120) || (p && p.name);
+      if (!title) continue;
+      const item = {
+        id: uid(), title,
+        category: CATEGORIES[c.category] ? c.category : p ? p.cat : 'other',
+        date: aiIsDate(c.date) ? c.date : '', time: aiIsTime(c.time) ? c.time : '',
+        place: aiText(c.place, 200) || (p ? p.place || p.name : ''), link: '', notes: aiText(c.notes, 2000), done: false,
+        ...(p ? { lat: p.lat, lng: p.lng, guideId: p.id } : {}),
+      };
+      if (!item.date) item.time = '';
+      out.push({ kind: 'add', item, icon: 'add', text: `${whenText(item)}${title}` });
+    } else if (c.action === 'update' || c.action === 'delete') {
+      const item = trip.items.find(i => i.id === c.id);
+      if (!item) continue;
+      if (c.action === 'delete') { out.push({ kind: 'delete', item, icon: 'delete', text: `Remove: ${item.title}` }); continue; }
+      const patch = {};
+      if ('title' in c && aiText(c.title, 120)) patch.title = aiText(c.title, 120);
+      if ('category' in c && CATEGORIES[c.category]) patch.category = c.category;
+      if ('date' in c && (c.date === '' || aiIsDate(c.date))) patch.date = c.date;
+      if ('time' in c && (c.time === '' || aiIsTime(c.time))) patch.time = c.time;
+      if ('place' in c) patch.place = aiText(c.place, 200);
+      if ('notes' in c) patch.notes = aiText(c.notes, 2000);
+      for (const k of Object.keys(patch)) if (patch[k] === item[k]) delete patch[k];
+      if (!Object.keys(patch).length) continue;
+      const after = { ...item, ...patch };
+      if (!after.date) after.time = '';
+      const moved = 'date' in patch || 'time' in patch;
+      out.push({
+        kind: 'update', item, patch, icon: moved ? 'schedule' : 'edit',
+        text: moved ? `Move: ${item.title} → ${after.date ? whenText(after).replace(/ · $/, '') : 'ideas'}` : `Change: ${after.title}`,
+      });
+    } else if (c.action === 'set_dates' && aiIsDate(c.start) && aiIsDate(c.end)) {
+      const [start, end] = c.start <= c.end ? [c.start, c.end] : [c.end, c.start];
+      if (start === trip.start && end === trip.end) continue;
+      out.push({ kind: 'dates', start, end, icon: 'calendar_month', text: `Trip dates: ${fmtDay(start)} – ${fmtDay(end)}` });
+    }
+  }
+  return out;
+}
+
+function whenText(item) {
+  if (!item.date) return 'Idea: ';
+  return `${fmtDay(item.date)}${item.time ? ' ' + fmtTime(item.time) : ''} · `;
+}
+
+function applyProposal(trip, msg) {
+  const checked = checkChanges(trip, msg.changes || []);
+  if (!checked.length) return;
+  const before = { start: trip.start, end: trip.end, items: trip.items.map(i => ({ ...i })) };
+  for (const c of checked) {
+    if (c.kind === 'add') trip.items.push(c.item);
+    if (c.kind === 'delete') trip.items = trip.items.filter(i => i.id !== c.item.id);
+    if (c.kind === 'update') {
+      Object.assign(c.item, c.patch);
+      if (!c.item.date) c.item.time = '';
+      // A new day or time: the plan no longer keeps an old Optimize route spot.
+      if ('date' in c.patch || 'time' in c.patch) delete c.item.slot;
+      if ('place' in c.patch) { delete c.item.lat; delete c.item.lng; delete c.item.geoMiss; delete c.item.guideId; }
+    }
+    if (c.kind === 'dates') { trip.start = c.start; trip.end = c.end; }
+  }
+  msg.status = 'applied';
+  saveAI();
+  save();
+  render();
+  renderChat();
+  snackbar(`Applied ${plural(checked.length, 'change')}`, 'Undo', () => {
+    trip.start = before.start;
+    trip.end = before.end;
+    trip.items = before.items;
+    msg.status = 'undone';
+    saveAI();
+    save();
+    render();
+    renderChat();
+  });
+}
+
+/* ---------- The chat sheet ---------- */
+
+const AI_STARTERS = [
+  'Plan my first day',
+  'Fill my free days with ideas from the guide',
+  'What should I not miss?',
+  'Make a rainy-day plan',
+];
+
+function aiErrorText(e) {
+  if (!navigator.onLine) return 'You’re offline. The assistant needs a connection.';
+  return {
+    setup: 'The assistant isn’t switched on in Firebase yet — see “AI assistant” in the README.',
+    appcheck: 'Firebase couldn’t confirm this is your app (App Check). Check the reCAPTCHA key in firebase-config.js.',
+    daily: 'Today’s free Gemini allowance is used up. Try again tomorrow, or use another AI app below.',
+    busy: 'Gemini is busy right now. Wait a minute and try again.',
+    format: 'The answer couldn’t be read. Try asking again in other words.',
+  }[e && e.kind] || 'Something went wrong. Try again in a moment.';
+}
+
+function messageHTML(trip, m, index) {
+  if (m.role === 'user') return `<div class="msg user"><p>${esc(m.text)}</p></div>`;
+  const checked = m.changes && m.changes.length ? checkChanges(trip, m.changes) : [];
+  const pending = checked.length && !m.status;
+  return `
+    <div class="msg ai">
+      ${m.text ? `<p>${esc(m.text)}</p>` : ''}
+      ${m.changes && m.changes.length ? `
+        <div class="proposal ${m.status || ''}">
+          <p class="proposal-head">${icon('auto_awesome')}${m.status === 'applied' ? 'Applied' : m.status === 'dismissed' ? 'Not applied' : m.status === 'undone' ? 'Undone' : `${plural(checked.length, 'change')} to your plan`}</p>
+          ${checked.length || m.status ? `<ul>${(checked.length ? checked : m.changes.map(c => ({ icon: 'edit', text: c.title || c.action }))).map(c => `<li>${icon(c.icon)}<span>${esc(c.text)}</span></li>`).join('')}</ul>`
+            : '<p class="proposal-none">These changes no longer fit the trip.</p>'}
+          ${pending ? `
+            <div class="proposal-actions">
+              <button type="button" class="btn text ripple" data-action="ai-dismiss" data-msg="${index}">No thanks</button>
+              <button type="button" class="btn filled ripple" data-action="ai-apply" data-msg="${index}">${icon('check')}Apply</button>
+            </div>` : ''}
+        </div>` : ''}
+      ${m.model ? `<p class="msg-model">${esc(m.model)}</p>` : ''}
+    </div>`;
+}
+
+function renderChat() {
+  const dlg = $('#ai-dialog');
+  if (!dlg.open) return;
+  const trip = activeTrip();
+  if (!trip) { dlg.close(); return; }
+  const chat = chatOf(trip);
+  const lite = ai.saved.liteDay === todayISO();
+  $('#ai-sub').textContent = !aiReady() ? 'Use another AI app (below)'
+    : lite ? `${AI_MODELS[1].label} · the bigger model’s free allowance is used up until tomorrow`
+    : `${AI_MODELS[0].label} · free`;
+
+  const body = $('#ai-body');
+  body.innerHTML = `
+    ${aiReady() ? `<p class="ai-notice">${icon('info')}<span>This chat uses Google Gemini’s free service. Google may use what you send, including your trip details, to improve its AI, so leave out anything private.</span></p>` : ''}
+    ${chat.length ? '' : `
+      <div class="ai-intro">
+        <p>Ask me to plan days, suggest places, or change your plans in ${esc(trip.name)}. I’ll show you the changes first — nothing changes until you tap <b>Apply</b>.</p>
+        <div class="ai-starters">${AI_STARTERS.map(s => `<button type="button" class="filter-chip ripple" data-action="ai-starter">${esc(s)}</button>`).join('')}</div>
+      </div>`}
+    ${chat.map((m, i) => messageHTML(trip, m, i)).join('')}
+    ${ai.busy ? `<div class="msg ai thinking"><p>${icon('auto_awesome')}Thinking…</p></div>` : ''}
+    ${ai.error ? `<p class="ai-error" role="alert">${icon('error')}<span>${esc(ai.error)}</span></p>` : ''}
+    <div class="ai-paste" ${ai.paste ? '' : 'hidden'}>
+      <p class="ai-paste-title">${icon('content_copy')}Use another AI app</p>
+      <ol>
+        <li>Type your request below, then
+          <button type="button" class="btn tonal sm ripple" data-action="ai-copy">${icon('content_copy')}Copy request</button></li>
+        <li>Paste it into your AI app (any chatbot), and copy its whole answer.</li>
+        <li>Paste the answer here:
+          <textarea id="ai-answer" rows="3" placeholder="Paste the answer…"></textarea>
+          <button type="button" class="btn tonal sm ripple" data-action="ai-read">${icon('check')}Read answer</button></li>
+      </ol>
+    </div>
+    <button type="button" class="btn text ripple ai-paste-toggle" data-action="ai-paste">${ai.paste ? 'Hide' : 'Use another AI app instead'}</button>`;
+  $('#ai-send').disabled = ai.busy || !aiReady() || !navigator.onLine;
+  requestAnimationFrame(() => { body.scrollTop = body.scrollHeight; });
+}
+
+function openAssistant() {
+  ai.error = '';
+  ai.paste = ai.paste || !aiReady();
+  $('#ai-dialog').showModal();
+  renderChat();
+}
+
+async function sendToAssistant(text) {
+  const trip = activeTrip();
+  text = text.trim();
+  if (!trip || !text || ai.busy) return;
+  const chat = chatOf(trip);
+  chat.push({ role: 'user', text });
+  $('#ai-input').value = '';
+  ai.busy = true;
+  ai.error = '';
+  saveAI();
+  renderChat();
+  try {
+    const answer = await askGemini(trip, chat);
+    chat.push({ role: 'model', text: answer.text, changes: answer.changes, model: answer.model });
+  } catch (e) {
+    console.warn('Assistant', e);
+    ai.error = aiErrorText(e);
+    // Keep the request so it can be sent again or copied to another app.
+    chat.pop();
+    $('#ai-input').value = text;
+    if (e.kind === 'daily') ai.paste = true;
+  } finally {
+    ai.busy = false;
+    saveAI();
+    renderChat();
+  }
+}
+
+// The same request, as text for another AI app.
+function requestForOtherApp(trip, text) {
+  const chat = chatOf(trip).slice(-AI_HISTORY);
+  const convo = chat.map(m => (m.role === 'user' ? `User: ${m.text}` : `Assistant: ${m.text}`)).join('\n');
+  return `${AI_RULES}\n- Answer with one \`\`\`json code block containing only that JSON object.\n\n${tripContext(trip)}`
+    + `${convo ? `\n\nConversation so far:\n${convo}` : ''}\n\nUser: ${text}`;
+}
+
+document.addEventListener('click', async (e) => {
+  const el = e.target.closest('[data-action^="ai-"]');
+  if (!el) return;
+  const trip = activeTrip();
+  if (!trip) return;
+  const chat = chatOf(trip);
+  switch (el.dataset.action) {
+    case 'ai-starter':
+      sendToAssistant(el.textContent);
+      break;
+    case 'ai-apply':
+      applyProposal(trip, chat[Number(el.dataset.msg)]);
+      break;
+    case 'ai-dismiss':
+      chat[Number(el.dataset.msg)].status = 'dismissed';
+      saveAI();
+      renderChat();
+      break;
+    case 'ai-paste':
+      ai.paste = !ai.paste;
+      renderChat();
+      break;
+    case 'ai-copy': {
+      const text = $('#ai-input').value.trim();
+      if (!text) { ai.error = 'Type your request in the box below first.'; renderChat(); $('#ai-input').focus(); break; }
+      try {
+        await navigator.clipboard.writeText(requestForOtherApp(trip, text));
+        ai.pending = text;
+        ai.error = '';
+        snackbar('Request copied — paste it into your AI app');
+      } catch {
+        ai.error = 'Couldn’t copy. Try again.';
+      }
+      renderChat();
+      break;
+    }
+    case 'ai-read': {
+      const pasted = $('#ai-answer').value;
+      if (!pasted.trim()) break;
+      try {
+        const answer = parseAnswer(pasted);
+        const asked = ai.pending || $('#ai-input').value.trim();
+        if (asked) chat.push({ role: 'user', text: asked });
+        chat.push({ role: 'model', text: answer.text, changes: answer.changes, model: 'From another AI app' });
+        ai.pending = '';
+        ai.error = '';
+        $('#ai-input').value = '';
+      } catch (err) {
+        ai.error = 'That doesn’t look like the answer. Copy the whole answer, including the part between ``` marks.';
+      }
+      saveAI();
+      renderChat();
+      break;
+    }
+  }
+});
+
+document.getElementById('ai-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  sendToAssistant($('#ai-input').value);
+});
+// Enter sends; Shift+Enter makes a new line.
+document.getElementById('ai-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+    e.preventDefault();
+    sendToAssistant($('#ai-input').value);
+  }
+});
