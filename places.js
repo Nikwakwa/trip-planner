@@ -11,7 +11,7 @@
    ========================================================= */
 
 const GUIDES_KEY = 'tripPlanner.guides';
-const GUIDE_VERSION = 2;          // 2: full descriptions ("about") and opening hours. Older saved guides are refreshed.
+const GUIDE_VERSION = 3;          // 2: full descriptions ("about") and opening hours; 3: photos. Older saved guides are refreshed.
 const MAX_SAVED_GUIDES = 10;
 const WIKIVOYAGE = 'https://en.wikivoyage.org/w/api.php';
 
@@ -290,6 +290,7 @@ function readListings(page, area) {
       lat: Number.isFinite(lat) && Math.abs(lat) <= 90 ? lat : null,
       lng: Number.isFinite(lng) && Math.abs(lng) <= 180 ? lng : null,
       notable: (p.wikidata || p.wikipedia ? 1 : 0) + (p.image ? 0.5 : 0),
+      image: plainText(p.image).replace(/^(File|Image):/i, '').trim(),
       area,
     });
   }
@@ -323,6 +324,25 @@ async function fillCoordinates(list) {
     const c = x.lat === null && found.get(x.wikidata);
     if (c) { x.lat = c.lat; x.lng = c.lon; }
   }
+}
+
+// A Wikimedia Commons photo, by its file name, at a size fit for a phone.
+const commonsPhoto = file => 'https://commons.wikimedia.org/wiki/Special:FilePath/'
+  + encodeURIComponent(file.trim().replace(/ /g, '_')) + '?width=480';
+
+// Places without a photo in the guide: Wikidata's main image for them, when it has one.
+async function fillPhotos(list) {
+  const ids = [...new Set(list.filter(x => !x.image && x.wikidata).map(x => x.wikidata))];
+  const found = new Map();
+  for (let i = 0; i < ids.length; i += 150) {
+    const query = `SELECT ?item ?img WHERE { VALUES ?item { ${ids.slice(i, i + 150).map(q => 'wd:' + q).join(' ')} } ?item wdt:P18 ?img }`;
+    const data = await getJSON('https://query.wikidata.org/sparql', { format: 'json', query });
+    for (const b of data.results.bindings) {
+      const id = b.item.value.split('/').pop();
+      if (!found.has(id)) found.set(id, decodeURIComponent(b.img.value.split('/').pop()));
+    }
+  }
+  for (const x of list) if (!x.image && found.has(x.wikidata)) x.image = found.get(x.wikidata);
 }
 
 // Groups places into a few neighborhoods (for "Ideas for a day around …").
@@ -374,6 +394,7 @@ async function wikivoyageGuide(place) {
     for (const page of await wikivoyagePages(districts)) list.push(...readListings(page, areaName(page.title)));
   }
   await fillCoordinates(list);
+  await fillPhotos(list).catch(() => {});      // photos are a bonus: the guide works without them
 
   // Keep places with a map position that really are in (or near) this place.
   const reach = place.kind === 'city' ? 30 : place.kind === 'region' ? 400 : 1500;
@@ -388,6 +409,7 @@ async function wikivoyageGuide(place) {
     else {
       if (!had.area) had.area = x.area;
       if (!had.hours) had.hours = x.hours;
+      if (!had.image) had.image = x.image;
       if (x.blurb.length > had.blurb.length) had.blurb = x.blurb;
       if (x.about.length > had.about.length) had.about = x.about;
       had.notable = Math.max(had.notable, x.notable) + 0.5;
@@ -414,6 +436,7 @@ async function wikivoyageGuide(place) {
       x.type !== 'city' && RAINY.test(x.name) ? 'rainy' : '',
     ].filter(Boolean),
     blurb: x.blurb || (x.type === 'city' ? `A destination in ${place.name}.` : ''),
+    ...(x.image ? { photo: commonsPhoto(x.image) } : {}),
     ...(x.hours ? { hours: x.hours } : {}),
     ...(x.about.length > x.blurb.length ? { about: x.about } : {}),
   }));
@@ -456,7 +479,7 @@ const NOT_A_SIGHT = /station|street|road|avenue|school|university|college|hospit
 async function wikipediaGuide(place) {
   const data = await getJSON('https://en.wikipedia.org/w/api.php', wm({
     action: 'query', generator: 'geosearch', ggscoord: `${place.lat}|${place.lng}`, ggsradius: '10000', ggslimit: '80',
-    prop: 'coordinates|description|pageviews', colimit: 'max', pvipdays: '30',
+    prop: 'coordinates|description|pageviews|pageimages', colimit: 'max', pvipdays: '30', piprop: 'thumbnail', pithumbsize: '480', pilimit: 'max',
   }));
   const pages = (data.query ? data.query.pages : [])
     .filter(p => p.coordinates && p.description && !NOT_A_SIGHT.test(p.description) && norm(p.title) !== norm(place.name))
@@ -481,6 +504,7 @@ async function wikipediaGuide(place) {
       when: 'any',
       tags: RAINY.test(p.title + ' ' + d) ? ['rainy'] : [],
       blurb: d.charAt(0).toUpperCase() + d.slice(1) + '.',
+      ...(p.thumbnail ? { photo: p.thumbnail.source } : {}),
     };
   });
   const { dayAreas, dayTitles } = nameAreas(places, 4);

@@ -28,7 +28,7 @@ Asset scripts (they download from the internet and rewrite files in the repo):
 
 **Classic scripts that share one global scope.** `index.html` loads, in this order:
 `firebase-config.js` → `guides.js` → `places.js` → `weather.js` → `hours.js` → `essentials.js` → `maps.js` →
-`drag.js` → `assistant.js` → `sync.js` → `app.js`. Don't use `app.js` names (`$`, `CATEGORIES`, …) at load time
+`drag.js` → `today.js` → `calendar.js` → `files.js` → `packing.js` → `assistant.js` → `sync.js` → `app.js`. Don't use `app.js` names (`$`, `CATEGORIES`, …) at load time
 in the earlier files, only inside functions. The files are not modules. The feature files call helpers defined in `app.js` (`$`, `esc`, `icon`,
 `save`, `render`, `snackbar`, `state`, …) at runtime, which works because `app.js` loads last and the calls
 happen after startup. Top-level names must stay unique across all files.
@@ -97,6 +97,20 @@ then everything else (`byPlanOrder`).
   changes against the trip, and nothing is applied until the user taps Apply (with Undo).
 - The same prompt can be copied to the Claude or Gemini app, and the pasted answer goes through `parseAnswer`.
 - Chats are stored per trip on the phone only (`tripPlanner.assistant`).
+
+**During the trip, calendar, files, packing.**
+- `today.js`: `baseFor(trip, day)` is the home base. It's the latest located `stay` plan dated on or before the day
+  (else the first one; an undated stay counts for every day). Day lists, Optimize route, the day map, the route link,
+  empty-day area order and the AI context all use it. `nowCardHTML` refreshes itself every 30 s. "Near me" uses the
+  geolocation API only, on the guide already saved on the phone.
+- `calendar.js`: there's a Google Calendar template link per plan, and an `.ics` file per trip. Times are local to
+  the destination via `tripTimeZone` (the Essentials time zone). Visit length comes from `planLength` (today.js).
+- `files.js`: attachments go in IndexedDB `tripPlannerFiles` (per phone, never synced or backed up). `tickets.index`
+  maps plan id → file list. The plan form stages changes in `tickets.form`, and they're written on save.
+- `packing.js`: suggestions are rules over the forecast, plans, travel mode and Essentials. Hidden ones are kept
+  per phone (`tripPlanner.packing`).
+- Guide places may carry `photo` (a Commons `Special:FilePath` or Wikipedia thumbnail URL; `GUIDE_VERSION` 3). Photos
+  aren't cached by the service worker, so they only show online.
 
 **Sync (`sync.js`).** This is optional and switched on only when `firebase-config.js` sets `window.FIREBASE_CONFIG`.
 Firebase compat SDKs are vendored and loaded lazily. The state is split into Firestore documents

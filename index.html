@@ -107,6 +107,17 @@
         <span class="field-label">Notes</span>
         <textarea name="notes" rows="2" maxlength="2000" placeholder="Confirmation #, who's coming, tips…"></textarea>
       </label>
+      <div class="files-field">
+        <div class="files-head">
+          <span class="field-label">Tickets &amp; bookings</span>
+          <label class="btn tonal sm ripple">
+            <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#attach_file"/></svg>Attach
+            <input type="file" id="file-input" accept="image/*,application/pdf" multiple hidden>
+          </label>
+        </div>
+        <ul id="item-files" class="file-list"></ul>
+        <p class="hint">Photos or PDFs, kept on this phone only (not synced).</p>
+      </div>
       <div class="sheet-actions">
         <button type="button" class="btn text danger ripple" id="item-delete">
           <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#delete"/></svg>Delete
@@ -238,11 +249,42 @@
       </div>
       <div id="ai-body" class="ai-body" aria-live="polite"></div>
       <form id="ai-form" class="ai-form">
-        <textarea id="ai-input" rows="1" maxlength="2000" placeholder="Ask or tell the AI Assistant…" aria-label="Message to the AI Assistant"></textarea>
+        <textarea id="ai-input" rows="1" maxlength="8000" placeholder="Ask or tell the AI Assistant…" aria-label="Message to the AI Assistant"></textarea>
+        <button type="button" id="ai-mic" class="icon-btn ripple" aria-label="Speak your message" aria-pressed="false" hidden>
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#mic"/></svg>
+        </button>
         <button type="submit" id="ai-send" class="icon-btn filled ripple" aria-label="Send">
           <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#send"/></svg>
         </button>
       </form>
+    </div>
+  </dialog>
+
+  <!-- Sheet: a plan's tickets & bookings -->
+  <dialog id="files-dialog" class="sheet info-sheet">
+    <div class="info-inner">
+      <div class="handle" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 id="files-title" tabindex="-1" autofocus>Tickets</h2>
+        <button type="button" class="icon-btn ripple" data-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#close"/></svg>
+        </button>
+      </div>
+      <div id="files-body" class="info-body"></div>
+    </div>
+  </dialog>
+
+  <!-- Sheet: guide places around the phone's location -->
+  <dialog id="near-dialog" class="sheet info-sheet">
+    <div class="info-inner">
+      <div class="handle" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 tabindex="-1" autofocus>Near me</h2>
+        <button type="button" class="icon-btn ripple" data-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#close"/></svg>
+        </button>
+      </div>
+      <div id="near-body" class="info-body"></div>
     </div>
   </dialog>
 
@@ -268,6 +310,10 @@
   <script src="essentials.js"></script>
   <script src="maps.js"></script>
   <script src="drag.js"></script>
+  <script src="today.js"></script>
+  <script src="calendar.js"></script>
+  <script src="files.js"></script>
+  <script src="packing.js"></script>
   <script src="assistant.js"></script>
   <script src="sync.js"></script>
   <script src="app.js"></script>

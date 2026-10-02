@@ -53,6 +53,8 @@ function tripContext(trip) {
     ? `Dates: ${trip.start} to ${trip.end}. Days: ${days.map(d => `${d} (${fmtDay(d, { weekday: 'short' })})`).join(', ')}.`
     : 'The trip has no dates yet. Plans can still be saved as ideas (date "").');
   const own = Object.entries(trip.dayTravel || {}).map(([d, m]) => `${d}: ${TRAVEL_MODES[m].label}`);
+  const base = baseFor(trip, null);
+  if (base) lines.push(`Home base: "stay" plans with an address are where days start and end (now: ${base.item.title}, ${base.item.place}). Prefer places near it.`);
   lines.push(`Getting around: ${TRAVEL_MODES[trip.travel || 'transit'].label} (short distances on foot)`
     + `${own.length ? `, except ${own.join('; ')}` : ''}. Plan travel times for that.`);
   lines.push(`Use ${imperial() ? 'miles and °F' : 'kilometres and °C'} when you mention distances or temperatures.`);
@@ -107,7 +109,16 @@ How to answer:
 - For a place from the travel guide, set its guide_id and use its name as the title.
 - Plan realistic days: respect opening hours and visit lengths (mins), group nearby places (same area),
   leave time for meals and travel, and prefer indoor places (tag "rainy") on rainy days.
-- Never remove or move plans the user didn't ask about. Don't add a place that is already in the plans.`;
+- Never remove or move plans the user didn't ask about. Don't add a place that is already in the plans.
+- Bookings: when the user pastes a confirmation (hotel, flight, train, bus, car rental, restaurant, tickets, tour),
+  turn it into plans, with the booking reference in notes:
+  a hotel or apartment: a "stay" plan on the check-in day at the check-in time, place = its full address,
+  and a "stay" plan titled "Check out: <name>" on the check-out day at the check-out time;
+  a flight, train or bus: a "transport" plan at departure time, title like "Flight TP 1234 to Lisbon",
+  place = the departure airport or station, notes = route, seat, terminal and reference;
+  a car rental: "transport" plans for pick-up and drop-off; a restaurant, show or tour: a plan at its time.
+  If the trip has no dates yet and the bookings show them, set "dates" too.
+  Only use what the confirmation says; never invent times or numbers.`;
 
 const AI_PLAN_FIELDS = ['title', 'category', 'date', 'time', 'place', 'notes'];
 const aiSchema = () => {
@@ -388,7 +399,8 @@ function renderChat() {
     ${chat.length ? '' : `
       <div class="ai-intro">
         <p>Ask me to plan days, suggest places, or change your plans in ${esc(trip.name)}. I’ll show you the changes first — nothing changes until you tap <b>Apply</b>.</p>
-        <div class="ai-starters">${AI_STARTERS.map(s => `<button type="button" class="filter-chip ripple" data-action="ai-starter">${esc(s)}</button>`).join('')}</div>
+        <div class="ai-starters">${AI_STARTERS.map(s => `<button type="button" class="filter-chip ripple" data-action="ai-starter">${esc(s)}</button>`).join('')}
+          <button type="button" class="filter-chip ripple" data-action="ai-booking">${icon('confirmation_number')}Add from a booking email</button></div>
       </div>`}
     ${chat.map((m, i) => messageHTML(trip, m, i)).join('')}
     ${ai.busy ? `<div class="msg ai thinking"><p>${icon('auto_awesome')}Thinking…</p></div>` : ''}
@@ -404,7 +416,10 @@ function renderChat() {
           <button type="button" class="btn tonal sm ripple" data-action="ai-read">${icon('check')}Read answer</button></li>
       </ol>
     </div>
-    <button type="button" class="btn text ripple ai-paste-toggle" data-action="ai-paste">${ai.paste ? 'Hide' : 'Use another AI app instead'}</button>`;
+    <div class="ai-bottom">
+      ${chat.length ? `<button type="button" class="btn text ripple" data-action="ai-booking">${icon('confirmation_number')}Add a booking</button>` : ''}
+      <button type="button" class="btn text ripple ai-paste-toggle" data-action="ai-paste">${ai.paste ? 'Hide' : 'Use another AI app instead'}</button>
+    </div>`;
   $('#ai-send').disabled = ai.busy || !aiReady() || !navigator.onLine;
   requestAnimationFrame(() => { body.scrollTop = body.scrollHeight; });
 }
@@ -459,6 +474,15 @@ document.addEventListener('click', async (e) => {
   if (!trip) return;
   const chat = chatOf(trip);
   switch (el.dataset.action) {
+    case 'ai-booking': {
+      // The user pastes the confirmation after this line, then sends.
+      const input = $('#ai-input');
+      input.value = 'Add this booking to my trip:\n\n';
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+      snackbar('Now paste the confirmation email, then send');
+      break;
+    }
     case 'ai-starter':
       sendToAssistant(el.textContent);
       break;
@@ -520,3 +544,44 @@ document.getElementById('ai-input').addEventListener('keydown', (e) => {
     sendToAssistant($('#ai-input').value);
   }
 });
+
+/* ---------- Speaking instead of typing (the phone's own speech recognition) ---------- */
+
+const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
+const voice = { rec: null, before: '' };
+if (Speech) document.getElementById('ai-mic').hidden = false;
+
+function stopVoice() {
+  if (voice.rec) voice.rec.stop();
+}
+
+document.getElementById('ai-mic').addEventListener('click', () => {
+  if (voice.rec) { stopVoice(); return; }
+  const input = document.getElementById('ai-input');
+  const mic = document.getElementById('ai-mic');
+  const rec = new Speech();
+  rec.lang = navigator.language || 'en-US';
+  rec.interimResults = true;
+  rec.continuous = false;
+  voice.rec = rec;
+  voice.before = input.value.trim() ? input.value.trim() + ' ' : '';
+  mic.classList.add('listening');
+  mic.setAttribute('aria-pressed', 'true');
+  rec.onresult = (e) => {
+    const said = [...e.results].map(r => r[0].transcript).join('');
+    input.value = voice.before + said;
+  };
+  rec.onerror = (e) => {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') snackbar('Microphone is blocked for this app — allow it in Chrome’s site settings');
+    else if (e.error === 'network') snackbar('Speaking needs a connection');
+  };
+  rec.onend = () => {
+    voice.rec = null;
+    mic.classList.remove('listening');
+    mic.setAttribute('aria-pressed', 'false');
+    input.focus();
+  };
+  rec.start();
+});
+// Stop listening when the sheet closes.
+document.getElementById('ai-dialog').addEventListener('close', stopVoice);

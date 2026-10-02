@@ -196,10 +196,11 @@ function travel(d, mode = 'transit') {
 const usesImperial = () => /-(US|LR|MM)$/i.test(navigator.language || '');
 const imperial = () => (state.settings.units || (usesImperial() ? 'imperial' : 'metric')) === 'imperial';
 function fmtDist(d) {
-  if (imperial()) return d < 0.1 ? '<0.1 mi' : `${d.toFixed(d < 10 ? 1 : 0)} mi`;
+  const n = (v, dec) => (v < 10 ? v.toFixed(dec) : Math.round(v).toLocaleString());
+  if (imperial()) return d < 0.1 ? '<0.1 mi' : `${n(d, 1)} mi`;
   const km = d * 1.609;
   if (km < 1) return `${Math.max(50, Math.round(km * 20) * 50)} m`;
-  return `${km.toFixed(km < 10 ? 1 : 0)} km`;
+  return `${n(km, 1)} km`;
 }
 const fmtDuration = m => (m < 60 ? `${m} min` : `~${Math.round(m / 30) / 2} h`);
 function directionsUrl(a, b, mode) {
@@ -228,7 +229,14 @@ function planSuggestions(trip, guide, days) {
     }
     anchorsByDay.set(day, anchors);
   }
-  const freeAreas = guide.dayAreas.filter(a => !usedAreas.has(a));
+  // With a hotel (today.js), neighborhoods close to it come first.
+  const base = baseFor(trip, days[0], guide);
+  const areaCenter = (a) => {
+    const inArea = guide.places.filter(p => p.area === a);
+    return inArea.length ? { lat: avg(inArea.map(p => p.lat)), lng: avg(inArea.map(p => p.lng)) } : null;
+  };
+  const byBase = list => (base ? list.map(a => [a, areaCenter(a)]).sort((x, y) => (x[1] && y[1] ? miles(base.c, x[1]) - miles(base.c, y[1]) : 0)).map(x => x[0]) : list);
+  const freeAreas = byBase(guide.dayAreas.filter(a => !usedAreas.has(a)));
   const areaList = freeAreas.length ? freeAreas : guide.dayAreas;
   let areaIndex = 0;
 
@@ -287,6 +295,17 @@ function planSuggestions(trip, guide, days) {
   return out;
 }
 
+/* ---------- Photos of guide places (from Wikimedia, when the guide has one) ---------- */
+
+// Hidden if it can't load (offline, or the file is gone).
+const photoImg = (p, cls) => (p.photo
+  ? `<img class="${cls}" src="${esc(p.photo)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : '');
+
+// A small square photo in lists, with the category icon underneath in case it doesn't load.
+function placeThumb(p, cat) {
+  return `<span class="avatar thumb" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}${photoImg(p, '')}</span>`;
+}
+
 /* ---------- Details sheet for a guide place (full description, add or save) ---------- */
 
 function openPlaceInfo(id, day) {
@@ -300,6 +319,7 @@ function openPlaceInfo(id, day) {
   const tags = [whenTag(p), p.tags.includes('rainy') && (p.when === 'morning' || p.when === 'evening') ? `<span class="tag">${icon('umbrella')}Indoors</span>` : ''].join('');
   const dayName = day && fmtDay(day, { weekday: 'long' });
   $('#place-body').innerHTML = `
+    ${p.photo ? `<figure class="pi-figure">${photoImg(p, 'pi-photo')}<figcaption>Photo: Wikimedia Commons</figcaption></figure>` : ''}
     <div class="pi-head">
       <span class="avatar" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}</span>
       <div class="pi-heading">
@@ -342,6 +362,7 @@ function suggestionCard(r, day) {
   return `
     <article class="s-card" aria-label="${esc(p.name)}">
       <button type="button" class="s-body ripple" data-action="place-info" data-place="${p.id}" data-date="${day}" aria-label="More about ${esc(p.name)}">
+        ${photoImg(p, 's-photo')}
         <span class="s-top"><span class="avatar" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}</span>${whenTag(p)}</span>
         <span class="s-name">${esc(p.name)}</span>
         ${why ? `<span class="s-why">${why}</span>` : ''}
@@ -594,6 +615,8 @@ function itemHTML(item, trip, { showDate = false, drag = false, note = null } = 
   const chips = [
     item.place && `<a class="assist-chip ripple" href="${esc(mapsUrl(item.place, trip))}" target="_blank" rel="noopener">${icon('location_on')}Directions</a>`,
     link && `<a class="assist-chip ripple" href="${esc(link)}" target="_blank" rel="noopener">${icon('link')}${esc(hostLabel(link))}</a>`,
+    filesOf(item.id).length && `<button type="button" class="assist-chip ripple" data-action="files">${icon('confirmation_number')}${filesOf(item.id).length === 1 ? 'Ticket' : `${filesOf(item.id).length} files`}</button>`,
+    item.date && !item.done && `<a class="assist-chip ripple" href="${esc(calendarUrl(item, trip))}" target="_blank" rel="noopener" aria-label="Add ${esc(item.title)} to Google Calendar">${icon('calendar_add_on')}Calendar</a>`,
   ].filter(Boolean).join('');
   return `
     <li class="item ${item.done ? 'done' : ''}" data-id="${item.id}" ${drag ? 'data-drag' : ''}>
@@ -675,6 +698,8 @@ function renderPlan(trip) {
       <button type="button" class="icon-btn hero-edit ripple" data-action="edit-trip" aria-label="Edit trip">${icon('edit')}</button>
     </section>`;
 
+  html += nowCardHTML(trip);   // today.js: on a trip day, what's on now and what's next
+
   const guide = guideFor(trip);
   const suggestions = planSuggestions(trip, guide, days);
   if (!guide && guideState(trip) === 'loading' && state.settings.suggestions) {
@@ -750,24 +775,33 @@ function renderPlan(trip) {
   essentialsFor(trip);
 }
 
-// A day's plans, with the travel time between each pair of stops.
+// The travel time between two stops, as a link to directions. label: e.g. "From Hotel Avenida".
+function legHTML(a, b, mode, label = '') {
+  const d = miles(a, b);
+  if (d < 0.05) return '';
+  const t = travel(d, mode);
+  return `
+    <li class="leg"><a class="leg-link ripple" href="${esc(directionsUrl(a, b, t.mode))}" target="_blank" rel="noopener"
+      aria-label="Directions${label ? ' ' + esc(label.toLowerCase()) : ''}: ${esc(t.text)}, ${fmtDist(d)}">${label ? `${icon('hotel')}<span class="leg-base">${esc(label)}</span> · ` : ''}${icon(t.icon)}${esc(t.text)} · ${fmtDist(d)}${icon('open_in_new', 'open')}</a></li>`;
+}
+
+// A day's plans, with the travel time between each pair of stops, and to and from the home base (today.js).
 function dayListHTML(items, trip, guide) {
+  const day = items[0].date;
+  const mode = modeFor(trip, day);
+  const base = baseFor(trip, day, guide);
+  const located = items.filter(it => coordsOf(it, guide));
+  const useBase = base && located.length && !items.includes(base.item);
   let html = '';
   let prev = null;
   for (const item of items) {
     const c = coordsOf(item, guide);
-    if (prev && c) {
-      const d = miles(prev, c);
-      if (d >= 0.05) {
-        const t = travel(d, modeFor(trip, item.date));
-        html += `
-          <li class="leg"><a class="leg-link ripple" href="${esc(directionsUrl(prev, c, t.mode))}" target="_blank" rel="noopener"
-            aria-label="Directions: ${esc(t.text)}, ${fmtDist(d)}">${icon(t.icon)}${esc(t.text)} · ${fmtDist(d)}${icon('open_in_new', 'open')}</a></li>`;
-      }
-    }
+    if (c && useBase && item === located[0]) html += legHTML(base.c, c, mode, `From ${base.item.title}`);
+    if (prev && c) html += legHTML(prev, c, mode);
     html += itemHTML(item, trip, { drag: true, note: hoursNote(item, guide) });
-    prev = c;
+    if (c) prev = c;
   }
+  if (useBase) html += legHTML(prev, base.c, mode, `Back to ${base.item.title}`);
   return html;
 }
 
@@ -800,7 +834,7 @@ function placeHTML(p, added, trip) {
   return `
     <li class="item place">
       <button type="button" class="item-main ripple" data-action="place-info" data-place="${p.id}" data-date="">
-        <span class="avatar" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}</span>
+        ${placeThumb(p, cat)}
         <span class="item-text">
           <span class="overline">${esc(over)}</span>
           <span class="item-title">${esc(p.name)}</span>
@@ -873,6 +907,7 @@ function renderIdeas(trip) {
       ${trip.place && guide.source ? `
         <div class="place-row">
           <span class="place-pin">${icon('location_on')}${esc(trip.place.label)}</span>
+          <button type="button" class="btn text ripple" data-action="near-me">${icon('my_location')}Near me</button>
           <button type="button" class="btn text ripple" data-action="edit-trip">Change</button>
         </div>` : ''}
       ${destinations ? '' : `
@@ -917,6 +952,7 @@ function renderChecklist() {
       <input name="text" placeholder="Add something to pack or do" maxlength="200" autocomplete="off" aria-label="New checklist item">
       <button type="submit" class="icon-btn filled ripple" aria-label="Add">${icon('add')}</button>
     </form>
+    ${packingHTML(activeTrip())}
     ${todo.length ? `<ul class="group">${todo.map(taskHTML).join('')}</ul>` : ''}
     ${!list.length ? emptyState('luggage', 'Nothing to pack yet', 'Add chargers, tickets, snacks — anything you don’t want to forget.') : ''}
     ${done.length ? `
@@ -1026,8 +1062,12 @@ function renderMore() {
       </div></li>
     </ul>
 
-    <h2 class="group-label">Backup</h2>
+    <h2 class="group-label">Backup &amp; calendar</h2>
     <ul class="group">
+      ${activeTrip() ? `<li><button type="button" class="row ripple" data-action="trip-calendar">
+        <span class="row-icon">${icon('calendar_add_on')}</span>
+        <span class="row-text"><span class="row-title">Calendar file for ${esc(activeTrip().name)}</span><span class="row-sub">Every plan with a day, for any calendar app (in Google Calendar: Settings → Import)</span></span>
+      </button></li>` : ''}
       <li><button type="button" class="row ripple" data-action="export">
         <span class="row-icon">${icon('download')}</span>
         <span class="row-text"><span class="row-title">Save backup file</span><span class="row-sub">Goes to your Downloads folder</span></span>
@@ -1067,6 +1107,7 @@ function openItemForm(item, defaults = {}) {
     itemForm.elements[f].value = v[f] || '';
   }
   $('#item-delete').hidden = !item;
+  openFilesInForm(item ? item.id : null);   // files.js: tickets & bookings
   itemDialog.showModal();
   itemDialog.scrollTop = 0;
   if (!item) itemForm.elements.title.focus();
@@ -1103,6 +1144,7 @@ itemForm.addEventListener('submit', (e) => {
   } else {
     trip.items.push({ id: uid(), done: false, ...data });
   }
+  saveFormFiles(editingItemId || trip.items[trip.items.length - 1].id);
   save();
   itemDialog.close();
   render();
@@ -1338,7 +1380,7 @@ $('#auth-show').addEventListener('click', (e) => {
 });
 
 // Close buttons and tapping the dark area outside a sheet close it.
-for (const dlg of [itemDialog, tripDialog, authDialog, $('#confirm-dialog'), $('#map-dialog'), $('#info-dialog'), $('#place-dialog'), $('#ai-dialog')]) {
+for (const dlg of [itemDialog, tripDialog, authDialog, $('#confirm-dialog'), $('#map-dialog'), $('#info-dialog'), $('#place-dialog'), $('#ai-dialog'), $('#files-dialog'), $('#near-dialog')]) {
   dlg.addEventListener('click', (e) => {
     if (e.target === dlg || e.target.closest('[data-close]')) dlg.close();
   });
@@ -1539,6 +1581,15 @@ document.addEventListener('click', async (e) => {
       break;
     case 'assistant':
       openAssistant();
+      break;
+    case 'near-me':
+      openNearMe();
+      break;
+    case 'files':
+      openFiles(itemEl.dataset.id);
+      break;
+    case 'trip-calendar':
+      downloadTripCalendar(activeTrip());
       break;
     case 'place-info':
       openPlaceInfo(el.dataset.place, el.dataset.date);
@@ -1810,6 +1861,7 @@ if (navigator.storage && navigator.storage.persist) {
 
 render();
 startSync();
+loadFileIndex();   // files.js: which plans have tickets attached
 
 // If the trip is happening now, jump to today's card.
 const todayCard = document.getElementById('day-' + todayISO());

@@ -2,7 +2,7 @@
    Strategy: show the saved copy instantly, and quietly fetch a fresh copy
    in the background (when online) for next time. */
 
-const CACHE = 'trip-planner-v12';
+const CACHE = 'trip-planner-v13';
 const TILES = 'trip-planner-map-tiles';   // map images you've viewed, kept across versions
 const MAX_TILES = 800;                     // roughly 15 MB at most
 const FILES = [
@@ -18,6 +18,10 @@ const FILES = [
   'essentials.js',
   'maps.js',
   'drag.js',
+  'today.js',
+  'calendar.js',
+  'files.js',
+  'packing.js',
   'assistant.js',
   'sync.js',
   'vendor/leaflet/leaflet.js',

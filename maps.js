@@ -92,8 +92,16 @@ function optimizeDay(trip, day) {
   const free = located.filter(it => !it.time);
   if (!free.length) return { error: 'Every stop has a set time, so the order is fixed. Clear a time to let the app move that stop.' };
 
-  const dist = (a, b) => miles(pts.get(a), pts.get(b));
-  const length = seq => seq.reduce((sum, it, k) => (k ? sum + dist(seq[k - 1], it) : 0), 0);
+  // With a hotel (today.js), the day starts and ends there; the route counts both ways.
+  const base = baseFor(trip, day, guide);
+  const home = base && !items.includes(base.item) ? base.c : null;
+  // Distance between two stops; a missing stop (null) is the hotel, or nothing without one.
+  const dist = (a, b) => {
+    if (!a && !b) return 0;
+    if (!a || !b) return home ? miles(home, pts.get(a || b)) : 0;
+    return miles(pts.get(a), pts.get(b));
+  };
+  const length = seq => seq.reduce((sum, it, k) => sum + dist(seq[k - 1] || null, it), 0) + (seq.length ? dist(seq[seq.length - 1], null) : 0);
 
   let best;
   if (located.length <= 10) {
@@ -103,11 +111,15 @@ function optimizeDay(trip, day) {
     const seq = [];
     const search = (len, nextTimed) => {
       if (len >= bestLen) return;
-      if (seq.length === located.length) { bestLen = len; best = seq.slice(); return; }
+      if (seq.length === located.length) {
+        const total = len + dist(seq[seq.length - 1], null);
+        if (total < bestLen) { bestLen = total; best = seq.slice(); }
+        return;
+      }
       for (const it of located) {
         if (used.has(it)) continue;
         if (it.time && it !== timed[nextTimed]) continue;
-        const add = seq.length ? dist(seq[seq.length - 1], it) : 0;
+        const add = dist(seq[seq.length - 1] || null, it);
         used.add(it); seq.push(it);
         search(len + add, it.time ? nextTimed + 1 : nextTimed);
         seq.pop(); used.delete(it);
@@ -120,8 +132,8 @@ function optimizeDay(trip, day) {
     for (const it of free) {
       let pos = 0, cost = Infinity;
       for (let p = 0; p <= best.length; p++) {
-        const before = best[p - 1], after = best[p];
-        const c = (before ? dist(before, it) : 0) + (after ? dist(it, after) : 0) - (before && after ? dist(before, after) : 0);
+        const before = best[p - 1] || null, after = best[p] || null;
+        const c = dist(before, it) + dist(it, after) - dist(before, after);
         if (c < cost) { cost = c; pos = p; }
       }
       best.splice(pos, 0, it);
@@ -205,6 +217,13 @@ function mapGroups(trip) {
   });
 }
 
+// A day's stops for the route, starting and ending at the hotel when there is one (today.js).
+function withBase(trip, day, located) {
+  const base = baseFor(trip, day);
+  const pts = located.map(s => s.c);
+  return base && !located.some(s => s.it === base.item) ? [base.c, ...pts, base.c] : pts;
+}
+
 function googleRouteUrl(points, mode) {
   const fmt = p => `${p.lat},${p.lng}`;
   const params = new URLSearchParams({ api: '1', origin: fmt(points[0]), destination: fmt(points[points.length - 1]) });
@@ -285,7 +304,7 @@ function renderMapBody() {
       </div>` : ''}
     <div class="map-actions">
       ${canOptimize ? `<button type="button" class="btn tonal ripple" data-action="optimize" data-date="${g.day}">${icon('route')}Optimize route</button>` : ''}
-      ${located.length >= 2 ? `<a class="btn filled ripple" href="${esc(googleRouteUrl(located.map(s => s.c), modeFor(trip, g.day)))}" target="_blank" rel="noopener">${icon('directions')}Open in Google Maps</a>` : ''}
+      ${located.length >= 2 ? `<a class="btn filled ripple" href="${esc(googleRouteUrl(withBase(trip, g.day, located), modeFor(trip, g.day)))}" target="_blank" rel="noopener">${icon('directions')}Open in Google Maps</a>` : ''}
     </div>
     <ol class="stops">
       ${g.stops.map(s => {
@@ -348,6 +367,15 @@ function drawMap(fit) {
       mapView.markers.set(s.it.id, marker);
       all.push([s.c.lat, s.c.lng]);
     });
+  }
+  // The hotel on a day's map (today.js).
+  const base = mapView.day !== 'all' && baseFor(trip, mapView.day);
+  if (base && !all.some(([la, ln]) => la === base.c.lat && ln === base.c.lng)) {
+    L.marker([base.c.lat, base.c.lng], {
+      title: base.item.title,
+      icon: L.divIcon({ className: 'pin', html: `<div class="pin-shape base">${icon('hotel')}</div>`, iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -30] }),
+    }).bindPopup(`<strong>${esc(base.item.title)}</strong><br>Your home base`).addTo(mapView.layer);
+    all.push([base.c.lat, base.c.lng]);
   }
   if (!fit) return;
   if (all.length > 1) mapView.map.fitBounds(all, { padding: [48, 48], maxZoom: 16 });

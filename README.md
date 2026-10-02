@@ -16,6 +16,10 @@ A small, installable web app (PWA) for planning a trip on your phone.
 - Each trip gets around by **public transit + walk** or **drive + walk** (set in the trip; a day can differ),
   for travel times, directions and route links. Distances and temperatures in metric or imperial units
   (**More → Appearance → Units**).
+- During the trip: **Now & next** (what's on and when to leave for the next plan) and **What's near me**.
+- A **Stay** plan with an address (your hotel) becomes the **home base**: days start and end there.
+- **Photos** of places, **packing suggestions** from the forecast and your plans, **Add to calendar**,
+  **tickets & bookings** attached to plans, and **booking emails** turned into plans by the AI Assistant.
 - Works offline once it has been opened one time.
 
 ## Files
@@ -37,6 +41,10 @@ A small, installable web app (PWA) for planning a trip on your phone.
 | `hours.js` | Opening hours and "usually closed" warnings (OpenStreetMap). |
 | `drag.js` | Hold and drag plans and ideas onto days. |
 | `assistant.js` | The AI assistant chat (Gemini through Firebase, or the Claude / Gemini app). |
+| `today.js` | Home base (your hotel), "Now & next" during the trip, and "What's near me". |
+| `calendar.js` | Add plans to Google Calendar, or the whole trip as a calendar file. |
+| `files.js` | Tickets & bookings attached to plans (kept on the phone). |
+| `packing.js` | Packing suggestions for the Checklist. |
 | `vendor/leaflet/` | Leaflet map library (BSD-2 license), stored in the app. |
 | `fonts/`, `icons/sprite.svg` | Google Sans Flex and Material Symbols, stored for offline use (`tools/fetch-assets.ps1`). |
 | `manifest.webmanifest` | Tells the phone the app's name, icon and colors so it can be installed. |
@@ -152,3 +160,13 @@ Notes:
 - reCAPTCHA is free up to 10,000 checks a month, far more than the assistant uses.
 - Testing on this computer (`localhost`) needs one more step: the browser console prints an
   "App Check debug token" — add it in Firebase → App Check → your web app → **Manage debug tokens**.
+
+## Tickets, calendar and location
+
+- **Tickets & bookings**: edit a plan → **Attach** a photo or PDF (boarding pass, museum ticket…). They're saved on
+  that phone only — not synced to the other phone and not in backup files — and open offline.
+- **Add to calendar**: the **Calendar** button on a plan opens Google Calendar with it filled in. For the whole trip,
+  **More → Calendar file for …** saves a file to import (Google Calendar on a computer: Settings → Import & export).
+- **What's near me** asks the phone for its location once; nothing is sent anywhere (the guide is already on the phone).
+- **Booking emails**: in the AI Assistant, tap **Add from a booking email**, paste the confirmation and send. As with
+  everything the AI Assistant does, you see the plans first and tap **Apply**.

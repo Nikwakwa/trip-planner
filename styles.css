@@ -1726,3 +1726,85 @@ dialog.ai-sheet { height: 94dvh; }
 
 /* A day getting around differently from the rest of the trip */
 .assist-chip.selected { background: var(--secondary-container); color: var(--on-secondary-container); border-color: transparent; }
+
+/* ---------- Now & next (today.js) ---------- */
+.now-card {
+  display: grid;
+  gap: 12px;
+  margin: -12px 0 24px;
+  padding: 16px;
+  border-radius: 24px;
+  background: var(--tertiary-container);
+  color: var(--on-tertiary-container);
+}
+.now-row { display: grid; gap: 2px; }
+.now-label { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 12px; line-height: 16px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .8; }
+.now-label .icon { width: 16px; height: 16px; }
+.now-title { margin: 0; font-size: 18px; line-height: 24px; font-weight: 600; overflow-wrap: anywhere; }
+.now-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0; font-size: 14px; line-height: 20px; }
+.now-sub .icon { width: 18px; height: 18px; }
+.now-late { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; color: var(--error); }
+.now-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.now-card .assist-chip { background: color-mix(in oklab, var(--on-tertiary-container) 8%, transparent); color: inherit; border-color: transparent; }
+.now-card .assist-chip .icon { color: inherit; }
+
+/* Home base legs and map pin */
+.leg-base { max-width: 45vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.pin-shape.base { background: var(--tertiary, #7d5260); }
+.pin-shape.base .icon { width: 18px; height: 18px; color: #fff; transform: rotate(45deg); }
+
+/* Near me: places that are closed now are dimmed */
+.item.place.closed .item-main { opacity: .6; }
+
+/* ---------- Photos of places ---------- */
+.avatar.thumb { position: relative; overflow: hidden; width: 56px; height: 56px; border-radius: 16px; }
+.avatar.thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.s-photo {
+  display: block;
+  width: calc(100% + 16px);
+  height: 120px;
+  margin: -8px -8px 2px;
+  border-radius: 16px 16px 8px 8px;
+  object-fit: cover;
+  background: var(--surface-container-high);
+}
+.pi-figure { margin: 4px -4px 0; }
+.pi-photo { display: block; width: 100%; max-height: 240px; border-radius: 20px; object-fit: cover; background: var(--surface-container-high); }
+.pi-figure figcaption { margin-top: 4px; font-size: 11px; line-height: 14px; color: var(--on-surface-variant); text-align: right; }
+.pi-figure:not(:has(img)) { display: none; }
+
+/* ---------- Tickets & bookings (files.js) ---------- */
+.files-field { display: grid; gap: 6px; }
+.files-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-left: 4px; }
+.file-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.file-list:empty { display: none; }
+.file-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 4px 6px 14px;
+  border-radius: 14px;
+  background: var(--surface-container-high);
+  color: var(--on-surface);
+  text-decoration: none;
+  font-size: 14px;
+}
+.file-row > .icon { width: 20px; height: 20px; flex: none; color: var(--primary); }
+.file-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-size { flex: none; color: var(--on-surface-variant); font-size: 12px; }
+.file-open { padding: 14px; margin-bottom: 8px; }
+.file-view { margin: 0 0 16px; }
+.file-view img { display: block; width: 100%; border-radius: 16px; background: #fff; }
+.file-view figcaption { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; font-size: 13px; color: var(--on-surface-variant); }
+
+/* ---------- Packing suggestions (packing.js) ---------- */
+.pack-ideas { margin: 4px 0 20px; }
+.pack-ideas .group-label { display: flex; align-items: center; gap: 6px; }
+.pack-idea { display: flex; align-items: center; padding-right: 4px; }
+.pack-add { flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; padding: 12px 8px 12px 18px; text-align: left; }
+.pack-add > .icon { color: var(--primary); flex: none; }
+
+/* ---------- AI Assistant: bottom buttons and voice ---------- */
+.ai-bottom { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
+#ai-mic.listening { background: var(--error-container); color: var(--on-error-container); animation: pulse 1s var(--ease) infinite alternate; }
+.place-row .btn { white-space: nowrap; flex: none; }
