@@ -86,7 +86,8 @@ then everything else (`byPlanOrder`).
   from 2026-11-02.
 - It uses the Gemini free tier only: `gemini-3.8-flash` (~20 requests/day), and on a daily 429 it switches to
   `gemini-3.5-flash-lite` for the rest of the day (`liteDay`).
-- The model returns JSON `{reply, changes[]}` (structured output, `aiSchema()`). `checkChanges` validates the
+- The model returns JSON `{reply, add[], update[], remove[], dates}` (structured output, `aiSchema()`; every field is
+  required, since Flash-Lite drops optional ones). `parseAnswer` turns it into one `changes` list. `checkChanges` validates the
   changes against the trip, and nothing is applied until the user taps Apply (with Undo).
 - The same prompt can be copied to the Claude or Gemini app, and the pasted answer goes through `parseAnswer`.
 - Chats are stored per trip on the phone only (`tripPlanner.assistant`).

@@ -84,49 +84,59 @@ function tripContext(trip) {
 const AI_RULES = `You are the trip-planning assistant inside a trip planner app. Help plan the trip described below.
 
 How to answer:
-- Answer with JSON only: {"reply": string, "changes": [...]}.
+- Answer with JSON only:
+  {"reply": "...", "add": [...], "update": [...], "remove": [...], "dates": {"start": "", "end": ""}}
 - "reply" is short plain text (no markdown), in the user's language. Say what you suggest and why, briefly.
-- "changes" lists edits to the trip. Leave it empty for questions or advice. The user sees your changes
-  as a preview and decides whether to apply them, so only propose what the user asked for.
-- Change types:
-  {"action":"add","title":..,"category":..,"date":"YYYY-MM-DD" or "" for an idea,"time":"HH:MM" or "","place":..,"notes":..,"guide_id":..}
-  {"action":"update","id":<existing plan id>, then only the fields that change}
-  {"action":"delete","id":<existing plan id>}
-  {"action":"set_dates","start":"YYYY-MM-DD","end":"YYYY-MM-DD"}
+- The other fields are changes to the trip. Leave them empty for questions or advice. The user sees your
+  changes as a preview and decides whether to apply them, so only change what the user asked for.
+- "add": new plans. Give every field:
+  {"guide_id": id of the travel guide place, or "" if it isn't one,
+   "title": ..., "category": ..., "date": "YYYY-MM-DD", or "" to save it as an idea without a day,
+   "time": "HH:MM" (24-hour), or "" if the exact time doesn't matter, "place": address or place name, "notes": "" or a short tip}
+- "update": changed plans. Give the plan's "id" and all its fields with their new values
+  (title, category, date, time, place, notes), copying the fields that don't change exactly as they are.
+- "remove": plans to delete, as {"id": ...}.
+- "dates": new first and last day of the trip, or "" for both to leave them as they are.
 - category is one of: sight, food, event, shopping, transport, stay, other.
-- When adding a place from the travel guide, set guide_id to its id and use its name as the title.
-- Use 24-hour times. Leave time "" when the exact time doesn't matter.
+- When the user asks to plan a day or a time, give each plan that date (and usually a time):
+  plans on a day, not ideas. Only use date "" when the user asks for ideas to keep for later.
+- For a place from the travel guide, set its guide_id and use its name as the title.
 - Plan realistic days: respect opening hours and visit lengths (mins), group nearby places (same area),
   leave time for meals and travel, and prefer indoor places (tag "rainy") on rainy days.
-- Never delete or move plans the user didn't ask about. Don't add a place that is already in the plans.`;
+- Never remove or move plans the user didn't ask about. Don't add a place that is already in the plans.`;
 
-const aiSchema = () => ({
-  type: 'object',
-  properties: {
-    reply: { type: 'string' },
-    changes: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          action: { type: 'string', enum: ['add', 'update', 'delete', 'set_dates'] },
-          id: { type: 'string' },
-          guide_id: { type: 'string' },
-          title: { type: 'string' },
-          category: { type: 'string', enum: Object.keys(CATEGORIES) },
-          date: { type: 'string' },
-          time: { type: 'string' },
-          place: { type: 'string' },
-          notes: { type: 'string' },
-          start: { type: 'string' },
-          end: { type: 'string' },
-        },
-        required: ['action'],
-      },
+const AI_PLAN_FIELDS = ['title', 'category', 'date', 'time', 'place', 'notes'];
+const aiSchema = () => {
+  const text = { type: 'string' };
+  const plan = {
+    title: text, category: { type: 'string', enum: Object.keys(CATEGORIES) },
+    date: text, time: text, place: text, notes: text,
+  };
+  return {
+    type: 'object',
+    properties: {
+      reply: text,
+      add: { type: 'array', items: { type: 'object', properties: { guide_id: text, ...plan }, required: ['guide_id', ...AI_PLAN_FIELDS] } },
+      update: { type: 'array', items: { type: 'object', properties: { id: text, ...plan }, required: ['id', ...AI_PLAN_FIELDS] } },
+      remove: { type: 'array', items: { type: 'object', properties: { id: text }, required: ['id'] } },
+      dates: { type: 'object', properties: { start: text, end: text }, required: ['start', 'end'] },
     },
-  },
-  required: ['reply', 'changes'],
-});
+    required: ['reply', 'add', 'update', 'remove', 'dates'],
+  };
+};
+
+// The app keeps one list of changes; the answer format groups them by kind.
+function answerOf(text, changes) {
+  const pick = (c, keys) => Object.fromEntries(keys.map(k => [k, c[k] ?? '']));
+  const dates = changes.find(c => c.action === 'set_dates');
+  return {
+    reply: text,
+    add: changes.filter(c => c.action === 'add').map(c => pick(c, ['guide_id', ...AI_PLAN_FIELDS])),
+    update: changes.filter(c => c.action === 'update').map(c => pick(c, ['id', ...AI_PLAN_FIELDS])),
+    remove: changes.filter(c => c.action === 'delete').map(c => ({ id: c.id })),
+    dates: { start: dates ? dates.start : '', end: dates ? dates.end : '' },
+  };
+}
 
 /* ---------- Talking to Gemini (Firebase AI Logic) ---------- */
 
@@ -164,6 +174,8 @@ async function callGemini(model, body) {
   if (!res.ok) {
     const msg = (data.error && data.error.message) || `HTTP ${res.status}`;
     if (res.status === 429) throw new AIError(/day/i.test(msg) ? 'daily' : 'busy', msg);
+    // "High demand" and other hiccups on Google's side: the lighter model usually still answers.
+    if (res.status >= 500 || /high demand|overloaded|UNAVAILABLE/i.test(msg)) throw new AIError('busy', msg);
     if (/SERVICE_DISABLED|has not been used|not enabled/i.test(msg)) throw new AIError('setup', msg);
     if (/app ?check/i.test(msg) || res.status === 401) throw new AIError('appcheck', msg);
     throw new AIError('other', msg);
@@ -178,7 +190,7 @@ async function callGemini(model, body) {
 async function askGemini(trip, chat) {
   const contents = chat.slice(-AI_HISTORY).map(m => ({
     role: m.role,
-    parts: [{ text: m.role === 'model' ? JSON.stringify({ reply: m.text, changes: m.changes || [] }) + (m.status ? `\n(The user ${m.status === 'applied' ? 'applied' : 'did not apply'} these changes.)` : '') : m.text }],
+    parts: [{ text: m.role === 'model' ? JSON.stringify(answerOf(m.text, m.changes || [])) + (m.status ? `\n(The user ${m.status === 'applied' ? 'applied' : 'did not apply'} these changes.)` : '') : m.text }],
   }));
   const body = {
     systemInstruction: { parts: [{ text: `${AI_RULES}\n\n${tripContext(trip)}` }] },
@@ -208,10 +220,15 @@ function parseAnswer(text) {
   raw = raw.slice(a, b + 1);
   let data;
   try { data = JSON.parse(raw); } catch { throw new AIError('format', 'JSON could not be read'); }
-  return {
-    text: typeof data.reply === 'string' ? data.reply.trim() : '',
-    changes: Array.isArray(data.changes) ? data.changes.filter(c => c && typeof c === 'object') : [],
-  };
+  const list = k => (Array.isArray(data[k]) ? data[k].filter(c => c && typeof c === 'object') : []);
+  const changes = [
+    ...list('add').map(c => ({ ...c, action: 'add' })),
+    ...list('update').map(c => ({ ...c, action: 'update' })),
+    ...list('remove').map(c => ({ id: c.id, action: 'delete' })),
+    ...list('changes'),                                  // an older format, still accepted
+  ];
+  if (data.dates && data.dates.start && data.dates.end) changes.push({ action: 'set_dates', start: data.dates.start, end: data.dates.end });
+  return { text: typeof data.reply === 'string' ? data.reply.trim() : '', changes };
 }
 
 /* ---------- Turning proposed changes into real edits ---------- */
@@ -226,7 +243,9 @@ function checkChanges(trip, changes) {
   const out = [];
   for (const c of changes) {
     if (c.action === 'add') {
-      const p = guide && c.guide_id ? guide.places.find(x => x.id === c.guide_id) : null;
+      // The guide place: by its id, or else by its name in the title or place.
+      const p = guide && ((c.guide_id && guide.places.find(x => x.id === c.guide_id))
+        || matchPlaces({ title: aiText(c.title, 120), place: aiText(c.place, 200) }, guide)[0]) || null;
       const title = aiText(c.title, 120) || (p && p.name);
       if (!title) continue;
       const item = {
@@ -247,8 +266,9 @@ function checkChanges(trip, changes) {
       if ('category' in c && CATEGORIES[c.category]) patch.category = c.category;
       if ('date' in c && (c.date === '' || aiIsDate(c.date))) patch.date = c.date;
       if ('time' in c && (c.time === '' || aiIsTime(c.time))) patch.time = c.time;
-      if ('place' in c) patch.place = aiText(c.place, 200);
-      if ('notes' in c) patch.notes = aiText(c.notes, 2000);
+      // An empty place or notes means "not given" (the model may skip copying them), not "erase".
+      if (aiText(c.place, 200)) patch.place = aiText(c.place, 200);
+      if (aiText(c.notes, 2000)) patch.notes = aiText(c.notes, 2000);
       for (const k of Object.keys(patch)) if (patch[k] === item[k]) delete patch[k];
       if (!Object.keys(patch).length) continue;
       const after = { ...item, ...patch };
