@@ -43,19 +43,28 @@ function lookupMissing(trip, items) {
     if (!needsLookup(item, guide) || geoPending.has(item.id)) continue;
     geoPending.add(item.id);
     geoChain = geoChain.then(async () => {
-      const waitMs = geoLast + 1100 - Date.now();
-      if (waitMs > 0) await new Promise(r => setTimeout(r, waitMs));
-      geoLast = Date.now();
       const city = trip.place ? trip.place.name : guide ? guide.city : trip.name;
       const where = trip.place ? trip.place.label : city;
-      const q = norm(item.place).includes(norm(city)) ? item.place : `${item.place}, ${where}`;
-      const params = new URLSearchParams({ format: 'jsonv2', limit: '1', q, 'accept-language': 'en' });
-      if (guide && GEO_AREAS[guide.id]) params.set('viewbox', GEO_AREAS[guide.id]);
-      else if (trip.place && trip.place.bbox) params.set('viewbox', trip.place.bbox.join(','));
+      // A full address ("…, 1200-359 Lisboa, Portugal") is searched as written first; a short
+      // one ("Castelo") with the trip's city added. The first answer near the trip counts.
+      const tries = norm(item.place).includes(norm(city)) || !item.place.includes(',')
+        ? [norm(item.place).includes(norm(city)) ? item.place : `${item.place}, ${where}`]
+        : [item.place, `${item.place}, ${where}`];
+      const near = trip.place || (guide && guide.places[0]);
       try {
-        const res = await fetch('https://nominatim.openstreetmap.org/search?' + params);
-        if (!res.ok) return;
-        const [hit] = await res.json();
+        let hit = null;
+        for (const q of tries) {
+          const waitMs = geoLast + 1100 - Date.now();
+          if (waitMs > 0) await new Promise(r => setTimeout(r, waitMs));
+          geoLast = Date.now();
+          const params = new URLSearchParams({ format: 'jsonv2', limit: '1', q, 'accept-language': 'en' });
+          if (guide && GEO_AREAS[guide.id]) params.set('viewbox', GEO_AREAS[guide.id]);
+          else if (trip.place && trip.place.bbox) params.set('viewbox', trip.place.bbox.join(','));
+          const res = await fetch('https://nominatim.openstreetmap.org/search?' + params);
+          if (!res.ok) return;
+          const [found] = await res.json();
+          if (found && (!near || tries.length === 1 || miles(near, { lat: Number(found.lat), lng: Number(found.lon) }) < 60)) { hit = found; break; }
+        }
         if (hit) {
           item.lat = Number(hit.lat);
           item.lng = Number(hit.lon);
