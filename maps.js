@@ -300,7 +300,7 @@ function mapGroups(trip) {
 function withBase(trip, day, located) {
   const base = baseFor(trip, day);
   const pts = located.map(s => s.c);
-  return base && !located.some(s => s.it === base.item) ? [base.c, ...pts, base.c] : pts;
+  return base && pts.length && !located.some(s => s.it === base.item) ? [base.c, ...pts, base.c] : pts;
 }
 
 function googleRouteUrl(points, mode) {
@@ -379,15 +379,17 @@ function renderMapPane() {
   }
   const g = groups[0];
   const located = g.stops.filter(s => s.c);
+  // The day's journey, from the stay and back to it when there is one.
+  const route = withBase(trip, g.day, located);
   let total = 0, minutes = 0;
-  located.forEach((s, k) => {
+  route.forEach((c, k) => {
     if (!k) return;
-    const d = miles(located[k - 1].c, s.c);
+    const d = miles(route[k - 1], c);
     total += d;
     minutes += travel(d, modeFor(trip, g.day)).mins;
   });
   $('#pane-title').textContent = fmtDay(g.day, { weekday: 'long', month: 'short', day: 'numeric' });
-  $('#pane-sub').textContent = located.length > 1
+  $('#pane-sub').textContent = route.length > 1
     ? `${plural(located.length, 'stop')} · ${fmtDist(total)} · ${fmtDuration(Math.round(minutes))} of travel`
     : `${plural(located.length, 'stop')} on the map`;
   $('#pane-actions').innerHTML = `
@@ -457,16 +459,18 @@ function renderMapBody() {
 
   const g = groups[0];
   const located = g.stops.filter(s => s.c);
+  // The day's journey, from the stay and back to it when there is one.
+  const route = withBase(trip, g.day, located);
   let total = 0, minutes = 0;
-  located.forEach((s, k) => {
+  route.forEach((c, k) => {
     if (!k) return;
-    const d = miles(located[k - 1].c, s.c);
+    const d = miles(route[k - 1], c);
     total += d;
     minutes += travel(d, modeFor(trip, g.day)).mins;
   });
   $('#map-title').textContent = fmtDay(g.day, { weekday: 'long', month: 'short', day: 'numeric' });
   $('#map-sub').textContent = pending ? 'Finding places on the map…'
-    : located.length > 1 ? `${plural(located.length, 'stop')} · ${fmtDist(total)} · ${fmtDuration(Math.round(minutes))} of travel`
+    : route.length > 1 ? `${plural(located.length, 'stop')} · ${fmtDist(total)} · ${fmtDuration(Math.round(minutes))} of travel`
     : `${plural(located.length, 'stop')} on the map`;
 
   const canOptimize = located.length >= 3 && located.some(s => !s.it.time);
@@ -545,8 +549,10 @@ function drawMap(fit) {
   const all = [];
   for (const g of mapGroups(trip)) {
     const pts = g.stops.filter(s => s.c);
-    if (pts.length > 1) {
-      L.polyline(pts.map(s => [s.c.lat, s.c.lng]), { color: g.color, weight: 4, opacity: .85, dashArray: '1 9', lineCap: 'round' })
+    // A day's route starts and ends at the stay (today.js); the whole-trip view only links the stops.
+    const line = mapView.day === 'all' ? pts.map(s => s.c) : withBase(trip, g.day, pts);
+    if (line.length > 1) {
+      L.polyline(line.map(c => [c.lat, c.lng]), { color: g.color, weight: 4, opacity: .85, dashArray: '1 9', lineCap: 'round' })
         .addTo(mapView.layer);
     }
     pts.forEach((s, k) => {
