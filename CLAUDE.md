@@ -16,6 +16,7 @@ written for a non-developer owner, so keep its explanations plain-language when 
 ```
 
 There is no build, lint or test command. Check changes by loading the app in a browser at phone size.
+Testing notes (this machine has no Node or Python; use PowerShell or Git Bash):- `.claude/launch.json` starts `serve.ps1` for the browser pane (`preview_start` name `trip-planner`).- The service worker serves stale files after an edit. Before checking a change, unregister it and clear caches  (`navigator.serviceWorker.getRegistrations()` → `unregister()`, `caches.delete`), then reload.- When the app window is in the background, the pane stops drawing (screenshots time out, smooth scroll and map  rendering stall). Measure the DOM instead, or render a page to PNG with Edge headless (see `tools/make-icons.ps1`).- The AI Assistant (App Check) only works on the live site, https://nikwakwa.github.io/trip-planner/. After a push,  wait until `sw.js` there shows the new `trip-planner-vN`, then open the site with a `?fresh=N` query to dodge caches.
 
 Asset scripts (they download from the internet and rewrite files in the repo):
 - `tools/fetch-assets.ps1`: re-downloads the font, **regenerates `icons/sprite.svg`** from the icon
@@ -67,7 +68,7 @@ localStorage `tripPlanner.guides` (up to 10). `planSuggestions` in `app.js` and 
 - Distances are computed in miles. Show them with `fmtDist()`, and temperatures with `temp()`. Both follow
   `state.settings.units` (`'metric'`/`'imperial'`, per phone, defaulting from the phone's language).
 
-**Maps (`maps.js`).** Leaflet (vendored) is loaded on first use. Tiles come from OSM, and addresses are looked up with
+**Maps (`maps.js`).** Leaflet (vendored) is loaded on first use. Addresses are looked up with
 Nominatim. The basemap is a MapLibre GL vector layer inside Leaflet (`L.maplibreGL`, vendored in `vendor/maplibre`),
 using OpenFreeMap's "liberty" style as adjusted by `tuneMapStyle(style, theme)` in `mapstyle.js` (earlier POI labels;
 the dark theme is derived by recoloring every paint color, see `nightColor`). Pins, routes and popups stay Leaflet.
@@ -98,7 +99,7 @@ then everything else (`byPlanOrder`).
 - The model returns JSON `{reply, add[], update[], remove[], dates}` (structured output, `aiSchema()`; every field is
   required, since Flash-Lite drops optional ones). `parseAnswer` turns it into one `changes` list. `checkChanges` validates the
   changes against the trip, and nothing is applied until the user taps Apply (with Undo).
-- The same prompt can be copied to the Claude or Gemini app, and the pasted answer goes through `parseAnswer`.
+- The same prompt can be copied to another AI app (the UI never names one), and the pasted answer goes through `parseAnswer`.
 - Chats are stored per trip on the phone only (`tripPlanner.assistant`).
 
 **During the trip, calendar, files, packing.**
