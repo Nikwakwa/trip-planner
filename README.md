@@ -30,7 +30,6 @@ the same address shows a desktop layout on a wide screen, by itself.
 | `index.html` | The page structure (what's on screen). |
 | `styles.css` | The look: colors, spacing, fonts. |
 | `app.js` | The behavior: adding plans, saving, switching trips. |
-| `guides.js` | Built-in Boston and NYC guides used for suggestions and Explore. |
 | `places.js` | Finds a trip's place (OpenStreetMap) and builds a guide for it (Wikivoyage, Wikipedia). |
 | `sync.js` | Sign-in and syncing plans between phones (Firebase). |
 | `firebase-config.js` | Your Firebase project's settings (see below). |
@@ -117,7 +116,6 @@ best match is used). The app then fetches that place's
 - **A country or region** → its main cities and destinations.
 - No Wikivoyage page → the best-known places nearby from Wikipedia.
 
-Boston and New York keep their hand-picked built-in guides.
 
 ## Weather, essentials and opening hours
 

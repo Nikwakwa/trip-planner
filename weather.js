@@ -32,9 +32,7 @@ const weather = {
 
 // Where to ask about: the trip's city. Countries and regions are too big for one forecast.
 function weatherSpot(trip) {
-  if (trip.place) return trip.place.kind === 'city' ? trip.place : null;
-  const builtIn = GUIDES.find(g => g.match.test(trip.name));
-  return builtIn ? builtIn.places[0] : null;
+  return trip.place && trip.place.kind === 'city' ? trip.place : null;
 }
 const spotKey = s => `${s.lat.toFixed(2)},${s.lng.toFixed(2)}`;
 

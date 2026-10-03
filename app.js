@@ -134,19 +134,15 @@ function prepGuide(g) {
   g.dayAreas = g.dayAreas || [];
   return g;
 }
-GUIDES.forEach(prepGuide);
 
-// The built-in Boston / NYC guides when the trip is there; otherwise the guide
-// fetched for the trip's place (see places.js).
+// The guide for the trip's place: sights, food and more from the travel guide (see places.js).
 function guideFor(trip) {
-  const builtIn = GUIDES.find(g => g.match.test(trip.name));
-  if (builtIn && (!trip.place || miles(trip.place, builtIn.places[0]) < 30)) return builtIn;
   return placeGuide(trip);
 }
 
 const placeLabel = trip => (trip.place ? trip.place.label : trip.name);
 
-// Which guide places does a plan refer to? ("Boston Common" → the Boston Common entry)
+// Which guide places does a plan refer to? (a plan named after a sight → that sight's entry)
 function matchPlaces(item, guide) {
   if (!guide) return [];
   if (item.guideId) return guide.places.filter(p => p.id === item.guideId);
@@ -426,7 +422,7 @@ function defaultState() {
       check('Phone charger + power bank'),
       check('Comfortable walking shoes'),
       check('ID / wallet'),
-      check('Tap-to-pay set up on phone (subway)'),
+      check('Tap-to-pay set up on phone'),
       check('Light jacket / layers'),
     ],
     settings: defaultSettings(),
@@ -1179,6 +1175,31 @@ $('#item-category').insertAdjacentHTML('beforeend', Object.entries(CATEGORIES).m
   <label style="--h:${c.hue}"><input type="radio" name="category" value="${k}">
     <span class="ripple">${icon(c.icon + '-fill')}${esc(c.label)}</span></label>`).join(''));
 
+// Example texts for the plan form, from the trip's own guide and the type of plan chosen
+// (a sight in Lisbon → "e.g. Visit Praça do Comércio"). Plain wording when there's no guide yet.
+function planExamples(trip, category) {
+  const city = trip ? (trip.place ? trip.place.name : trip.name) : '';
+  const inCity = city ? ` in ${city}` : '';
+  if (category === 'transport') return { title: 'e.g. Train to the airport', place: `e.g. the main station${inCity}` };
+  if (category === 'stay') return { title: 'e.g. Hotel check-in', place: 'The address of your hotel or apartment' };
+  const guide = trip && guideFor(trip);
+  const taken = guide ? new Set(trip.items.flatMap(i => matchPlaces(i, guide).map(p => p.id))) : new Set();
+  const pool = guide ? guide.places.filter(p => !taken.has(p.id)) : [];
+  const p = pool.find(x => x.cat === category) || (category === 'other' ? pool[0] : null);
+  if (!p) {
+    const generic = { sight: 'Visit the old town', food: 'Dinner out', event: 'Concert or show', shopping: 'Browse the market', other: 'Meet friends' };
+    return { title: `e.g. ${generic[category] || generic.sight}`, place: `A place name or an address${inCity}` };
+  }
+  const verb = guide.kind === 'destinations' ? 'Day trip to ' : { sight: 'Visit ', food: 'Eat at ', shopping: 'Shopping at ' }[category] || '';
+  return { title: `e.g. ${verb}${p.name}`, place: `e.g. ${p.place || p.name}` };
+}
+
+function setPlanExamples() {
+  const ex = planExamples(activeTrip(), itemForm.elements.category.value || 'sight');
+  itemForm.elements.title.placeholder = ex.title;
+  itemForm.elements.place.placeholder = ex.place;
+}
+
 function openItemForm(item, defaults = {}) {
   editingItemId = item ? item.id : null;
   const v = item || { title: '', category: 'sight', date: '', time: '', place: '', link: '', notes: '', ...defaults };
@@ -1187,11 +1208,15 @@ function openItemForm(item, defaults = {}) {
     itemForm.elements[f].value = v[f] || '';
   }
   $('#item-delete').hidden = !item;
+  setPlanExamples();
   openFilesInForm(item ? item.id : null);   // files.js: tickets & bookings
   itemDialog.showModal();
   itemDialog.scrollTop = 0;
   if (!item) itemForm.elements.title.focus();
 }
+
+// Another type of plan: other examples.
+$('#item-category').addEventListener('change', setPlanExamples);
 
 itemForm.addEventListener('submit', (e) => {
   e.preventDefault();
@@ -1348,7 +1373,6 @@ tripForm.addEventListener('submit', async (e) => {
 
   // No place picked from the list: use the best match for the name.
   let place = placeSearch.chosen;
-  const builtIn = GUIDES.some(g => g.match.test(data.name));
   if (!place && navigator.onLine) {
     const btn = tripForm.querySelector('[type="submit"]');
     btn.disabled = true;
@@ -1371,7 +1395,7 @@ tripForm.addEventListener('submit', async (e) => {
     ui.view = 'plan';
   }
   if (place) trip.place = place;
-  else if (!builtIn) delete trip.place;
+  else delete trip.place;
   // Days set to what is now the trip's own way of getting around don't need their own setting.
   if (trip.dayTravel) {
     for (const d of Object.keys(trip.dayTravel)) if (trip.dayTravel[d] === trip.travel) delete trip.dayTravel[d];
@@ -1381,7 +1405,7 @@ tripForm.addEventListener('submit', async (e) => {
   tripDialog.close();
   render();
   if (place && !guideFor(trip) && guideState(trip) === 'loading') snackbar(`Found ${place.label} — getting ideas…`);
-  else if (!place && !builtIn && navigator.onLine) snackbar(`Couldn’t find ${data.name} on the map — no suggestions for it`);
+  else if (!place && navigator.onLine) snackbar(`Couldn’t find ${data.name} on the map — no suggestions for it`);
 });
 
 $('#trip-delete').addEventListener('click', async () => {

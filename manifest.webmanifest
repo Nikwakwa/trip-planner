@@ -1,7 +1,7 @@
 {
-  "name": "Trip Planner – Boston & NYC",
+  "name": "Trip Planner",
   "short_name": "Trip Planner",
-  "description": "Plan your Boston and NYC trip. Works offline.",
+  "description": "Plan your trips day by day. Works offline.",
   "id": "./",
   "start_url": "./",
   "scope": "./",

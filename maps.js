@@ -35,7 +35,6 @@ function dayItems(trip, day) {
 
 /* ---------- Address lookup (OpenStreetMap Nominatim) ---------- */
 
-const GEO_AREAS = { boston: '-71.20,42.45,-70.95,42.23', nyc: '-74.26,40.92,-73.70,40.49' };
 const geoPending = new Set();
 let geoChain = Promise.resolve();
 let geoLast = 0;
@@ -68,8 +67,7 @@ function lookupMissing(trip, items) {
           if (waitMs > 0) await new Promise(r => setTimeout(r, waitMs));
           geoLast = Date.now();
           const params = new URLSearchParams({ format: 'jsonv2', limit: '1', q, 'accept-language': 'en' });
-          if (guide && GEO_AREAS[guide.id]) params.set('viewbox', GEO_AREAS[guide.id]);
-          else if (trip.place && trip.place.bbox) params.set('viewbox', trip.place.bbox.join(','));
+          if (trip.place && trip.place.bbox) params.set('viewbox', trip.place.bbox.join(','));
           const res = await fetch('https://nominatim.openstreetmap.org/search?' + params);
           if (!res.ok) return;
           const [found] = await res.json();

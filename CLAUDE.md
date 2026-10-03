@@ -27,7 +27,7 @@ Asset scripts (they download from the internet and rewrite files in the repo):
 ## Architecture
 
 **Classic scripts that share one global scope.** `index.html` loads, in this order:
-`firebase-config.js` → `guides.js` → `places.js` → `weather.js` → `hours.js` → `essentials.js` → `mapstyle.js` → `maps.js` →
+`firebase-config.js` → `places.js` → `weather.js` → `hours.js` → `essentials.js` → `mapstyle.js` → `maps.js` →
 `drag.js` → `today.js` → `calendar.js` → `files.js` → `packing.js` → `assistant.js` → `sync.js` → `app.js`. Don't use `app.js` names (`$`, `CATEGORIES`, …) at load time
 in the earlier files, only inside functions. The files are not modules. The feature files call helpers defined in `app.js` (`$`, `esc`, `icon`,
 `save`, `render`, `snackbar`, `state`, …) at runtime, which works because `app.js` loads last and the calls
@@ -50,8 +50,8 @@ happen after startup. Top-level names must stay unique across all files.
   derives the whole palette from that one color. Light/dark mode is set with `html[data-theme]`.
 
 **Guides and suggestions.** A "guide" has the shape `{ dayAreas, places[{id,name,area,cat,lat,lng,mins,when,tags,blurb,aliases}] }`.
-`guideFor(trip)` returns either a hand-written built-in guide (`guides.js`: Boston, NYC, matched by regex
-on the trip name) or a generated one (`places.js`). `places.js` looks up the trip's place with Photon (OSM),
+`guideFor(trip)` returns the guide generated for the trip's place (`places.js`; there are no built-in guides any more).
+`places.js` looks up the trip's place with Photon (OSM),
 then builds a guide from Wikivoyage listings, falling back to Wikipedia geosearch. Generated guides are cached in
 localStorage `tripPlanner.guides` (up to 10). `planSuggestions` in `app.js` and Explore both use this guide.
 - Places may carry `about` (the full description, shown in the details sheet `openPlaceInfo`) and `hours`.
@@ -86,8 +86,6 @@ then everything else (`byPlanOrder`).
 - `drag.js` uses a long-press, then pointer events plus a non-passive `touchmove` to stop the page scrolling. Elements
   marked `data-drag` (plan cards in the Plan view, `.idea-chip`s in the ideas tray) can be dragged. A drop rewrites
   `date` and renumbers the untimed plans' `slot`s for that day.
-- Built-in Boston/NYC trips also get a `trip.place` now (for weather and essentials). `guideFor` still prefers the
-  built-in guide.
 
 **AI assistant (`assistant.js`).**
 - It calls the Firebase AI Logic REST endpoint (`firebasevertexai.googleapis.com/v1beta/projects/{id}/models/{model}:generateContent`)
@@ -149,6 +147,7 @@ Phone styles are the default. Add desktop overrides in the media blocks at the e
   `suggest-toggle`, and `ui.suggest[day]` remembers a manual toggle.
 - Phones have a `#day-strip` under the trip tabs (`renderDayStrip`). `markCurrentDay()` highlights the day on screen
   there and in the desktop sidebar.
+- The plan form's example texts come from the trip's guide and the chosen type (`planExamples`). Don't hard-code a city.
 - Ideas (Ideas tab) have "Add to a day" (`pick-day` / `set-day`) in place of the done checkbox.
 - On desktop, hovering a plan highlights its pin (`hotPin`), and the docked map opens on today's route during the trip.
 - Keyboard focus is shown with a global `:focus-visible` outline. Don't remove outlines without a replacement.
