@@ -1,6 +1,7 @@
 # Trip Planner
 
-A small, installable web app (PWA) for planning a trip on your phone.
+A small, installable web app (PWA) for planning a trip on your phone — and on your computer:
+the same address shows a desktop layout on a wide screen, by itself.
 
 - Plain HTML, CSS and JavaScript — no frameworks, no server of your own.
 - Everything you type is saved on the phone itself (browser storage).
@@ -170,3 +171,12 @@ Notes:
 - **What's near me** asks the phone for its location once; nothing is sent anywhere (the guide is already on the phone).
 - **Booking emails**: in the AI Assistant, tap **Add from a booking email**, paste the confirmation and send. As with
   everything the AI Assistant does, you see the plans first and tap **Apply**.
+
+## On a computer
+
+Open the same address in a browser on your computer. On a wide window the app switches to a desktop layout by
+itself (menu on the left, your trip beside its days, the AI Assistant as a side panel); make the window narrow and
+it's the phone layout again. In Chrome or Edge, the install icon in the address bar makes it a desktop app.
+
+Your trips are per device: **sign in (More → Sign in to sync)** with the same account as on your phone to see the
+same trips. Tickets & bookings and appearance settings stay on the device where you set them.

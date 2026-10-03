@@ -706,8 +706,9 @@ function renderPlan(trip) {
     html += `<p class="guide-note" role="status">${icon('auto_awesome')}Finding things to do in ${esc(trip.place.name)}…</p>`;
   }
 
+  let noDays = '';
   if (!days.length) {
-    html += emptyState('event_available', 'Your days will appear here',
+    noDays = emptyState('event_available', 'Your days will appear here',
       `Add the dates for ${esc(trip.name)} and you'll see the trip day by day.`,
       `<div class="empty-actions">
         ${ideas ? `<button type="button" class="btn tonal ripple" data-action="open-ideas" data-tab="mine">${icon('lightbulb')}See ${plural(ideas, 'idea')}</button>` : ''}
@@ -720,7 +721,7 @@ function renderPlan(trip) {
   if (days.length && unplanned.length) {
     html += `
       <section class="idea-tray" aria-label="Ideas to schedule">
-        <p class="tray-head">${icon('lightbulb')}<span><b>Ideas</b> · hold one and drag it onto a day</span></p>
+        <p class="tray-head">${icon('lightbulb')}<span><b>Ideas</b> · <span class="touch-only">hold one and drag it onto a day</span><span class="mouse-only">drag one onto a day</span></span></p>
         <ul class="tray-row">
           ${unplanned.map((it) => {
             const cat = CATEGORIES[it.category] || CATEGORIES.other;
@@ -734,6 +735,9 @@ function renderPlan(trip) {
         </ul>
       </section>`;
   }
+
+  // On a computer the trip card and ideas sit beside the days (two columns); on a phone they stack.
+  html = `<div class="plan-side">${html}</div><div class="plan-days">${noDays}`;
 
   for (const day of days) {
     const items = dayItems(trip, day);
@@ -767,7 +771,7 @@ function renderPlan(trip) {
       </section>`;
   }
 
-  $('#view-plan').innerHTML = html;
+  $('#view-plan').innerHTML = html + '</div>';
   // Plans with an address that isn't in the guide get looked up on the map, then their opening hours.
   lookupMissing(trip, planned);
   lookupHours(trip, planned);

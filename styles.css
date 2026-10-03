@@ -1808,3 +1808,107 @@ dialog.ai-sheet { height: 94dvh; }
 .ai-bottom { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
 #ai-mic.listening { background: var(--error-container); color: var(--on-error-container); animation: pulse 1s var(--ease) infinite alternate; }
 .place-row .btn { white-space: nowrap; flex: none; }
+
+/* Drag hint: "hold" on touch screens, plain "drag" with a mouse */
+.mouse-only { display: none; }
+@media (hover: hover) and (pointer: fine) {
+  .touch-only { display: none; }
+  .mouse-only { display: inline; }
+}
+
+/* =========================================================
+   Desktop layout: applies by itself on wide windows (computers, big tablets).
+   Navigation moves to a rail on the left, the Plan view becomes two columns,
+   and sheets become centered windows. Phones keep everything above as is.
+   ========================================================= */
+@media (min-width: 900px) {
+  :root { --rail-w: 96px; }
+  body { padding-left: var(--rail-w); padding-bottom: 64px; }
+
+  /* Navigation rail */
+  .navbar {
+    top: 0;
+    right: auto;
+    width: var(--rail-w);
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 20px 0 0;
+  }
+  .navbar button { flex: none; width: 100%; max-width: none; height: 64px; }
+
+  .appbar-inner { max-width: 1320px; padding: 0 32px; }
+  main { max-width: 1320px; padding: 8px 32px 0; }
+  .trip-tabs { flex-wrap: wrap; overflow: visible; }
+
+  /* Plan: trip card, "Now & next" and ideas on the left; days on the right */
+  #view-plan { display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: 0 40px; align-items: start; }
+  .plan-side {
+    position: sticky;
+    top: 72px;
+    max-height: calc(100dvh - 88px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    padding-right: 4px;
+  }
+  .plan-side .hero { margin-bottom: 20px; }
+  .plan-side .now-card { margin-top: 0; }
+  .plan-side .hero-title { font-size: 44px; line-height: 48px; }
+  .tray-row { flex-wrap: wrap; overflow: visible; margin: 0; padding: 2px 0 4px; }
+  .plan-days { min-width: 0; }
+  .leg-base { max-width: 220px; }
+
+  /* Suggestions: side by side, no sideways scrolling */
+  .suggest-row { flex-wrap: wrap; overflow: visible; margin: 2px 0 0; padding: 2px 0 6px; }
+  .s-card { flex: 1 1 220px; width: auto; max-width: 320px; }
+  .filter-row { flex-wrap: wrap; overflow: visible; }
+
+  /* Other tabs: comfortable reading widths */
+  #view-ideas { max-width: 1100px; margin: 0 auto; }
+  #view-pack, #view-more { max-width: 760px; margin: 0 auto; }
+  #view-ideas ul.group { grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 8px; }
+  #view-ideas ul.group > li { border-radius: 20px; }
+
+  /* Floating button and messages */
+  .fab { right: 32px; bottom: 32px; }
+  body.snack-open .fab { bottom: 96px; }
+  .snackbar { left: calc(var(--rail-w) + 16px); bottom: 24px; }
+
+  /* Sheets become centered windows */
+  dialog.sheet { margin: auto; max-width: 560px; max-height: 88dvh; border-radius: 28px; }
+  dialog.sheet[open] { animation: alert-in .3s var(--ease-decel); }
+  dialog.sheet .handle { display: none; }
+  .sheet form, .place-body { padding-top: 20px; }
+  .sheet .sheet-head { padding-top: 16px; }
+  .sheet form .sheet-head { padding-top: 0; }
+  dialog.info-sheet { max-width: 680px; height: min(88dvh, 820px); }
+
+  /* Map: the map on the left, the stops on the right */
+  dialog.map-sheet { max-width: min(1200px, 94vw); height: 88dvh; max-height: 88dvh; }
+  dialog.map-sheet[open] { display: grid; grid-template-columns: minmax(0, 1fr) 380px; grid-template-rows: auto minmax(0, 1fr); }
+  .map-sheet .map-head { grid-column: 1 / -1; }
+  .map { height: auto; margin: 0 0 16px 16px; }
+  .map-body { padding: 0 16px 16px; }
+
+  /* AI Assistant: a panel docked on the right */
+  dialog.ai-sheet { margin: 0 0 0 auto; width: 460px; max-width: 460px; height: 100dvh; max-height: 100dvh; border-radius: 28px 0 0 28px; }
+  dialog.ai-sheet[open] { animation: panel-in .35s var(--ease-decel); }
+}
+@keyframes panel-in { from { transform: translateX(100%); } }
+
+/* Very wide screens: two days side by side, like a calendar */
+@media (min-width: 1500px) {
+  .plan-days { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 32px; align-items: start; }
+  .plan-days > .empty-state { grid-column: 1 / -1; }
+}
+
+/* Mouse: things you can click light up when pointed at */
+@media (hover: hover) and (pointer: fine) {
+  .item-main:hover, .row:hover, .place-opt:hover, .pack-add:hover, .idea-chip button:hover, .empty-day:hover,
+  .assist-chip:hover, .trip-chip:not(.active):hover, .filter-chip:hover, .hero-btn:hover, .icon-btn:hover, .leg-link:hover {
+    background-image: linear-gradient(color-mix(in oklab, currentColor 8%, transparent), color-mix(in oklab, currentColor 8%, transparent));
+  }
+  .btn.filled:hover, .btn.tonal:hover, .fab:hover { filter: brightness(1.06); }
+  [data-drag] { cursor: grab; }
+  body.dragging, body.dragging * { cursor: grabbing !important; }
+}

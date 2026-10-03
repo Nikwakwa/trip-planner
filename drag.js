@@ -20,6 +20,7 @@ document.addEventListener('pointerdown', (e) => {
   drag.id = el.dataset.id;
   drag.x = drag.startX = e.clientX;
   drag.y = drag.startY = e.clientY;
+  drag.mouse = e.pointerType === 'mouse';
   clearTimeout(drag.timer);
   drag.timer = setTimeout(startDrag, HOLD_MS);
 });
@@ -28,8 +29,9 @@ document.addEventListener('pointermove', (e) => {
   drag.x = e.clientX;
   drag.y = e.clientY;
   if (drag.active) { moveDrag(); return; }
-  // Moved before the hold finished: it's a scroll, not a drag.
-  if (drag.timer && Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) > 8) cancelHold();
+  if (!drag.timer || Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) <= 8) return;
+  // With a mouse, moving while pressed is the drag. With a finger, moving before the hold is a scroll.
+  if (drag.mouse) { clearTimeout(drag.timer); startDrag(); } else cancelHold();
 });
 
 document.addEventListener('pointerup', () => { if (drag.active) endDrag(true); else cancelHold(); });

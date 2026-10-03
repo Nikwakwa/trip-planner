@@ -124,6 +124,13 @@ When you **add a new app file**, add it to `FILES`. When you **ship any change**
 (`trip-planner-vN`) so installed phones pick up the new version. OSM tiles go in a separate cache that is kept between versions
 (`trip-planner-map-tiles`, capped at 800 tiles).
 
+**Desktop layout (`styles.css`, end of file).** There is one codebase, and the layout switches by window width.
+`@media (min-width: 900px)` turns the bottom navbar into a left rail, makes `#view-plan` two columns (`.plan-side`
+sticky: hero, Now & next, ideas tray; `.plan-days`: the days, two columns from 1500px), turns sheets into centered
+windows, puts the map and its stops side by side, and docks the AI Assistant sheet on the right. Phone styles are
+the default. Add desktop overrides in that block, and check both widths. With a mouse, `drag.js` starts a drag on
+move (no long-press).
+
 ## Conventions
 
 - External services (Photon, Nominatim, Wikivoyage/Wikipedia/Wikidata, OSM tiles, Firebase) are called straight

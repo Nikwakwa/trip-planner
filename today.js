@@ -40,13 +40,16 @@ function nowNext(trip) {
   const today = todayISO();
   const guide = guideFor(trip);
   const items = dayItems(trip, today);
-  if (!items.length) return null;
+  // A day with only the hotel on it has nothing to show.
+  if (!items.some(it => it.time || it.category !== 'stay')) return null;
   const now = nowMinutes();
   let current = null;
   for (const it of items) {
     if (it.time && !it.done && toMinutes(it.time) <= now && now < toMinutes(it.time) + planLength(it, guide)) current = it;
   }
-  const upcoming = items.filter(it => !it.done && it !== current && (!it.time || toMinutes(it.time) > now));
+  // The hotel itself isn't something to go to next, unless it has a time (check-in).
+  const upcoming = items.filter(it => !it.done && it !== current
+    && (it.time ? toMinutes(it.time) > now : it.category !== 'stay'));
   const next = upcoming[0] || null;
   if (!current && !next) return { done: true };
 
