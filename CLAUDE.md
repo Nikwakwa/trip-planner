@@ -125,11 +125,17 @@ When you **add a new app file**, add it to `FILES`. When you **ship any change**
 (`trip-planner-map-tiles`, capped at 800 tiles).
 
 **Desktop layout (`styles.css`, end of file).** There is one codebase, and the layout switches by window width.
-`@media (min-width: 900px)` turns the bottom navbar into a left rail, makes `#view-plan` two columns (`.plan-side`
-sticky: hero, Now & next, ideas tray; `.plan-days`: the days, two columns from 1500px), turns sheets into centered
-windows, puts the map and its stops side by side, and docks the AI Assistant sheet on the right. Phone styles are
-the default. Add desktop overrides in that block, and check both widths. With a mouse, `drag.js` starts a drag on
-move (no long-press).
+Phone styles are the default. Add desktop overrides in the media blocks at the end, and check phone, ~1000px and
+~1400px.
+- From 900px: `.navbar` becomes a labelled sidebar (`--rail-w`) with the FAB ("New plan") at its top, and `#side-extra`
+  below the sections (AI Assistant, the trip's days as `jump-day` links; `renderSidebar` in app.js). Content is one
+  reading-width column (`--content-w`). Days are never laid out in columns. Sheets become centered windows, and the AI
+  Assistant sheet docks on the right.
+- From 1200px on the Plan tab: the map is docked in `#map-pane` on the right (`body.has-map`). `syncMapDock()`
+  (maps.js, called at the end of every `render()`) moves the single `#map` element between `#map-slot` and the map
+  dialog. `openMap(day)` then only points the docked map at that day. Use `mapShown()` / `mapDocked()` instead of
+  checking the dialog.
+- With a mouse, `drag.js` starts a drag on move (no long-press).
 
 ## Conventions
 

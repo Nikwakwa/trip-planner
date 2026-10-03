@@ -77,7 +77,7 @@ function lookupMissing(trip, items) {
         // No connection: try again next time.
       } finally {
         geoPending.delete(item.id);
-        if ($('#map-dialog').open) refreshMap();
+        if (mapShown()) refreshMap();
       }
     });
   }
@@ -246,9 +246,98 @@ function googleRouteUrl(points, mode) {
   return 'https://www.google.com/maps/dir/?' + params;
 }
 
+/* On a wide window the map isn't a sheet: it stays docked on the right of the Plan tab,
+   and "opening" a map just points it at that day. The same map element moves between the two. */
+const dockQuery = matchMedia('(min-width: 1200px)');
+const mapDocked = () => dockQuery.matches && ui.view === 'plan' && !!activeTrip();
+const mapShown = () => $('#map-dialog').open || mapDocked();
+// The window got wider or narrower: dock or undock the map if needed.
+function checkMapDock() {
+  if (mapDocked() !== document.body.classList.contains('has-map')) render();
+}
+dockQuery.addEventListener('change', checkMapDock);
+window.addEventListener('resize', checkMapDock);
+
+// Called after every render (app.js): shows or hides the docked map, and keeps it up to date.
+function syncMapDock() {
+  const docked = mapDocked();
+  const el = $('#map');
+  const slot = $('#map-slot');
+  document.body.classList.toggle('has-map', docked);
+  $('#map-pane').hidden = !docked;
+  let moved = false;
+  if (docked && el.parentNode !== slot) { slot.append(el); moved = true; }
+  if (!docked && el.parentNode === slot) { $('#map-dialog').insertBefore(el, $('#map-body')); moved = true; }
+  if (!docked) {
+    if (moved && mapView.map) mapView.map.invalidateSize();
+    return;
+  }
+  const trip = activeTrip();
+  const days = tripDays(trip);
+  // A new trip, or a day that no longer exists: back to the whole trip.
+  if (mapView.tripId !== trip.id || (mapView.day !== 'all' && !days.includes(mapView.day))) mapView.day = 'all';
+  mapView.tripId = trip.id;
+  renderMapPane();
+  const view = `${trip.id}|${mapView.day}`;
+  const fit = moved || mapView.fitted !== view;      // otherwise keep where the user has panned to
+  mapView.fitted = view;
+  loadLeaflet().then(() => {
+    if (!mapDocked()) return;
+    if (moved && mapView.map) mapView.map.invalidateSize();
+    drawMap(fit);
+  }).catch(() => {
+    el.innerHTML = `<div class="map-empty">${icon('location_off')}The map couldn't load. Check your connection.</div>`;
+  });
+}
+
+// The card over the docked map: which day it shows, and what can be done with it.
+function renderMapPane() {
+  const trip = activeTrip();
+  const groups = mapGroups(trip);
+  if (mapView.day === 'all') {
+    const count = groups.reduce((n, g) => n + g.stops.filter(s => s.c).length, 0);
+    $('#pane-title').textContent = 'All days';
+    $('#pane-sub').textContent = count ? `${plural(count, 'stop')} · pick a day to see its route` : 'Plans with a place appear here';
+    $('#pane-actions').innerHTML = groups.filter(g => g.stops.some(s => s.c)).map(g => `
+      <button type="button" class="assist-chip ripple" data-action="day-map" data-date="${g.day}">
+        <span class="legend-dot" style="background:${g.color}"></span>${esc(fmtDay(g.day, { weekday: 'short', day: 'numeric' }))}
+      </button>`).join('');
+    return;
+  }
+  const g = groups[0];
+  const located = g.stops.filter(s => s.c);
+  let total = 0, minutes = 0;
+  located.forEach((s, k) => {
+    if (!k) return;
+    const d = miles(located[k - 1].c, s.c);
+    total += d;
+    minutes += travel(d, modeFor(trip, g.day)).mins;
+  });
+  $('#pane-title').textContent = fmtDay(g.day, { weekday: 'long', month: 'short', day: 'numeric' });
+  $('#pane-sub').textContent = located.length > 1
+    ? `${plural(located.length, 'stop')} · ${fmtDist(total)} · ${fmtDuration(Math.round(minutes))} of travel`
+    : `${plural(located.length, 'stop')} on the map`;
+  $('#pane-actions').innerHTML = `
+    <button type="button" class="assist-chip ripple" data-action="trip-map">${icon('map')}All days</button>
+    ${located.length >= 3 && located.some(s => !s.it.time) ? `<button type="button" class="assist-chip ripple" data-action="optimize" data-date="${g.day}">${icon('route')}Optimize route</button>` : ''}
+    ${located.length >= 2 ? `<a class="assist-chip ripple" href="${esc(googleRouteUrl(withBase(trip, g.day, located), modeFor(trip, g.day)))}" target="_blank" rel="noopener">${icon('directions')}Google Maps</a>` : ''}`;
+}
+
+// A pin was clicked on the docked map: show its plan in the list.
+function showPlanInList(id) {
+  const el = document.querySelector(`#view-plan .item[data-id="${id}"]`);
+  if (!el) return;
+  el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  el.classList.remove('flash');
+  void el.offsetWidth;            // restart the highlight if it's still running
+  el.classList.add('flash');
+}
+
 function openMap(day) {
   mapView.day = day;
   mapView.note = null;
+  syncMapDock();                 // makes sure the map element is where it should be
+  if (mapDocked()) return;
   const dlg = $('#map-dialog');
   if (!dlg.open) dlg.showModal();
   refreshMap();
@@ -265,7 +354,7 @@ function openMap(day) {
 }
 
 function refreshMap() {
-  renderMapBody();
+  if (mapDocked()) renderMapPane(); else renderMapBody();
   drawMap(false);
 }
 
@@ -340,7 +429,7 @@ function renderMapBody() {
 
 function drawMap(fit) {
   const L = window.L;
-  if (!L || !$('#map-dialog').open) return;
+  if (!L || !mapShown()) return;
   if (!mapView.map) {
     mapView.map = L.map('map', { zoomControl: false });
     L.control.zoom({ position: 'topright' }).addTo(mapView.map);
@@ -372,6 +461,7 @@ function drawMap(fit) {
           popupAnchor: [0, -30],
         }),
       }).bindPopup(`<strong>${esc(s.it.title)}</strong>${s.it.time ? `<br>${esc(fmtTime(s.it.time))}` : ''}${s.it.place ? `<br>${esc(s.it.place)}` : ''}`);
+      marker.on('click', () => { if (mapDocked()) showPlanInList(s.it.id); });
       marker.addTo(mapView.layer);
       mapView.markers.set(s.it.id, marker);
       all.push([s.c.lat, s.c.lng]);

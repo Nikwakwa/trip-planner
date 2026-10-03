@@ -175,8 +175,10 @@ Notes:
 ## On a computer
 
 Open the same address in a browser on your computer. On a wide window the app switches to a desktop layout by
-itself (menu on the left, your trip beside its days, the AI Assistant as a side panel); make the window narrow and
-it's the phone layout again. In Chrome or Edge, the install icon in the address bar makes it a desktop app.
+itself: a sidebar on the left (New plan, the sections, the AI Assistant and your trip's days), your plan in the
+middle, and the trip's map always in view on the right. Click a day in the sidebar, or a day's **Map** button, to see
+that day's route; click a pin to find its plan in the list. Make the window narrow and it's the phone layout again.
+In Chrome or Edge, the install icon in the address bar makes it a desktop app.
 
 Your trips are per device: **sign in (More → Sign in to sync)** with the same account as on your phone to see the
 same trips. Tickets & bookings and appearance settings stay on the device where you set them.

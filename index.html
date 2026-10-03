@@ -36,6 +36,16 @@
     <section id="view-more" class="view" hidden></section>
   </main>
 
+  <!-- On a wide window: the trip map, always in view beside the plan (the map itself moves here from its sheet) -->
+  <aside id="map-pane" class="map-pane" aria-label="Trip map" hidden>
+    <div id="map-slot" class="map-slot"></div>
+    <div class="pane-card">
+      <p id="pane-title" class="pane-title"></p>
+      <p id="pane-sub" class="pane-sub"></p>
+      <div id="pane-actions" class="pane-actions"></div>
+    </div>
+  </aside>
+
   <button id="fab" class="fab ripple" type="button">
     <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#add"/></svg>
     <span class="fab-label" id="fab-label">New plan</span>
@@ -66,6 +76,8 @@
         <svg class="icon i-fill" aria-hidden="true"><use href="icons/sprite.svg#settings-fill"/></svg>
       </span>More
     </button>
+    <!-- On a computer the bar is a sidebar, with the AI Assistant and the trip's days below the sections -->
+    <div id="side-extra" class="side-extra"></div>
   </nav>
 
   <div class="snackbar" id="snackbar" role="status" aria-live="polite">

@@ -574,7 +574,26 @@ function render() {
   if (trip && ui.view === 'ideas') renderIdeas(trip);
   if (ui.view === 'pack') renderChecklist();
   if (ui.view === 'more') renderMore();
+  renderSidebar(trip);
+  syncMapDock();      // maps.js: on a wide window the map stays beside the plan
   onScroll();
+}
+
+// On a computer, the sidebar also has the AI Assistant and the trip's days (to jump to one).
+function renderSidebar(trip) {
+  const days = trip ? tripDays(trip) : [];
+  const today = todayISO();
+  $('#side-extra').innerHTML = !trip ? '' : `
+    <button type="button" class="side-ai ripple" data-action="assistant">${icon('auto_awesome')}AI Assistant</button>
+    ${days.length ? `
+      <p class="side-label">${esc(trip.name)}</p>
+      <ul class="side-days">
+        ${days.map((d) => {
+          const n = trip.items.filter(i => i.date === d).length;
+          return `<li><button type="button" class="ripple ${d === today ? 'today' : ''}" data-action="jump-day" data-date="${d}">
+            <span>${esc(fmtDay(d, { weekday: 'short', day: 'numeric', month: 'short' }))}</span>${n ? `<small>${n}</small>` : ''}</button></li>`;
+        }).join('')}
+      </ul>` : ''}`;
 }
 
 // No trip yet: ask where the user wants to go.
@@ -1568,6 +1587,14 @@ document.addEventListener('click', async (e) => {
     case 'trip-map':
       openMap('all');
       break;
+    case 'jump-day': {
+      // From the sidebar: go to that day in the plan, and show it on the map beside it.
+      if (ui.view !== 'plan') { ui.view = 'plan'; render(); }
+      const card = document.getElementById('day-' + el.dataset.date);
+      if (card) card.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      if (mapDocked()) openMap(el.dataset.date);
+      break;
+    }
     case 'optimize':
       runOptimize(el.dataset.date);
       break;

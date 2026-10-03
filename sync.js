@@ -252,7 +252,7 @@ function renderSoon() {
   const run = () => {
     renderQueued = false;
     render();
-    if ($('#map-dialog').open) refreshMap();
+    if (mapShown()) refreshMap();
   };
   const el = document.activeElement;
   if (el && $('#main').contains(el) && /^(INPUT|TEXTAREA)$/.test(el.tagName)) {
