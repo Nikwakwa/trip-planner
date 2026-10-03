@@ -60,6 +60,11 @@ function lookupMissing(trip, items) {
         ? [norm(item.place).includes(norm(city)) ? item.place : `${item.place}, ${where}`]
         : [item.place, `${item.place}, ${where}`];
       const near = trip.place || (guide && guide.places[0]);
+      // "Near the trip": within reach of a city, or anywhere inside a region's or country's borders.
+      const reach = { region: 400, country: 1500 }[trip.place && trip.place.kind] || 60;
+      const box = trip.place && trip.place.kind !== 'city' && trip.place.bbox;
+      const fits = p => !near || miles(near, p) < reach
+        || (box && p.lng >= box[0] - 1 && p.lng <= box[2] + 1 && p.lat >= box[1] - 1 && p.lat <= box[3] + 1);
       try {
         let hit = null;
         for (const q of tries) {
@@ -71,7 +76,7 @@ function lookupMissing(trip, items) {
           const res = await fetch('https://nominatim.openstreetmap.org/search?' + params);
           if (!res.ok) return;
           const [found] = await res.json();
-          if (found && (!near || tries.length === 1 || miles(near, { lat: Number(found.lat), lng: Number(found.lon) }) < 60)) { hit = found; break; }
+          if (found && (tries.length === 1 || fits({ lat: Number(found.lat), lng: Number(found.lon) }))) { hit = found; break; }
         }
         if (hit) {
           item.lat = Number(hit.lat);

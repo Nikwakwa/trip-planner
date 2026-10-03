@@ -569,6 +569,12 @@ function save() {
 
 let state = load();
 state.settings = { ...defaultSettings(), ...state.settings };
+// Once: plans in a country or region that were wrongly marked "not found on the map" (the lookup
+// only accepted places near the middle of it) are looked up again.
+if (!state.settings.geoRetry) {
+  state.settings.geoRetry = 1;
+  for (const t of state.trips) if (t.place && t.place.kind !== 'city') t.items.forEach((i) => { delete i.geoMiss; });
+}
 saveLocal();
 
 const ui = { view: 'plan', ideasTab: 'mine', filter: 'all', shuffle: {}, suggest: {}, pickDay: null };
