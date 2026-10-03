@@ -2007,3 +2007,98 @@ dialog.ai-sheet { height: 94dvh; }
 
 /* Dark mode without a CARTO key: the light OpenStreetMap map, darkened (maps.js sets "inverted") */
 #map.inverted .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.92) contrast(.88) saturate(.8); }
+
+/* =========================================================
+   Design pass: a compact trip card, calmer plan cards, a day strip on phones,
+   suggestions that open on demand, and visible keyboard focus.
+   ========================================================= */
+
+/* Keyboard focus is always visible (mouse and touch don't show it) */
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+dialog :focus-visible { outline-offset: 0; }
+h2[tabindex="-1"]:focus-visible { outline: none; }
+
+/* Trip card: dates and length on one line, status and progress side by side, one row of actions */
+.hero { padding: 16px 18px 16px; margin-bottom: 20px; border-radius: 28px; }
+.hero-overline { letter-spacing: .04em; text-transform: none; font-size: 13px; font-weight: 600; opacity: .8; }
+.hero-title { font-size: 40px; line-height: 44px; margin-top: 2px; }
+.hero-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 12px; }
+.hero-row .status-chip { height: 32px; padding: 0 14px 0 10px; font-size: 13px; }
+.hero-progress { flex: 1 1 140px; max-width: 220px; margin-top: 0; gap: 4px; font-size: 13px; line-height: 18px; }
+.hero-actions { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 14px -18px 0; padding: 0 18px; }
+.hero-actions::-webkit-scrollbar { display: none; }
+.hero-btn { flex: none; }
+.hero-shape { width: 170px; height: 170px; right: -40px; bottom: -60px; }
+.hero-shape-icon { display: none; }
+.now-card { margin-top: 0; }
+
+/* Plan cards: one tidy row of actions */
+.item-chips { gap: 6px; }
+.assist-chip.icon-only { width: 32px; padding: 0; justify-content: center; }
+.assist-chip.primary { background: var(--primary-container); color: var(--on-primary-container); border-color: transparent; }
+.assist-chip.primary .icon { color: inherit; }
+.leg-base { font-weight: 600; max-width: none; }
+
+/* Suggestions closed: one line to open them */
+.suggest-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px 12px 10px 10px;
+  border-radius: 16px;
+  color: var(--on-surface-variant);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  text-align: left;
+}
+.suggest-toggle > .icon:first-child { width: 18px; height: 18px; color: var(--primary); }
+.suggest-toggle span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.suggest-toggle small { flex: none; font-size: 12px; font-weight: 600; opacity: .8; }
+.suggest-toggle .turn { transform: rotate(90deg); opacity: .7; }
+button.suggest-title { border-radius: 12px; padding: 4px 8px 4px 0; text-align: left; }
+
+/* Suggestion cards: a shorter photo, so three ideas read at a glance */
+.s-photo { height: 96px; }
+
+/* Day strip (phones): jump to a day; the one on screen is filled */
+.day-strip {
+  display: flex;
+  gap: 6px;
+  max-width: 640px;
+  margin: 8px auto 0;
+  padding: 0 16px 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.day-strip::-webkit-scrollbar { display: none; }
+.day-strip button {
+  flex: none;
+  display: grid;
+  justify-items: center;
+  min-width: 46px;
+  padding: 5px 8px 6px;
+  border-radius: 14px;
+  color: var(--on-surface-variant);
+  transition: background-color .25s var(--ease), color .25s var(--ease);
+}
+.day-strip small { font-size: 11px; line-height: 14px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.day-strip b { font-size: 16px; line-height: 20px; font-weight: 650; }
+.day-strip button.today { color: var(--primary); }
+.day-strip button.on { background: var(--secondary-container); color: var(--on-secondary-container); }
+.day { scroll-margin-top: calc(env(safe-area-inset-top) + 124px); }
+
+/* Docked map: the pin of the plan being pointed at */
+.pin.hot .pin-shape { transform: rotate(-45deg) scale(1.35); box-shadow: 0 4px 12px rgb(0 0 0 / .45); }
+.pin-shape { transition: transform .2s var(--ease); }
+
+@media (min-width: 900px) {
+  .day-strip { display: none; }
+  .day { scroll-margin-top: 76px; }
+  .hero-actions { flex-wrap: wrap; overflow: visible; margin: 14px 0 0; padding: 0; }
+  .side-days button.on { background: var(--surface-container-highest); color: var(--on-surface); }
+}
+.leg-base { flex: none; overflow: visible; white-space: nowrap; }
+.leg-link { flex-wrap: wrap; row-gap: 0; }

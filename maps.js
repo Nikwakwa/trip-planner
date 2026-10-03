@@ -300,8 +300,11 @@ function syncMapDock() {
   }
   const trip = activeTrip();
   const days = tripDays(trip);
-  // A new trip, or a day that no longer exists: back to the whole trip.
-  if (mapView.tripId !== trip.id || (mapView.day !== 'all' && !days.includes(mapView.day))) mapView.day = 'all';
+  // A new trip, or a day that no longer exists: today's route during the trip, otherwise the whole trip.
+  if (mapView.tripId !== trip.id || (mapView.day !== 'all' && !days.includes(mapView.day))) {
+    const today = todayISO();
+    mapView.day = days.includes(today) && dayItems(trip, today).some(it => coordsOf(it, guideFor(trip))) ? today : 'all';
+  }
   mapView.tripId = trip.id;
   renderMapPane();
   const view = `${trip.id}|${mapView.day}`;
@@ -595,3 +598,19 @@ async function shareTrip() {
     if (e && e.name !== 'AbortError') snackbar("Couldn't share the itinerary");
   }
 }
+
+/* ---------- Docked map: pointing at a plan in the list lights up its pin ---------- */
+
+function hotPin(id) {
+  if (mapView.hot === id) return;
+  const old = mapView.markers.get(mapView.hot);
+  if (old && old._icon) { old._icon.classList.remove('hot'); old.setZIndexOffset(0); }
+  mapView.hot = id;
+  const marker = id && mapView.markers.get(id);
+  if (marker && marker._icon) { marker._icon.classList.add('hot'); marker.setZIndexOffset(1000); }
+}
+document.addEventListener('mouseover', (e) => {
+  if (!document.body.classList.contains('has-map')) return;
+  const li = e.target.closest('#view-plan .item[data-id]');
+  hotPin(li ? li.dataset.id : null);
+});

@@ -141,6 +141,18 @@ Phone styles are the default. Add desktop overrides in the media blocks at the e
   checking the dialog.
 - With a mouse, `drag.js` starts a drag on move (no long-press).
 
+**UI decisions worth keeping.**
+- The trip card (`.hero`) is compact on purpose, so today's plans are on the first screen.
+- Plan cards show one row of actions. Secondary ones are icon-only (`.assist-chip.icon-only`, with `title` and
+  `aria-label`). The address line is hidden when it repeats the title.
+- Suggestions are open only for the "focus day" (first day from today with suggestions). Other days show a one-line
+  `suggest-toggle`, and `ui.suggest[day]` remembers a manual toggle.
+- Phones have a `#day-strip` under the trip tabs (`renderDayStrip`). `markCurrentDay()` highlights the day on screen
+  there and in the desktop sidebar.
+- Ideas (Ideas tab) have "Add to a day" (`pick-day` / `set-day`) in place of the done checkbox.
+- On desktop, hovering a plan highlights its pin (`hotPin`), and the docked map opens on today's route during the trip.
+- Keyboard focus is shown with a global `:focus-visible` outline. Don't remove outlines without a replacement.
+
 ## Conventions
 
 - External services (Photon, Nominatim, Wikivoyage/Wikipedia/Wikidata, OSM tiles, Firebase) are called straight
