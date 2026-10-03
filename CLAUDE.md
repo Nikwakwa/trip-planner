@@ -27,7 +27,7 @@ Asset scripts (they download from the internet and rewrite files in the repo):
 ## Architecture
 
 **Classic scripts that share one global scope.** `index.html` loads, in this order:
-`firebase-config.js` → `guides.js` → `places.js` → `weather.js` → `hours.js` → `essentials.js` → `maps.js` →
+`firebase-config.js` → `guides.js` → `places.js` → `weather.js` → `hours.js` → `essentials.js` → `mapstyle.js` → `maps.js` →
 `drag.js` → `today.js` → `calendar.js` → `files.js` → `packing.js` → `assistant.js` → `sync.js` → `app.js`. Don't use `app.js` names (`$`, `CATEGORIES`, …) at load time
 in the earlier files, only inside functions. The files are not modules. The feature files call helpers defined in `app.js` (`$`, `esc`, `icon`,
 `save`, `render`, `snackbar`, `state`, …) at runtime, which works because `app.js` loads last and the calls
@@ -67,7 +67,10 @@ localStorage `tripPlanner.guides` (up to 10). `planSuggestions` in `app.js` and 
   `state.settings.units` (`'metric'`/`'imperial'`, per phone, defaulting from the phone's language).
 
 **Maps (`maps.js`).** Leaflet (vendored) is loaded on first use. Tiles come from OSM, and addresses are looked up with
-Nominatim. Tiles are CARTO (Voyager / dark, following the theme) when `window.CARTO_KEY` is set in
+Nominatim. The basemap is a MapLibre GL vector layer inside Leaflet (`L.maplibreGL`, vendored in `vendor/maplibre`),
+using OpenFreeMap's "liberty" style as adjusted by `tuneMapStyle(style, theme)` in `mapstyle.js` (earlier POI labels;
+the dark theme is derived by recoloring every paint color, see `nightColor`). Pins, routes and popups stay Leaflet.
+If MapLibre or the style can't load, raster tiles are used: CARTO (Voyager / dark) when `window.CARTO_KEY` is set in
 `firebase-config.js`, else standard OSM tiles with a CSS invert in dark mode (`tileUrl`, `setMapTheme`). Plans are ordered by `time`, then by `slot` (written by Optimize route, e.g. `"12:30~01"`),
 then everything else (`byPlanOrder`).
 

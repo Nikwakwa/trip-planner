@@ -206,6 +206,22 @@ function loadLeaflet() {
     js.onload = () => resolve(window.L);
     js.onerror = () => { leafletLoading = null; reject(new Error('map library failed to load')); };
     document.head.append(js);
+  }).then(async (L) => {
+    // The detailed vector map (mapstyle.js) is a bonus on top: if its library or style
+    // can't load (offline the first time, an old browser), the picture map is used instead.
+    try {
+      const css = document.createElement('link');
+      css.rel = 'stylesheet';
+      css.href = 'vendor/maplibre/maplibre-gl.css';
+      document.head.append(css);
+      await loadScript('vendor/maplibre/maplibre-gl.js');
+      await loadScript('vendor/maplibre/leaflet-maplibre-gl.js');
+      mapView.style = await loadMapStyle();
+    } catch (e) {
+      console.warn('Vector map unavailable, using the picture map', e);
+      mapView.style = null;
+    }
+    return L;
   });
   return leafletLoading;
 }
@@ -439,11 +455,12 @@ function renderMapBody() {
 
 // Light or dark map, to match the app (called when the theme changes, and whenever the map is drawn).
 function setMapTheme() {
-  // Without a CARTO key there's no dark map: the light one is darkened by CSS instead.
-  $('#map').classList.toggle('inverted', !cartoKey() && mapTheme() === 'dark');
-  if (!mapView.tiles || mapView.theme === mapTheme()) return;
+  // The plain OpenStreetMap picture map has no dark version: it's darkened by CSS instead.
+  $('#map').classList.toggle('inverted', !mapView.gl && !cartoKey() && mapTheme() === 'dark');
+  if ((!mapView.tiles && !mapView.gl) || mapView.theme === mapTheme()) return;
   mapView.theme = mapTheme();
-  mapView.tiles.setUrl(tileUrl(mapView.theme));
+  if (mapView.gl) mapView.gl.getMaplibreMap().setStyle(tuneMapStyle(mapView.style, mapView.theme));
+  else mapView.tiles.setUrl(tileUrl(mapView.theme));
 }
 
 function drawMap(fit) {
@@ -454,12 +471,19 @@ function drawMap(fit) {
     L.control.zoom({ position: 'topright' }).addTo(mapView.map);
     mapView.theme = mapTheme();
     const osm = '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
-    mapView.tiles = L.tileLayer(tileUrl(mapView.theme), {
-      maxZoom: cartoKey() ? 20 : 19,
-      subdomains: cartoKey() ? 'abcd' : 'abc',
-      crossOrigin: true,
-      attribution: cartoKey() ? `${osm} © <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>` : osm,
-    }).addTo(mapView.map);
+    if (mapView.style && L.maplibreGL) {
+      // The vector map: OpenFreeMap's data, drawn in the app's own light or night style.
+      mapView.gl = L.maplibreGL({ style: tuneMapStyle(mapView.style, mapView.theme), attributionControl: false }).addTo(mapView.map);
+      mapView.map.setMaxZoom(20);
+      mapView.map.attributionControl.addAttribution(`${osm} · <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a>`);
+    } else {
+      mapView.tiles = L.tileLayer(tileUrl(mapView.theme), {
+        maxZoom: cartoKey() ? 20 : 19,
+        subdomains: cartoKey() ? 'abcd' : 'abc',
+        crossOrigin: true,
+        attribution: cartoKey() ? `${osm} © <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>` : osm,
+      }).addTo(mapView.map);
+    }
     mapView.layer = L.layerGroup().addTo(mapView.map);
   }
   setMapTheme();

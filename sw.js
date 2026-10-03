@@ -2,9 +2,9 @@
    Strategy: show the saved copy instantly, and quietly fetch a fresh copy
    in the background (when online) for next time. */
 
-const CACHE = 'trip-planner-v17';
+const CACHE = 'trip-planner-v18';
 const TILES = 'trip-planner-map-tiles';   // map images you've viewed, kept across versions
-const MAX_TILES = 800;                     // roughly 15 MB at most
+const MAX_TILES = 900;                     // map pieces kept, roughly 40 MB at most
 const FILES = [
   './',
   'index.html',
@@ -16,6 +16,7 @@ const FILES = [
   'weather.js',
   'hours.js',
   'essentials.js',
+  'mapstyle.js',
   'maps.js',
   'drag.js',
   'today.js',
@@ -52,12 +53,13 @@ self.addEventListener('activate', (event) => {
   })());
 });
 
-// Map images: reuse ones already viewed (so maps work offline), fetch the rest.
+// Map data: reuse what was already viewed (so maps work offline), fetch the rest.
+// fresh: ask the internet first (the map's style and index change now and then), the saved copy when offline.
 let tilesAdded = 0;
-async function mapTile(req) {
+async function mapTile(req, fresh = false) {
   const cache = await caches.open(TILES);
   const hit = await cache.match(req);
-  if (hit) return hit;
+  if (hit && !fresh) return hit;
   try {
     const res = await fetch(req);
     if (res.ok) {
@@ -69,7 +71,7 @@ async function mapTile(req) {
     }
     return res;
   } catch {
-    return new Response('', { status: 504 });
+    return hit || new Response('', { status: 504 });
   }
 }
 
@@ -77,6 +79,11 @@ self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
+  // The vector map (OpenFreeMap): its style and index fresh when online, its data and fonts reused.
+  if (url.hostname === 'tiles.openfreemap.org') {
+    event.respondWith(mapTile(req, url.pathname.startsWith('/styles/') || url.pathname === '/planet'));
+    return;
+  }
   if (url.hostname.endsWith('.basemaps.cartocdn.com') || url.hostname === 'tile.openstreetmap.org') {
     event.respondWith(mapTile(req));
     return;

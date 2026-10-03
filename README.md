@@ -37,6 +37,8 @@ the same address shows a desktop layout on a wide screen, by itself.
 | `firestore.rules` | Database rules: each account only sees its own plans. |
 | `vendor/firebase/` | Firebase library, stored in the app. |
 | `maps.js` | Day and trip maps, Optimize route, address lookup, sharing. |
+| `mapstyle.js` | The look of the map: landmark labels and the dark (night) version. |
+| `vendor/maplibre/` | MapLibre GL, the library that draws the detailed map (BSD-3 license), stored in the app. |
 | `weather.js` | The forecast for each trip day (Open-Meteo). |
 | `essentials.js` | The Essentials sheet (Wikidata facts, Wikivoyage tips). |
 | `hours.js` | Opening hours and "usually closed" warnings (OpenStreetMap). |
@@ -185,12 +187,14 @@ same trips. Tickets & bookings and appearance settings stay on the device where 
 
 ## Map style
 
-Out of the box the maps use the standard OpenStreetMap look (darkened in dark mode). For cleaner maps, with a
-real dark version that follows the app's light/dark setting, add a free CARTO key:
+The maps are detailed "vector" maps, the kind Google Maps uses: street and neighborhood names, stations, and
+landmarks, shops and restaurants as you zoom in. The map data comes from OpenStreetMap through
+[OpenFreeMap](https://openfreemap.org) (free, no account or key), drawn by the MapLibre library stored in the app.
+The app adjusts the style itself (`mapstyle.js`): landmarks show up earlier, and in dark mode the same map is drawn
+in night colors, following the app's light/dark setting.
 
-1. Go to <https://carto.com/basemaps/apikey>, enter your email, and choose non-commercial use. No account or card;
-   the key arrives by email.
-2. In `firebase-config.js`, replace `window.CARTO_KEY = null;` with `window.CARTO_KEY = 'your-key';` and upload the change.
+Map areas you've viewed are kept on the phone for offline use.
 
-The free key allows 5 million map images a month, far more than this app uses. Map areas you've viewed are still
-kept on the phone for offline use.
+If the vector map can't load (a very old browser, or offline before it was ever opened), the app falls back to a
+simpler picture map: CARTO's style if `window.CARTO_KEY` is set in `firebase-config.js` (a free key from
+<https://carto.com/basemaps/apikey>), otherwise the standard OpenStreetMap one.

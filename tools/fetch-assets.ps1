@@ -48,3 +48,13 @@ foreach ($part in 'app', 'auth', 'firestore', 'app-check') {
   Invoke-WebRequest "https://www.gstatic.com/firebasejs/$fbVersion/firebase-$part-compat.js" -OutFile (Join-Path $root "vendor/firebase/firebase-$part-compat.js") -UseBasicParsing
 }
 Write-Host "Firebase $fbVersion saved."
+
+# ---- MapLibre GL (draws the vector map) and its bridge to Leaflet ----
+$mlVersion = '5.24.0'
+$mlBridge = '0.1.4'
+New-Item -ItemType Directory -Force (Join-Path $root 'vendor/maplibre') | Out-Null
+foreach ($f in 'dist/maplibre-gl.js', 'dist/maplibre-gl.css', 'LICENSE.txt') {
+  Invoke-WebRequest "https://unpkg.com/maplibre-gl@$mlVersion/$f" -OutFile (Join-Path $root "vendor/maplibre/$(Split-Path $f -Leaf)") -UseBasicParsing
+}
+Invoke-WebRequest "https://unpkg.com/@maplibre/maplibre-gl-leaflet@$mlBridge/leaflet-maplibre-gl.js" -OutFile (Join-Path $root 'vendor/maplibre/leaflet-maplibre-gl.js') -UseBasicParsing
+Write-Host "MapLibre GL $mlVersion saved."
