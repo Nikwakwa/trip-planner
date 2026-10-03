@@ -166,7 +166,7 @@ function loadEssentials(place) {
 function localTime(tz) {
   try {
     const now = new Date();
-    const time = now.toLocaleTimeString(undefined, { timeZone: tz, hour: 'numeric', minute: '2-digit' });
+    const time = now.toLocaleTimeString(LOCALE, { timeZone: tz, hour: 'numeric', minute: '2-digit' });
     const wall = zone => new Date(now.toLocaleString('en-US', zone ? { timeZone: zone } : {}));
     const diff = Math.round((wall(tz) - wall()) / 18e5) / 2;
     const rel = !diff ? 'same time as you' : `${Math.abs(diff)} h ${diff > 0 ? 'ahead of' : 'behind'} you`;
@@ -232,7 +232,7 @@ function renderEssentials() {
   body.innerHTML = `
     ${tiles ? `<div class="facts">${tiles}</div>` : ''}
     ${sections}
-    <p class="footnote">Facts: Wikidata. Tips: Wikivoyage, CC BY-SA. Saved on your phone ${esc(new Date(e.t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))}.</p>`;
+    <p class="footnote">Facts: Wikidata. Tips: Wikivoyage, CC BY-SA. Saved on your phone ${esc(new Date(e.t).toLocaleDateString(LOCALE, { month: 'short', day: 'numeric' }))}.</p>`;
 }
 
 function openEssentials(trip) {

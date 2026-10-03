@@ -50,12 +50,15 @@ function toISO(date) {
 }
 function todayISO() { return toISO(new Date()); }
 const daysBetween = (a, b) => Math.round((parseDate(b) - parseDate(a)) / 864e5);
+// The app is in English only for now, so dates and times are always written in English, whatever the
+// device's language. An English device keeps its own style ("Oct 30, 2:30 PM"); others get "30 Oct, 14:30".
+const LOCALE = /^en\b/i.test(navigator.language || '') ? navigator.language : 'en-GB';
 function fmtDay(s, opts = { weekday: 'short', month: 'short', day: 'numeric' }) {
-  return parseDate(s).toLocaleDateString(undefined, opts);
+  return parseDate(s).toLocaleDateString(LOCALE, opts);
 }
 function fmtTime(t) {
   const [h, m] = t.split(':').map(Number);
-  return new Date(2000, 0, 1, h, m).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return new Date(2000, 0, 1, h, m).toLocaleTimeString(LOCALE, { hour: 'numeric', minute: '2-digit' });
 }
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
@@ -192,7 +195,7 @@ function travel(d, mode = 'transit') {
 const usesImperial = () => /-(US|LR|MM)$/i.test(navigator.language || '');
 const imperial = () => (state.settings.units || (usesImperial() ? 'imperial' : 'metric')) === 'imperial';
 function fmtDist(d) {
-  const n = (v, dec) => (v < 10 ? v.toFixed(dec) : Math.round(v).toLocaleString());
+  const n = (v, dec) => (v < 10 ? v.toFixed(dec) : Math.round(v).toLocaleString(LOCALE));
   if (imperial()) return d < 0.1 ? '<0.1 mi' : `${n(d, 1)} mi`;
   const km = d * 1.609;
   if (km < 1) return `${Math.max(50, Math.round(km * 20) * 50)} m`;
