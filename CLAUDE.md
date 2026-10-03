@@ -23,6 +23,11 @@ Testing notes (this machine has no Node or Python; use PowerShell or Git Bash):
   (`navigator.serviceWorker.getRegistrations()` → `unregister()`, `caches.delete`), then reload.
 - When the app window is in the background, the pane stops drawing (screenshots time out, smooth scroll and map
   rendering stall). Measure the DOM instead, or render a page to PNG with Edge headless (see `tools/make-icons.ps1`).
+  Also while hidden: the window height is 0 (set a size with `resize_window` before testing drag or `elementFromPoint`),
+  `loading="lazy"` photos never load, and a dialog's `close` event doesn't fire, so `askConfirm` never answers
+  (stand in for it: `askConfirm = async () => true`).
+- A test that swaps `state` and calls `render()` can still save (address lookups call `save()` when they finish).
+  Copy the `tripPlanner.*` localStorage keys first and put them back afterwards.
 - The AI Assistant (App Check) only works on the live site, https://nikwakwa.github.io/trip-planner/. After a push,
   wait until `sw.js` there shows the new `trip-planner-vN`, then open the site with a `?fresh=N` query to dodge caches.
 
@@ -37,7 +42,7 @@ Asset scripts (they download from the internet and rewrite files in the repo):
 ## Architecture
 
 **Classic scripts that share one global scope.** `index.html` loads, in this order:
-`firebase-config.js` → `places.js` → `weather.js` → `hours.js` → `essentials.js` → `mapstyle.js` → `maps.js` →
+`theme.js` (in the `<head>`), then at the end of the page `firebase-config.js` → `places.js` → `weather.js` → `hours.js` → `essentials.js` → `mapstyle.js` → `maps.js` →
 `drag.js` → `today.js` → `calendar.js` → `files.js` → `packing.js` → `assistant.js` → `sync.js` → `app.js`. Don't use `app.js` names (`$`, `CATEGORIES`, …) at load time
 in the earlier files, only inside functions. The files are not modules. The feature files call helpers defined in `app.js` (`$`, `esc`, `icon`,
 `save`, `render`, `snackbar`, `state`, …) at runtime, which works because `app.js` loads last and the calls
@@ -54,8 +59,12 @@ happen after startup. Top-level names must stay unique across all files.
 - After any change, call `save()` then `render()`. `save()` writes localStorage *and* calls `pushChanges()`
   (sync.js). `render()` rebuilds the current view's HTML from scratch using template strings. Put all
   user text through `esc()`, and all user URLs through `safeUrl()`.
-- The inline script in `index.html`'s `<head>` reads `tripPlanner.v1.settings.theme` to avoid a light/dark flash.
+- `theme.js` (loaded in `index.html`'s `<head>`) reads `tripPlanner.v1.settings.theme` to avoid a light/dark flash.
   Keep it in sync if the settings shape changes.
+- Data from outside goes through checks before it is used: the saved copy (`tidyState` in `load()`), the account's
+  documents (`tidyTrip` / `tidyItem` / `tidyCheck` in `applyDocs`) and backup files (`cleanBackup`, stricter: it keeps
+  only known fields). The `tidy…` functions fix the types of the fields the app relies on and keep unknown fields, so
+  an older version doesn't erase what a newer one added. Ids must pass `isId`, days `isDate`, times `isTime`.
 - Theme colors come from each trip's `color`: `applyTheme` sets it as the CSS `--seed` variable, and `styles.css`
   derives the whole palette from that one color. Light/dark mode is set with `html[data-theme]`.
 
@@ -137,8 +146,21 @@ Firebase console by hand; it isn't deployed from here.
 
 **Offline / updates (`sw.js`).** The service worker serves cached files first and refreshes them in the background (stale-while-revalidate).
 When you **add a new app file**, add it to `FILES`. When you **ship any change**, bump `CACHE`
-(`trip-planner-vN`) so installed phones pick up the new version. OSM tiles go in a separate cache that is kept between versions
-(`trip-planner-map-tiles`, capped at 800 tiles).
+(`trip-planner-vN`) so installed phones pick up the new version. The big vendored libraries (MapLibre, Firebase) are in
+`LIBS`: saved at install too, but the install doesn't fail without them. Files are saved without their `?query`.
+OSM tiles go in a separate cache that is kept between versions (`trip-planner-map-tiles`, capped at 900 tiles).
+
+**Security.**
+- `index.html` has a Content-Security-Policy `<meta>`: scripts run only from the app's own files and Google's
+  reCAPTCHA (for App Check). So: no inline `<script>`, no inline handlers (`onclick="…"`, `onerror="…"`) in HTML or in
+  template strings; use `addEventListener` (see the `img[data-photo]` error listener in app.js). A new outside script
+  needs its host added to the policy. On phones, Firebase Auth tries to load `apis.google.com/js/api.js` (only needed
+  for Google sign-in pop-ups, which the app doesn't use): the policy blocks it, and that console message is expected.
+- Everything written into the page goes through `esc()`, ids included. Wikivoyage, OpenStreetMap, AI answers and
+  backup files are all text other people can write.
+- Attachments (`files.js`) accept photos and PDFs only (`SAFE_FILE`). No SVG or HTML: opened from a `blob:` address,
+  they would run with the app's own access.
+- "Erase everything" also clears what is only on the device (`eraseDeviceData`). Add any new `tripPlanner.*` key there.
 
 **Desktop layout (`styles.css`, end of file).** There is one codebase, and the layout switches by window width.
 Phone styles are the default. Add desktop overrides in the media blocks at the end, and check phone, ~1000px and

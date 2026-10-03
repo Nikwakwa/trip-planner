@@ -82,7 +82,9 @@ function stateDocs(s) {
 // Rebuilds the plans from the account's documents. Keeps the same objects
 // where possible, so an "Undo" that's still on screen keeps working.
 function applyDocs(docs) {
-  const all = Object.values(docs).map(j => JSON.parse(j));
+  // Each document is checked first (app.js): one the app can't use is left out.
+  const tidy = d => (!d ? null : d.k === 'trip' ? tidyTrip(d) : d.k === 'item' ? tidyItem(d) : d.k === 'check' ? tidyCheck(d) : null);
+  const all = Object.values(docs).map(j => tidy(JSON.parse(j))).filter(Boolean);
   const byPos = (a, b) => (a.pos - b.pos) || (a.id < b.id ? -1 : 1);
   const tripDocs = all.filter(d => d.k === 'trip').sort(byPos);
 
@@ -327,6 +329,8 @@ async function resetPassword(email) {
 }
 
 async function signOut() {
+  // Firebase remembers the sign-in by itself: it has to be loaded to make it forget.
+  if (!sync.auth) await loadFirebase().catch(() => {});
   if (sync.auth) await sync.auth.signOut();
   sync.saved = null;
   writeSyncInfo();

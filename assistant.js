@@ -203,7 +203,10 @@ async function callGemini(model, body) {
 
 // Gemini 3.8 Flash, or Flash-Lite once the day's free allowance is used up.
 async function askGemini(trip, chat) {
-  const contents = chat.slice(-AI_HISTORY).map(m => ({
+  // The conversation so far has to start with something the user said.
+  const recent = chat.slice(-AI_HISTORY);
+  while (recent.length > 1 && recent[0].role !== 'user') recent.shift();
+  const contents = recent.map(m => ({
     role: m.role,
     parts: [{ text: m.role === 'model' ? JSON.stringify(answerOf(m.text, m.changes || [])) + (m.status ? `\n(The user ${m.status === 'applied' ? 'applied' : 'did not apply'} these changes.)` : '') : m.text }],
   }));
@@ -248,8 +251,8 @@ function parseAnswer(text) {
 
 /* ---------- Turning proposed changes into real edits ---------- */
 
-const aiIsDate = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(parseDate(v).getTime());
-const aiIsTime = v => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+const aiIsDate = v => isDate(v);
+const aiIsTime = v => isTime(v);
 const aiText = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
 // Checks each proposed change against the trip; returns the ones that can be applied, with a line of text each.
@@ -436,7 +439,8 @@ async function sendToAssistant(text) {
   text = text.trim();
   if (!trip || !text || ai.busy) return;
   const chat = chatOf(trip);
-  chat.push({ role: 'user', text });
+  const asked = { role: 'user', text };
+  chat.push(asked);
   $('#ai-input').value = '';
   ai.busy = true;
   ai.error = '';
@@ -449,7 +453,7 @@ async function sendToAssistant(text) {
     console.warn('Assistant', e);
     ai.error = aiErrorText(e);
     // Keep the request so it can be sent again or copied to another app.
-    chat.pop();
+    if (chat.includes(asked)) chat.splice(chat.indexOf(asked), 1);
     $('#ai-input').value = text;
     if (e.kind === 'daily') ai.paste = true;
   } finally {

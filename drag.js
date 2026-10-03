@@ -21,17 +21,22 @@ document.addEventListener('pointerdown', (e) => {
   drag.x = drag.startX = e.clientX;
   drag.y = drag.startY = e.clientY;
   drag.mouse = e.pointerType === 'mouse';
+  drag.armed = true;
   clearTimeout(drag.timer);
-  drag.timer = setTimeout(startDrag, HOLD_MS);
+  // A finger starts a drag by holding still. A mouse starts it by moving (below): holding the
+  // button a little long is still just a click.
+  drag.timer = drag.mouse ? 0 : setTimeout(startDrag, HOLD_MS);
 });
 
 document.addEventListener('pointermove', (e) => {
   drag.x = e.clientX;
   drag.y = e.clientY;
   if (drag.active) { moveDrag(); return; }
-  if (!drag.timer || Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) <= 8) return;
+  if (!drag.armed) return;
+  if (drag.mouse && !(e.buttons & 1)) { cancelHold(); return; }      // the button was let go outside the window
+  if (Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) <= 8) return;
   // With a mouse, moving while pressed is the drag. With a finger, moving before the hold is a scroll.
-  if (drag.mouse) { clearTimeout(drag.timer); startDrag(); } else cancelHold();
+  if (drag.mouse) startDrag(); else cancelHold();
 });
 
 document.addEventListener('pointerup', () => { if (drag.active) endDrag(true); else cancelHold(); });
@@ -51,10 +56,12 @@ document.addEventListener('click', (e) => {
 function cancelHold() {
   clearTimeout(drag.timer);
   drag.timer = 0;
+  drag.armed = false;
 }
 
 function startDrag() {
   drag.timer = 0;
+  drag.armed = false;
   if (!drag.src || !drag.src.isConnected) return;
   drag.active = true;
   const r = drag.src.getBoundingClientRect();
@@ -169,11 +176,14 @@ function dropOn(target) {
     message = 'Moved back to ideas';
   } else {
     const fromDay = item.date;
+    const was = fromDay === target.day ? dayItems(trip, target.day) : null;
     item.date = target.day;
     if (!item.time) {
       // Number the untimed plans in their new order, after the timed plan before them.
       const order = dayItems(trip, target.day).filter(i => i !== item);
       order.splice(target.index, 0, item);
+      // Put back where it was: nothing changes.
+      if (was && order.every((it, k) => it === was[k])) { render(); return; }
       let anchor = '00:00', n = 0;
       for (const it of order) {
         if (it.time) { anchor = it.time; n = 0; }

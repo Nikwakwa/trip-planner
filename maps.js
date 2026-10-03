@@ -352,7 +352,7 @@ function renderMapPane() {
 
 // A pin was clicked on the docked map: show its plan in the list.
 function showPlanInList(id) {
-  const el = document.querySelector(`#view-plan .item[data-id="${id}"]`);
+  const el = document.querySelector(`#view-plan .item[data-id="${CSS.escape(id)}"]`);
   if (!el) return;
   el.scrollIntoView({ block: 'center', behavior: 'smooth' });
   el.classList.remove('flash');
@@ -396,10 +396,14 @@ function renderMapBody() {
     $('#map-sub').textContent = pending ? 'Finding places on the map…' : `${plural(count, 'stop')} on the map`;
     $('#map-body').innerHTML = `
       <div class="legend">
-        ${groups.map((g, i) => `
+        ${groups.map((g) => {
+          // The same day numbers as in the plan (a day outside the trip's dates has none).
+          const inTrip = trip.start && g.day >= trip.start && g.day <= trip.end;
+          return `
           <button type="button" class="assist-chip ripple" data-action="day-map" data-date="${g.day}">
-            <span class="legend-dot" style="background:${g.color}"></span>Day ${i + 1} · ${esc(fmtDay(g.day, { weekday: 'short', day: 'numeric' }))}
-          </button>`).join('')}
+            <span class="legend-dot" style="background:${g.color}"></span>${inTrip ? `Day ${daysBetween(trip.start, g.day) + 1} · ` : ''}${esc(fmtDay(g.day, { weekday: 'short', day: 'numeric' }))}
+          </button>`;
+        }).join('')}
       </div>
       ${count ? '' : '<p class="map-hint">Add plans with a place to see them here.</p>'}`;
     return;
@@ -445,7 +449,7 @@ function renderMapBody() {
         }
         n++;
         return `
-          <li><button type="button" class="stop ripple" data-action="focus-stop" data-id="${s.it.id}">
+          <li><button type="button" class="stop ripple" data-action="focus-stop" data-id="${esc(s.it.id)}">
             <span class="stop-num" style="background:${g.color}">${n}</span>
             <span class="stop-text"><span class="stop-title">${esc(s.it.title)}</span>${sub ? `<span class="stop-sub">${esc(sub)}</span>` : ''}</span>
           </button></li>`;

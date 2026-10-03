@@ -32,7 +32,9 @@ try {
     if ($rel -eq '') { $rel = 'index.html' }
     $full = [IO.Path]::GetFullPath((Join-Path $root $rel))
     $res = $ctx.Response
-    if ($full.StartsWith($root) -and (Test-Path -LiteralPath $full -PathType Leaf)) {
+    # Only files inside this folder, and not hidden ones (.git, .claude).
+    $inside = $full.StartsWith($root.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase) -and ($rel -notmatch '(^|[\\/])\.')
+    if ($inside -and (Test-Path -LiteralPath $full -PathType Leaf)) {
       $bytes = [IO.File]::ReadAllBytes($full)
       $ext = [IO.Path]::GetExtension($full).ToLower()
       $type = $types[$ext]

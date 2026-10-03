@@ -2,13 +2,14 @@
    Strategy: show the saved copy instantly, and quietly fetch a fresh copy
    in the background (when online) for next time. */
 
-const CACHE = 'trip-planner-v24';
+const CACHE = 'trip-planner-v25';
 const TILES = 'trip-planner-map-tiles';   // map images you've viewed, kept across versions
 const MAX_TILES = 900;                     // map pieces kept, roughly 40 MB at most
 const FILES = [
   './',
   'index.html',
   'styles.css',
+  'theme.js',
   'app.js',
   'firebase-config.js',
   'places.js',
@@ -35,14 +36,36 @@ const FILES = [
   'icons/icon-maskable-512.png',
   'icons/apple-touch-icon.png',
 ];
+// The big libraries: the detailed map, and sign-in and sync. Saved too, so they are there offline
+// even if they were never used while online. The app still installs if one can't be fetched.
+const LIBS = [
+  'vendor/maplibre/maplibre-gl.js',
+  'vendor/maplibre/maplibre-gl.css',
+  'vendor/maplibre/leaflet-maplibre-gl.js',
+  'vendor/firebase/firebase-app-compat.js',
+  'vendor/firebase/firebase-auth-compat.js',
+  'vendor/firebase/firebase-firestore-compat.js',
+  'vendor/firebase/firebase-app-check-compat.js',
+];
 
 // First visit or new version: save every app file.
 // cache: 'reload' skips the browser's short-term copy (GitHub Pages keeps files
 // for 10 minutes), so a new version really stores the newest files.
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE)
-    .then(c => c.addAll(FILES.map(url => new Request(url, { cache: 'reload' }))))
-    .then(() => self.skipWaiting()));
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE);
+    await cache.addAll(FILES.map(url => new Request(url, { cache: 'reload' })));
+    await Promise.all(LIBS.map(async (url) => {
+      try {
+        await cache.add(url);
+      } catch {
+        // Offline or a hiccup: keep the copy from the previous version, if there is one.
+        const had = await caches.match(url);
+        if (had) await cache.put(url, had).catch(() => {});
+      }
+    }));
+    await self.skipWaiting();
+  })());
 });
 
 // New version: throw away older saved copies.
@@ -98,7 +121,8 @@ self.addEventListener('fetch', (event) => {
 
     // 'no-cache' = always check with the server (cheap when nothing changed).
     const fresh = fetch(req.mode === 'navigate' ? req.url : req, { cache: 'no-cache' }).then((res) => {
-      if (res.ok) cache.put(req, res.clone());
+      // Saved under the plain address: "?fresh=24" and the like would pile up as separate copies.
+      if (res.ok) cache.put(url.search ? url.origin + url.pathname : req, res.clone());
       return res;
     }).catch(() => undefined);
 

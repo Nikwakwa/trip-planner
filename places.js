@@ -218,7 +218,11 @@ function wikidataIdFor(place) {
   if (!place.osm) return Promise.resolve(null);
   if (!wikidataIds.has(place.osm)) {
     wikidataIds.set(place.osm, getJSON('https://nominatim.openstreetmap.org/lookup', { osm_ids: place.osm, format: 'jsonv2', extratags: '1' })
-      .then(([hit]) => (hit && hit.extratags && hit.extratags.wikidata) || null)
+      .then(([hit]) => {
+        // Anyone can edit OpenStreetMap: only a real Wikidata id ("Q64") is passed on.
+        const id = hit && hit.extratags && hit.extratags.wikidata;
+        return /^Q\d+$/.test(id) ? id : null;
+      })
       .catch(() => { wikidataIds.delete(place.osm); return null; }));
   }
   return wikidataIds.get(place.osm);
@@ -228,7 +232,8 @@ async function wikivoyageTitle(place) {
   const qid = await wikidataIdFor(place);
   if (qid) {
     const data = await getJSON('https://www.wikidata.org/w/api.php', wm({ action: 'wbgetentities', ids: qid, props: 'sitelinks', sitefilter: 'enwikivoyage' }));
-    const link = data.entities && data.entities[qid] && data.entities[qid].sitelinks.enwikivoyage;
+    const entity = data.entities && data.entities[qid];
+    const link = entity && entity.sitelinks && entity.sitelinks.enwikivoyage;
     if (link) return link.title;
   }
   // No link: search by name, and only accept a page that is actually nearby.
@@ -421,8 +426,17 @@ async function wikivoyageGuide(place) {
   if (list.length < 5) return null;
 
   const isDestinations = list.filter(x => x.type === 'city' || x.type === 'vicinity').length >= list.length * 0.6;
+  // Each place needs its own id: two names can come out the same once shortened to plain letters.
+  const usedIds = new Set();
+  const placeId = (x) => {
+    const base = 'wv-' + (x.wikidata || norm(x.name).replace(/[^a-z0-9]+/g, '-')).slice(0, 50);
+    let id = base;
+    for (let n = 2; usedIds.has(id); n++) id = `${base}-${n}`;
+    usedIds.add(id);
+    return id;
+  };
   const places = list.map(x => ({
-    id: 'wv-' + (x.wikidata || norm(x.name).replace(/[^a-z0-9]+/g, '-')).slice(0, 50),
+    id: placeId(x),
     name: x.name,
     aliases: x.alt && x.alt.length < 50 ? [x.alt] : [],
     cat: LISTING_CAT[x.type] || 'sight',

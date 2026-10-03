@@ -56,7 +56,12 @@ function calendarUrl(item, trip) {
 const icsText = s => String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
 function icsLine(line) {
   const out = [];
-  while (line.length > 74) { out.push(line.slice(0, 74)); line = ' ' + line.slice(74); }
+  while (line.length > 74) {
+    // Not in the middle of an emoji (which takes two places).
+    const cut = /[\uD800-\uDBFF]/.test(line[73]) ? 73 : 74;
+    out.push(line.slice(0, cut));
+    line = ' ' + line.slice(cut);
+  }
   out.push(line);
   return out.join('\r\n');
 }

@@ -76,7 +76,7 @@ async function countryFacts(qid) {
     languages: all('P37').map(cap).slice(0, 4),
     currency: all('P38').map(cap).slice(0, 2),
     plugs: plugs.slice(0, 4),
-    voltage: all('P2884')[0] ? `${Math.round(Number(all('P2884')[0]))} V` : '',
+    voltage: Number(all('P2884')[0]) > 0 ? `${Math.round(Number(all('P2884')[0]))} V` : '',
     driving: all('P1622')[0] || '',
     calling: all('P474')[0] || '',
   };
@@ -84,7 +84,8 @@ async function countryFacts(qid) {
 
 async function wikivoyageTitleOf(qid) {
   const data = await getJSON('https://www.wikidata.org/w/api.php', wm({ action: 'wbgetentities', ids: qid, props: 'sitelinks', sitefilter: 'enwikivoyage' }));
-  const link = data.entities && data.entities[qid] && data.entities[qid].sitelinks.enwikivoyage;
+  const entity = data.entities && data.entities[qid];
+  const link = entity && entity.sitelinks && entity.sitelinks.enwikivoyage;
   return link ? link.title : null;
 }
 

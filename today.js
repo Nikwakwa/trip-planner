@@ -118,7 +118,7 @@ const near = { status: '', pos: null, error: '' };
 function openNearMe() {
   near.status = 'locating';
   near.error = '';
-  $('#near-dialog').showModal();
+  if (!$('#near-dialog').open) $('#near-dialog').showModal();     // "Try again" is tapped inside the open sheet
   renderNearMe();
   if (!navigator.geolocation) { near.status = 'error'; near.error = 'This device’s browser can’t share its location.'; renderNearMe(); return; }
   navigator.geolocation.getCurrentPosition((p) => {
@@ -175,7 +175,7 @@ function renderNearMe() {
       const t = travel(d, mode);
       return `
         <li class="item place ${open === false ? 'closed' : ''}">
-          <button type="button" class="item-main ripple" data-action="place-info" data-place="${p.id}" data-date="${day}">
+          <button type="button" class="item-main ripple" data-action="place-info" data-place="${esc(p.id)}" data-date="${day}">
             ${placeThumb(p, cat)}
             <span class="item-text">
               <span class="overline">${esc([fmtDist(d), t.text].join(' · '))}</span>

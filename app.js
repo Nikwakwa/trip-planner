@@ -50,6 +50,11 @@ function toISO(date) {
 }
 function todayISO() { return toISO(new Date()); }
 const daysBetween = (a, b) => Math.round((parseDate(b) - parseDate(a)) / 864e5);
+// A real calendar day ("2026-02-31" isn't one) and a real clock time.
+const isDate = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && toISO(parseDate(v)) === v;
+const isTime = v => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+// Ids end up in the page and in the names of synced documents: only letters, digits, "-", "_" and ".".
+const isId = v => typeof v === 'string' && /^[\w.-]{1,100}$/.test(v);
 // The app is in English only for now, so dates and times are always written in English, whatever the
 // device's language. The day/month order and the clock are a choice (More → Appearance), and start
 // from the device's own habits.
@@ -63,7 +68,9 @@ function deviceFormats() {
 }
 const dateLocale = () => (state.settings.dateOrder === 'mdy' ? 'en-US' : 'en-GB');   // "Oct 31" or "31 Oct"
 function fmtDay(s, opts = { weekday: 'short', month: 'short', day: 'numeric' }) {
-  return parseDate(s).toLocaleDateString(dateLocale(), opts);
+  // Without a month, the American style gives "3 Sat": "Sat 3" is used for both.
+  const locale = opts.weekday && opts.day && !opts.month ? 'en-GB' : dateLocale();
+  return parseDate(s).toLocaleDateString(locale, opts);
 }
 // A clock time, "14:30" or "2:30 PM". `tz` shows it in another time zone.
 function fmtClock(date, tz) {
@@ -309,9 +316,12 @@ function planSuggestions(trip, guide, days) {
 
 /* ---------- Photos of guide places (from Wikimedia, when the guide has one) ---------- */
 
-// Hidden if it can't load (offline, or the file is gone).
 const photoImg = (p, cls) => (p.photo
-  ? `<img class="${cls}" src="${esc(p.photo)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : '');
+  ? `<img class="${cls}" data-photo src="${esc(p.photo)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : '');
+// A photo that can't load (offline, or the file is gone) is taken out, with its caption.
+document.addEventListener('error', (e) => {
+  if (e.target.matches && e.target.matches('img[data-photo]')) (e.target.closest('figure') || e.target).remove();
+}, true);
 
 // A small square photo in lists, with the category icon underneath in case it doesn't load.
 function placeThumb(p, cat) {
@@ -350,9 +360,9 @@ function openPlaceInfo(id, day) {
     <div class="sheet-actions">
       ${added
         ? `<span class="pi-added">${icon('check')}Already in your trip</span>`
-        : `${day ? `<button type="button" class="btn text ripple" data-action="add-suggestion" data-place="${p.id}" data-date="">Save to ideas</button>` : ''}
+        : `${day ? `<button type="button" class="btn text ripple" data-action="add-suggestion" data-place="${esc(p.id)}" data-date="">Save to ideas</button>` : ''}
            <span class="spacer"></span>
-           <button type="button" class="btn filled lg ripple" data-action="add-suggestion" data-place="${p.id}" data-date="${day || ''}">
+           <button type="button" class="btn filled lg ripple" data-action="add-suggestion" data-place="${esc(p.id)}" data-date="${day || ''}">
              ${icon('add')}${day ? `Add to ${esc(dayName)}` : 'Save to ideas'}</button>`}
     </div>`;
   $('#place-dialog').showModal();
@@ -373,7 +383,7 @@ function suggestionCard(r, day) {
     : p.area ? `${icon('location_on')}<span>${esc(p.area)}</span>` : '';
   return `
     <article class="s-card" aria-label="${esc(p.name)}">
-      <button type="button" class="s-body ripple" data-action="place-info" data-place="${p.id}" data-date="${day}" aria-label="More about ${esc(p.name)}">
+      <button type="button" class="s-body ripple" data-action="place-info" data-place="${esc(p.id)}" data-date="${day}" aria-label="More about ${esc(p.name)}">
         ${photoImg(p, 's-photo')}
         <span class="s-top"><span class="avatar" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}</span>${whenTag(p)}</span>
         <span class="s-name">${esc(p.name)}</span>
@@ -384,7 +394,7 @@ function suggestionCard(r, day) {
       <div class="s-foot">
         ${p.mins < 360 ? `<span class="tag">${icon('schedule')}${fmtDuration(p.mins)}</span>` : ''}
         ${p.tags.includes('free') ? '<span class="tag">Free</span>' : ''}
-        <button type="button" class="btn tonal sm ripple" data-action="add-suggestion" data-place="${p.id}" data-date="${day}"
+        <button type="button" class="btn tonal sm ripple" data-action="add-suggestion" data-place="${esc(p.id)}" data-date="${day}"
           aria-label="Add ${esc(p.name)}">${icon('add')}Add</button>
       </div>
     </article>`;
@@ -449,6 +459,83 @@ function defaultSettings() {
   return { theme: 'auto', suggestions: true, lookup: true, units: usesImperial() ? 'imperial' : 'metric', ...deviceFormats() };
 }
 
+/* ---------- Checking data that comes from outside the app ----------
+   The saved copy, the account (sync.js) and backup files all go through these. The fields the app
+   relies on get the right type; anything else is left alone (a newer version may have added it).
+   Something without a usable id gets a new one (newId), or is left out (returns null). */
+
+function tidyTrip(t, newId = false) {
+  if (!t || typeof t !== 'object' || (!isId(t.id) && !newId)) return null;
+  const out = {
+    ...t,
+    id: isId(t.id) ? t.id : uid(),
+    name: (typeof t.name === 'string' && t.name) || 'Trip',
+    color: /^#[0-9a-f]{6}$/i.test(t.color) ? t.color : COLORS[0],
+    start: isDate(t.start) && isDate(t.end) ? t.start : '',
+    end: isDate(t.start) && isDate(t.end) ? t.end : '',
+  };
+  const p = t.place;
+  const num = (v, max) => typeof v === 'number' && Math.abs(v) <= max;
+  if (p && typeof p === 'object' && num(p.lat, 90) && num(p.lng, 180) && typeof p.name === 'string' && p.name) {
+    out.place = {
+      ...p,
+      label: (typeof p.label === 'string' && p.label) || p.name,
+      kind: KIND_LABEL[p.kind] ? p.kind : 'city',
+      bbox: Array.isArray(p.bbox) && p.bbox.length === 4 && p.bbox.every(v => typeof v === 'number') ? p.bbox : null,
+      osm: /^[NWR]\d+$/.test(p.osm) ? p.osm : '',
+    };
+  } else {
+    delete out.place;
+  }
+  if ('travel' in out && !TRAVEL_MODES[out.travel]) delete out.travel;
+  if ('dayTravel' in out) {
+    const own = out.dayTravel && typeof out.dayTravel === 'object'
+      ? Object.entries(out.dayTravel).filter(([d, m]) => isDate(d) && typeof m === 'string' && TRAVEL_MODES[m]) : [];
+    if (own.length) out.dayTravel = Object.fromEntries(own); else delete out.dayTravel;
+  }
+  return out;
+}
+
+function tidyItem(i, newId = false) {
+  if (!i || typeof i !== 'object' || (!isId(i.id) && !newId)) return null;
+  const text = v => (typeof v === 'string' ? v : '');
+  const out = {
+    ...i,
+    id: isId(i.id) ? i.id : uid(),
+    title: text(i.title) || 'Untitled',
+    category: text(i.category) || 'other',
+    date: isDate(i.date) ? i.date : '',
+    time: isTime(i.time) ? i.time : '',
+    place: text(i.place), link: text(i.link), notes: text(i.notes),
+    done: i.done === true,
+  };
+  if (typeof out.lat !== 'number' || typeof out.lng !== 'number' || Math.abs(out.lat) > 90 || Math.abs(out.lng) > 180) { delete out.lat; delete out.lng; }
+  if ('guideId' in out && !isId(out.guideId)) delete out.guideId;
+  if ('slot' in out && !/^\d{2}:\d{2}~\d{2}$/.test(out.slot)) delete out.slot;
+  if ('geoMiss' in out && out.geoMiss !== true) delete out.geoMiss;
+  return out;
+}
+
+function tidyCheck(c, newId = false) {
+  if (!c || typeof c !== 'object' || typeof c.text !== 'string' || !c.text || (!isId(c.id) && !newId)) return null;
+  return { ...c, id: isId(c.id) ? c.id : uid(), done: c.done === true };
+}
+
+// The copy saved on this device: nothing is thrown away, whatever state it is in.
+function tidyState(data) {
+  const trips = data.trips.map((t) => {
+    const trip = tidyTrip(t, true);
+    if (trip) trip.items = (Array.isArray(t.items) ? t.items : []).map(i => tidyItem(i, true)).filter(Boolean);
+    return trip;
+  }).filter(Boolean);
+  return {
+    ...data,
+    trips,
+    checklist: (Array.isArray(data.checklist) ? data.checklist : []).map(c => tidyCheck(c, true)).filter(Boolean),
+    settings: data.settings && typeof data.settings === 'object' ? data.settings : {},
+  };
+}
+
 /* ---------- Loading & saving ---------- */
 
 function load() {
@@ -456,10 +543,12 @@ function load() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const data = JSON.parse(raw);
-      if (data && Array.isArray(data.trips)) return data;
+      if (data && Array.isArray(data.trips)) return tidyState(data);
     }
   } catch (e) {
     console.warn('Could not read saved data', e);
+    // Starting fresh would overwrite it: keep what was there, in case it can be rescued.
+    try { localStorage.setItem(STORAGE_KEY + '.unreadable', localStorage.getItem(STORAGE_KEY)); } catch { /* storage full */ }
   }
   return defaultState();
 }
@@ -662,7 +751,7 @@ function renderWelcome() {
 function renderTripTabs(trip) {
   $('#trip-tabs').innerHTML =
     state.trips.map(t => `
-      <button type="button" class="trip-chip ripple ${t.id === trip.id ? 'active' : ''}" data-trip="${t.id}"
+      <button type="button" class="trip-chip ripple ${t.id === trip.id ? 'active' : ''}" data-trip="${esc(t.id)}"
         style="--c:${esc(t.color)}" aria-pressed="${t.id === trip.id}">
         <span class="dot"></span>${esc(t.name)}
       </button>`).join('') +
@@ -697,7 +786,7 @@ function itemHTML(item, trip, { showDate = false, drag = false, note = null, sch
   // The address line is skipped when it only repeats the title.
   const showPlace = item.place && norm(item.place) !== norm(item.title);
   return `
-    <li class="item ${item.done ? 'done' : ''}" data-id="${item.id}" ${drag ? 'data-drag' : ''}>
+    <li class="item ${item.done ? 'done' : ''}" data-id="${esc(item.id)}" ${drag ? 'data-drag' : ''}>
       <button type="button" class="item-main ripple" data-action="edit">
         <span class="avatar" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}</span>
         <span class="item-text">
@@ -807,7 +896,7 @@ function renderPlan(trip) {
           ${unplanned.map((it) => {
             const cat = CATEGORIES[it.category] || CATEGORIES.other;
             return `
-              <li class="idea-chip" data-id="${it.id}" data-drag>
+              <li class="idea-chip" data-id="${esc(it.id)}" data-drag>
                 <button type="button" class="ripple" data-action="edit">
                   <span class="avatar" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}</span>${esc(it.title)}
                 </button>
@@ -925,7 +1014,7 @@ function placeHTML(p, added, trip) {
   const over = [p.area, p.mins < 360 && fmtDuration(p.mins), p.tags.includes('free') && 'Free'].filter(Boolean).join(' · ');
   return `
     <li class="item place">
-      <button type="button" class="item-main ripple" data-action="place-info" data-place="${p.id}" data-date="">
+      <button type="button" class="item-main ripple" data-action="place-info" data-place="${esc(p.id)}" data-date="">
         ${placeThumb(p, cat)}
         <span class="item-text">
           <span class="overline">${esc(over)}</span>
@@ -935,7 +1024,7 @@ function placeHTML(p, added, trip) {
         </span>
       </button>
       <button type="button" class="icon-btn tonal add-btn ripple ${added ? 'added' : ''}"
-        data-action="${added ? 'noop' : 'add-suggestion'}" data-place="${p.id}" data-date=""
+        data-action="${added ? 'noop' : 'add-suggestion'}" data-place="${esc(p.id)}" data-date=""
         aria-label="${added ? `${esc(p.name)} is already in your trip` : `Save ${esc(p.name)} to your ideas`}">${icon(added ? 'check' : 'add')}</button>
       <div class="item-chips">
         <a class="assist-chip ripple" href="${esc(mapsUrl(p.place || p.name, trip))}" target="_blank" rel="noopener">${icon('map')}Map</a>
@@ -1019,7 +1108,7 @@ function renderIdeas(trip) {
 
 function taskHTML(c) {
   return `
-    <li class="task ${c.done ? 'done' : ''}" data-check="${c.id}">
+    <li class="task ${c.done ? 'done' : ''}" data-check="${esc(c.id)}">
       <button type="button" class="check ripple" data-action="toggle-check" role="checkbox"
         aria-checked="${c.done}" aria-label="Done: ${esc(c.text)}"><span class="box">${icon('check')}</span></button>
       <span class="task-text">${esc(c.text)}</span>
@@ -1095,7 +1184,7 @@ function renderMore() {
     <h2 class="group-label">Trips</h2>
     <ul class="group">
       ${state.trips.map(t => `
-        <li><button type="button" class="row ripple" data-action="edit-trip" data-trip-id="${t.id}">
+        <li><button type="button" class="row ripple" data-action="edit-trip" data-trip-id="${esc(t.id)}">
           <span class="trip-avatar" style="--c:${esc(t.color)}">${esc(t.name.charAt(0).toUpperCase())}</span>
           <span class="row-text">
             <span class="row-title">${esc(t.name)}</span>
@@ -1260,20 +1349,22 @@ itemForm.addEventListener('submit', (e) => {
   };
   if (!data.title) return;
   const trip = activeTrip();
-  if (editingItemId) {
-    const found = findItem(editingItemId);
-    if (found) {
-      // A new address means the saved map position no longer applies.
-      if (found.item.place !== data.place) {
-        delete found.item.lat;
-        delete found.item.lng;
-        delete found.item.guideId;
-        delete found.item.geoMiss;
-      }
-      // A new day or a set time replaces the position chosen by Optimize route.
-      if (found.item.date !== data.date || data.time) delete found.item.slot;
-      Object.assign(found.item, data);
+  if (!trip) { itemDialog.close(); return; }
+  const found = editingItemId && findItem(editingItemId);
+  if (editingItemId && !found) {
+    // The plan was removed while its form was open (on another device): saving puts it back.
+    trip.items.push({ id: editingItemId, done: false, ...data });
+  } else if (editingItemId) {
+    // A new address means the saved map position no longer applies.
+    if (found.item.place !== data.place) {
+      delete found.item.lat;
+      delete found.item.lng;
+      delete found.item.guideId;
+      delete found.item.geoMiss;
     }
+    // A new day or a set time replaces the position chosen by Optimize route.
+    if (found.item.date !== data.date || data.time) delete found.item.slot;
+    Object.assign(found.item, data);
   } else {
     trip.items.push({ id: uid(), done: false, ...data });
   }
@@ -1720,7 +1811,7 @@ document.addEventListener('click', async (e) => {
       break;
     case 'toggle-lookup':
       state.settings.lookup = !state.settings.lookup;
-      if (state.settings.lookup) activeTrip().items.forEach(i => delete i.geoMiss);
+      if (state.settings.lookup) state.trips.forEach(t => t.items.forEach(i => delete i.geoMiss));
       save();
       render();
       break;
@@ -1822,6 +1913,7 @@ document.addEventListener('click', async (e) => {
       });
       if (ok) {
         state = defaultState();
+        eraseDeviceData();
         save();
         ui.view = 'plan';
         window.scrollTo(0, 0);
@@ -1886,6 +1978,22 @@ window.addEventListener('scroll', onScroll, { passive: true });
 
 /* ---------- Backup & restore ---------- */
 
+// "Erase everything" also clears what is kept on this device only: tickets, assistant chats,
+// hidden packing suggestions, and the saved guides, forecasts, opening hours and essentials.
+function eraseDeviceData() {
+  for (const key of [AI_KEY, PACKING_KEY, GUIDES_KEY, WEATHER_KEY, HOURS_KEY, ESSENTIALS_KEY]) {
+    try { localStorage.removeItem(key); } catch { /* storage unavailable */ }
+  }
+  ai.saved = { chats: {} };
+  for (const kept of [packingHidden, savedGuides]) for (const k of Object.keys(kept)) delete kept[k];
+  readyGuides.clear();
+  guideStatus.clear();
+  weather.saved = {};
+  hours.saved = {};
+  essentials.saved = {};
+  eraseFiles();     // files.js
+}
+
 function exportBackup() {
   const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
@@ -1901,9 +2009,16 @@ function exportBackup() {
 // Checks a backup file and keeps only the fields the app understands.
 function cleanBackup(data) {
   const str = (v, max = 2000) => (typeof v === 'string' ? v.slice(0, max) : '');
-  const date = v => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '');
-  const time = v => (/^\d{2}:\d{2}$/.test(v) ? v : '');
+  const date = v => (isDate(v) ? v : '');
+  const time = v => (isTime(v) ? v : '');
   const coord = (v, max) => (typeof v === 'number' && Math.abs(v) <= max ? v : undefined);
+  // Each id is used once, and can't carry anything but an id (it goes into the page as is).
+  const seen = new Set();
+  const id = (v) => {
+    const ok = isId(v) && !seen.has(v) ? v : uid();
+    seen.add(ok);
+    return ok;
+  };
   const cleanPlace = (p) => {
     if (!p || typeof p !== 'object' || coord(p.lat, 90) === undefined || coord(p.lng, 180) === undefined || !str(p.name)) return undefined;
     const bbox = Array.isArray(p.bbox) && p.bbox.length === 4 && p.bbox.every(v => typeof v === 'number') ? p.bbox : null;
@@ -1914,8 +2029,9 @@ function cleanBackup(data) {
     };
   };
   if (!data || !Array.isArray(data.trips)) throw new Error('not a backup');
-  const trips = data.trips.map(t => ({
-    id: str(t.id, 100) || uid(),
+  const tripIds = new Map();      // the file's trip id → the id it has here
+  const trips = data.trips.filter(t => t && typeof t === 'object').map(t => ({
+    id: tripIds.set(t.id, id(t.id)).get(t.id),
     name: str(t.name, 40) || 'Trip',
     color: /^#[0-9a-f]{6}$/i.test(t.color) ? t.color : COLORS[0],
     start: date(t.start),
@@ -1923,8 +2039,8 @@ function cleanBackup(data) {
     place: cleanPlace(t.place),
     travel: TRAVEL_MODES[t.travel] ? t.travel : 'transit',
     ...(t.dayTravel && typeof t.dayTravel === 'object' ? { dayTravel: Object.fromEntries(Object.entries(t.dayTravel).filter(([d, m]) => date(d) && TRAVEL_MODES[m])) } : {}),
-    items: (Array.isArray(t.items) ? t.items : []).map(i => ({
-      id: str(i.id, 100) || uid(),
+    items: (Array.isArray(t.items) ? t.items : []).filter(i => i && typeof i === 'object').map(i => ({
+      id: id(i.id),
       title: str(i.title, 120) || 'Untitled',
       category: CATEGORIES[i.category] ? i.category : 'other',
       date: date(i.date),
@@ -1935,15 +2051,15 @@ function cleanBackup(data) {
       done: i.done === true,
       lat: coord(i.lat, 90),
       lng: coord(i.lng, 180),
-      guideId: str(i.guideId, 60) || undefined,
+      guideId: isId(i.guideId) ? i.guideId : undefined,
       slot: /^\d{2}:\d{2}~\d{2}$/.test(i.slot) ? i.slot : undefined,
       geoMiss: i.geoMiss === true || undefined,
     })),
   }));
   const checklist = (Array.isArray(data.checklist) ? data.checklist : [])
-    .map(c => ({ id: str(c.id, 100) || uid(), text: str(c.text, 200), done: c.done === true }))
-    .filter(c => c.text);
-  const activeTripId = trips.some(t => t.id === data.activeTripId) ? data.activeTripId : trips.length ? trips[0].id : null;
+    .filter(c => c && typeof c === 'object' && str(c.text, 200))
+    .map(c => ({ id: id(c.id), text: str(c.text, 200), done: c.done === true }));
+  const activeTripId = tripIds.get(data.activeTripId) || (trips.length ? trips[0].id : null);
   const s = data.settings || {};
   const settings = {
     theme: ['auto', 'light', 'dark'].includes(s.theme) ? s.theme : 'auto',
@@ -2002,8 +2118,14 @@ window.addEventListener('appinstalled', () => {
 function updateOnlineBadge() { $('#offline-badge').hidden = navigator.onLine; }
 function onConnectionChange() {
   updateOnlineBadge();
-  // Back online: look up places and guides that couldn't be fetched offline.
-  if (navigator.onLine) placeTried.clear();
+  // Back online: look up places and guides that couldn't be fetched offline,
+  // and give the ones that failed (often because the connection dropped) another try.
+  if (navigator.onLine) {
+    placeTried.clear();
+    for (const [key, status] of guideStatus) if (status === 'failed') guideStatus.delete(key);
+    for (const [key, status] of essentials.status) if (status === 'failed') essentials.status.delete(key);
+  }
+  $('#ai-send').disabled = ai.busy || !aiReady() || !navigator.onLine;
   render();
 }
 window.addEventListener('online', onConnectionChange);

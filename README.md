@@ -28,6 +28,7 @@ the same address shows a desktop layout on a wide screen, by itself.
 | File | What it does |
 |------|--------------|
 | `index.html` | The page structure (what's on screen). |
+| `theme.js` | Picks light or dark before the page shows. |
 | `styles.css` | The look: colors, spacing, fonts. |
 | `app.js` | The behavior: adding plans, saving, switching trips. |
 | `places.js` | Finds a trip's place (OpenStreetMap) and builds a guide for it (Wikivoyage, Wikipedia). |
@@ -79,6 +80,12 @@ online, then close and reopen it.
 
 Plans are stored in the app on your phone (and, when signed in, in your Firebase account). Use **More → Save backup file** before the trip,
 and **Restore from backup file** to bring plans back or move them to another phone.
+
+**More → Erase everything** removes the trips, plans and checklist, and also what is kept on that device only:
+tickets and bookings, AI Assistant chats, and the saved guides and forecasts.
+
+Safety: the app only runs its own code. Text that comes from outside (travel guides, a backup file, the AI Assistant,
+another device) is always shown as plain text, and tickets can only be photos or PDFs.
 
 ## Sync between devices
 

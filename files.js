@@ -11,6 +11,9 @@
 const FILES_DB = 'tripPlannerFiles';
 const MAX_FILE = 15 * 1024 * 1024;      // 15 MB per file
 const MAX_IMAGE_SIDE = 2200;            // bigger photos are shrunk to this (still sharp for a QR code)
+// Photos and PDFs only. Drawings (SVG) and web pages are refused: opened from here, a file like
+// that could run its own code inside the app and read the plans.
+const SAFE_FILE = /^(image\/(jpeg|png|webp|gif|avif|heic|heif|bmp)|application\/pdf)$/;
 
 const tickets = {
   index: new Map(),      // plan id → [{ id, name, type, size }] (without the file itself)
@@ -71,6 +74,7 @@ async function shrinkImage(file) {
     canvas.width = Math.round(bmp.width * scale);
     canvas.height = Math.round(bmp.height * scale);
     canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    bmp.close();
     const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.85));
     return blob && blob.size < file.size ? new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' }) : file;
   } catch {
@@ -100,7 +104,7 @@ document.getElementById('file-input').addEventListener('change', async (e) => {
   const picked = [...e.target.files];
   e.target.value = '';
   for (const raw of picked) {
-    if (!/^image\/|^application\/pdf$/.test(raw.type)) { snackbar(`${raw.name}: only photos and PDFs`); continue; }
+    if (!SAFE_FILE.test(raw.type)) { snackbar(`${raw.name}: only photos and PDFs`); continue; }
     const file = await shrinkImage(raw);
     if (file.size > MAX_FILE) { snackbar(`${raw.name} is too big (max 15 MB)`); continue; }
     tickets.form.added.push({ id: uid(), name: file.name, type: file.type, size: file.size, blob: file });
@@ -136,6 +140,16 @@ async function saveFormFiles(itemId) {
   }
 }
 
+// "Erase everything" (app.js): every file goes too.
+async function eraseFiles() {
+  tickets.index.clear();
+  try {
+    (await filesStore('readwrite')).clear();
+  } catch (e) {
+    console.warn('Files unavailable', e);
+  }
+}
+
 /* ---------- Viewing a plan's files ---------- */
 
 const openUrls = [];
@@ -151,12 +165,13 @@ async function openFiles(itemId) {
     const store = await filesStore('readonly');
     const list = await idbDone(store.index('item').getAll(itemId));
     $('#files-body').innerHTML = `
-      ${list.map((f) => {
+      ${list.filter(f => f.type.startsWith('image/') || SAFE_FILE.test(f.type)).map((f) => {
         const url = URL.createObjectURL(f.blob);
         openUrls.push(url);
+        // A drawing (SVG) attached before those were refused is shown, but can't be opened on its own.
         return f.type.startsWith('image/')
           ? `<figure class="file-view"><img src="${url}" alt="${esc(f.name)}"><figcaption>${esc(f.name)}
-              <a class="assist-chip ripple" href="${url}" target="_blank" rel="noopener">${icon('open_in_new')}Full screen</a></figcaption></figure>`
+              ${SAFE_FILE.test(f.type) ? `<a class="assist-chip ripple" href="${url}" target="_blank" rel="noopener">${icon('open_in_new')}Full screen</a>` : ''}</figcaption></figure>`
           : `<a class="file-row file-open ripple" href="${url}" target="_blank" rel="noopener">${icon('picture_as_pdf')}
               <span class="file-name">${esc(f.name)}</span><span class="file-size">${fmtSize(f.size)}</span>${icon('open_in_new')}</a>`;
       }).join('') || '<p class="supporting">No files.</p>'}
