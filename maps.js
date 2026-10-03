@@ -475,7 +475,8 @@ function drawMap(fit) {
       // The vector map: OpenFreeMap's data, drawn in the app's own light or night style.
       mapView.gl = L.maplibreGL({ style: tuneMapStyle(mapView.style, mapView.theme), attributionControl: false }).addTo(mapView.map);
       mapView.map.setMaxZoom(20);
-      mapView.map.attributionControl.addAttribution(`${osm} · <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a>`);
+      mapView.map.attributionControl.setPrefix(false);      // keeps the credit line short enough for a phone
+      mapView.map.attributionControl.addAttribution(`${osm} © <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> · <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a>`);
     } else {
       mapView.tiles = L.tileLayer(tileUrl(mapView.theme), {
         maxZoom: cartoKey() ? 20 : 19,

@@ -68,6 +68,8 @@ function tuneMapStyle(style, theme) {
     if (layer.id === 'poi_r1') layer.minzoom = 13.5;
     if (layer.id === 'poi_r7') layer.minzoom = 15;
     if (layer.id === 'poi_r20') layer.minzoom = 16;
+    // Bus stops only once zoomed in to street level: at city level they crowd out everything else.
+    if (layer.id === 'poi_transit') layer.filter = ['all', layer.filter, ['any', ['!=', ['get', 'class'], 'bus'], ['>=', ['zoom'], 15]]];
     if (theme !== 'dark') continue;
 
     if (layer.type === 'raster') { layer.layout = { ...layer.layout, visibility: 'none' }; continue; }   // shaded relief: daytime only
