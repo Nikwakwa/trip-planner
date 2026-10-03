@@ -51,9 +51,9 @@ the same address shows a desktop layout on a wide screen, by itself.
 | `fonts/`, `icons/sprite.svg` | Google Sans Flex and Material Symbols, stored for offline use (`tools/fetch-assets.ps1`). |
 | `manifest.webmanifest` | Tells the phone the app's name, icon and colors so it can be installed. |
 | `sw.js` | The "service worker": keeps a copy of the app so it opens offline. |
-| `icons/` | App icons for the home screen. |
+| `icons/` | The logo and the app icons for the home screen. |
 | `serve.ps1` | A tiny local web server for testing on this computer. |
-| `tools/make-icons.ps1` | Redraws the icons if you want a different color. |
+| `tools/make-icons.ps1` | Draws the logo (`icons/logo.svg`) and the app icons from it (needs Microsoft Edge). |
 
 ## Try it on this computer
 

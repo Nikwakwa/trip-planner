@@ -2,7 +2,7 @@
    Strategy: show the saved copy instantly, and quietly fetch a fresh copy
    in the background (when online) for next time. */
 
-const CACHE = 'trip-planner-v21';
+const CACHE = 'trip-planner-v22';
 const TILES = 'trip-planner-map-tiles';   // map images you've viewed, kept across versions
 const MAX_TILES = 900;                     // map pieces kept, roughly 40 MB at most
 const FILES = [
@@ -29,6 +29,7 @@ const FILES = [
   'manifest.webmanifest',
   'fonts/google-sans-flex.woff2',
   'icons/sprite.svg',
+  'icons/logo.svg',
   'icons/icon-192.png',
   'icons/icon-512.png',
   'icons/icon-maskable-512.png',

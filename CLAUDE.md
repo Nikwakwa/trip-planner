@@ -22,7 +22,8 @@ Asset scripts (they download from the internet and rewrite files in the repo):
   name lists in the script, and refreshes the vendored Firebase/Leaflet builds. To use a new
   Material Symbols icon, add its name to `$outline` or `$filled` there and rerun. Don't edit the sprite by hand.
   Filled variants get the id `<name>-fill`.
-- `tools/make-icons.ps1`: redraws the home-screen PNG icons.
+- `tools/make-icons.ps1`: writes the logo (`icons/logo.svg`) and renders the home-screen PNG icons from it with
+  Microsoft Edge (headless). Change the drawing in `Get-LogoSvg` there, not the PNGs.
 
 ## Architecture
 
