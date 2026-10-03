@@ -65,22 +65,63 @@ function lookupMissing(trip, items) {
       const box = trip.place && trip.place.kind !== 'city' && trip.place.bbox;
       const fits = p => !near || miles(near, p) < reach
         || (box && p.lng >= box[0] - 1 && p.lng <= box[2] + 1 && p.lat >= box[1] - 1 && p.lat <= box[3] + 1);
+      // One question to OpenStreetMap's address search (at most one a second).
+      const ask = async (q) => {
+        const waitMs = geoLast + 1100 - Date.now();
+        if (waitMs > 0) await new Promise(r => setTimeout(r, waitMs));
+        geoLast = Date.now();
+        const params = new URLSearchParams({ format: 'jsonv2', limit: '1', q, 'accept-language': 'en' });
+        if (trip.place && trip.place.bbox) params.set('viewbox', trip.place.bbox.join(','));
+        const res = await fetch('https://nominatim.openstreetmap.org/search?' + params);
+        if (!res.ok) throw new Error('lookup ' + res.status);
+        const [found] = await res.json();
+        return found ? { lat: Number(found.lat), lng: Number(found.lon) } : null;
+      };
+      // The plans around it (the day before to the day after) that are on the map: a looser search
+      // can answer with a place of the same name far away, so its answer has to be near them.
+      const dayGap = (a, b) => Math.abs(daysBetween(a, b));
+      const around = trip.items.filter(i => i !== item && typeof i.lat === 'number' && (!item.date || (i.date && dayGap(i.date, item.date) <= 1)));
+      const plausible = p => fits(p) && (!around.length || around.some(i => miles(i, p) < 40));
+      // A looser search (Photon): it copes with "Near …" and odd spellings, but the house number must be the one asked for.
+      const askLoosely = async (q) => {
+        const params = new URLSearchParams({ q, limit: '1', lang: 'en' });
+        const by = around[0] || (trip.place && trip.place.kind === 'city' ? trip.place : null);
+        if (by) { params.set('lat', by.lat); params.set('lon', by.lng); }
+        const res = await fetch('https://photon.komoot.io/api/?' + params);
+        if (!res.ok) return null;
+        const f = (await res.json()).features[0];
+        const number = /^\s*(\d[\w-]*)\s/.exec(q);
+        if (!f || (number && norm(f.properties.housenumber) !== norm(number[1]))) return null;
+        return { lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0] };
+      };
+      const inCity = q => (trip.place && trip.place.kind === 'city' && !norm(q).includes(norm(city)) ? `${q}, ${where}` : q);
       try {
         let hit = null;
         for (const q of tries) {
-          const waitMs = geoLast + 1100 - Date.now();
-          if (waitMs > 0) await new Promise(r => setTimeout(r, waitMs));
-          geoLast = Date.now();
-          const params = new URLSearchParams({ format: 'jsonv2', limit: '1', q, 'accept-language': 'en' });
-          if (trip.place && trip.place.bbox) params.set('viewbox', trip.place.bbox.join(','));
-          const res = await fetch('https://nominatim.openstreetmap.org/search?' + params);
-          if (!res.ok) return;
-          const [found] = await res.json();
-          if (found && (tries.length === 1 || fits({ lat: Number(found.lat), lng: Number(found.lon) }))) { hit = found; break; }
+          const found = await ask(q);
+          if (found && (tries.length === 1 || fits(found))) { hit = found; break; }
+        }
+        // Not found as written ("27-05 39th Avenue, Long Island City" is filed under Queens). Other ways:
+        // the looser search, the place's name without its street ("Pier 86, Manhattan"), then the plan's own name.
+        if (!hit) {
+          const loose = await askLoosely(inCity(item.place)).catch(() => null);
+          if (loose && plausible(loose)) hit = loose;
+        }
+        if (!hit) {
+          const parts = item.place.split(',').map(s => s.trim()).filter(Boolean);
+          const name = item.title.replace(/^check[ -]?(in|out)\s*:?\s*/i, '').trim();
+          const others = [
+            parts.length >= 3 && `${parts[0]}, ${parts[parts.length - 1]}`,
+            !['food', 'transport'].includes(item.category) && norm(name) !== norm(item.place) && name,
+          ].filter(Boolean);
+          for (const q of others) {
+            const found = await ask(inCity(q));
+            if (found && plausible(found)) { hit = found; break; }
+          }
         }
         if (hit) {
-          item.lat = Number(hit.lat);
-          item.lng = Number(hit.lon);
+          item.lat = hit.lat;
+          item.lng = hit.lng;
         } else {
           item.geoMiss = true;
         }

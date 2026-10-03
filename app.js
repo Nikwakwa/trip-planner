@@ -569,11 +569,11 @@ function save() {
 
 let state = load();
 state.settings = { ...defaultSettings(), ...state.settings };
-// Once: plans in a country or region that were wrongly marked "not found on the map" (the lookup
-// only accepted places near the middle of it) are looked up again.
-if (!state.settings.geoRetry) {
-  state.settings.geoRetry = 1;
-  for (const t of state.trips) if (t.place && t.place.kind !== 'city') t.items.forEach((i) => { delete i.geoMiss; });
+// Once after the address lookup got better at finding places: plans marked "not found on the map"
+// are looked up again.
+if (state.settings.geoRetry !== 2) {
+  state.settings.geoRetry = 2;
+  for (const t of state.trips) t.items.forEach((i) => { delete i.geoMiss; });
 }
 saveLocal();
 

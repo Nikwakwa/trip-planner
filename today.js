@@ -13,15 +13,21 @@
 /* ---------- Home base ---------- */
 
 function baseFor(trip, day, guide = guideFor(trip)) {
-  const stays = trip.items
+  const all = trip.items
     .filter(i => i.category === 'stay')
-    .map(i => ({ item: i, c: coordsOf(i, guide) }))
-    .filter(s => s.c);
+    .map(i => ({ item: i, c: coordsOf(i, guide) }));
+  const stays = all.filter(s => s.c);
   if (!stays.length) return null;
-  const dated = stays.filter(s => s.item.date).sort((a, b) => (a.item.date < b.item.date ? -1 : 1));
+  const byDate = (a, b) => (a.item.date < b.item.date ? -1 : a.item.date > b.item.date ? 1 : 0);
+  const dated = stays.filter(s => s.item.date).sort(byDate);
   if (!dated.length) return stays[0];
   const since = day ? dated.filter(s => s.item.date <= day) : [];
-  return since.length ? since[since.length - 1] : dated[0];
+  if (!since.length) return dated[0];
+  const base = since[since.length - 1];
+  // A later stay that isn't on the map (its address wasn't found): the earlier one is no longer
+  // the base. Better no base than a hotel in another city.
+  const moved = all.some(s => !s.c && s.item.date && s.item.date > base.item.date && s.item.date <= day);
+  return moved ? null : base;
 }
 
 /* ---------- Now & next ---------- */
