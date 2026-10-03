@@ -16,7 +16,15 @@ written for a non-developer owner, so keep its explanations plain-language when 
 ```
 
 There is no build, lint or test command. Check changes by loading the app in a browser at phone size.
-Testing notes (this machine has no Node or Python; use PowerShell or Git Bash):- `.claude/launch.json` starts `serve.ps1` for the browser pane (`preview_start` name `trip-planner`).- The service worker serves stale files after an edit. Before checking a change, unregister it and clear caches  (`navigator.serviceWorker.getRegistrations()` → `unregister()`, `caches.delete`), then reload.- When the app window is in the background, the pane stops drawing (screenshots time out, smooth scroll and map  rendering stall). Measure the DOM instead, or render a page to PNG with Edge headless (see `tools/make-icons.ps1`).- The AI Assistant (App Check) only works on the live site, https://nikwakwa.github.io/trip-planner/. After a push,  wait until `sw.js` there shows the new `trip-planner-vN`, then open the site with a `?fresh=N` query to dodge caches.
+
+Testing notes (this machine has no Node or Python; use PowerShell or Git Bash):
+- `.claude/launch.json` starts `serve.ps1` for the browser pane (`preview_start` name `trip-planner`).
+- The service worker serves stale files after an edit. Before checking a change, unregister it and clear caches
+  (`navigator.serviceWorker.getRegistrations()` → `unregister()`, `caches.delete`), then reload.
+- When the app window is in the background, the pane stops drawing (screenshots time out, smooth scroll and map
+  rendering stall). Measure the DOM instead, or render a page to PNG with Edge headless (see `tools/make-icons.ps1`).
+- The AI Assistant (App Check) only works on the live site, https://nikwakwa.github.io/trip-planner/. After a push,
+  wait until `sw.js` there shows the new `trip-planner-vN`, then open the site with a `?fresh=N` query to dodge caches.
 
 Asset scripts (they download from the internet and rewrite files in the repo):
 - `tools/fetch-assets.ps1`: re-downloads the font, **regenerates `icons/sprite.svg`** from the icon
