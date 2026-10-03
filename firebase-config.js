@@ -1,5 +1,5 @@
-/* Sync between phones: paste your Firebase project's web app settings here.
-   See "Sync between phones" in README.md for the 5-minute setup.
+/* Sync between devices: paste your Firebase project's web app settings here.
+   See "Sync between devices" in README.md for the 5-minute setup.
    These values are not secret — they identify the project, and the database
    rules (firestore.rules) make sure each account only sees its own plans.
    Leave it as null to use the app without sync. */

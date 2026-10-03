@@ -226,9 +226,9 @@ async function askHowToLink() {
     const names = list => list.map(t => t.name).join(', ');
     const ok = await askConfirm({
       icon: 'sync',
-      title: 'Add this phone’s trips?',
-      text: `Your account already has ${names(remoteTrips.sort((a, b) => a.pos - b.pos))}. This phone also has ${names(phoneTrips)}. ` +
-        'Add them to the account? If not, this phone switches to the account’s plans.',
+      title: 'Add this device’s trips?',
+      text: `Your account already has ${names(remoteTrips.sort((a, b) => a.pos - b.pos))}. This device also has ${names(phoneTrips)}. ` +
+        'Add them to the account? If not, this device switches to the account’s plans.',
       ok: 'Add them',
       cancel: 'Don’t add',
     });
@@ -361,7 +361,7 @@ function syncStatusText() {
   switch (sync.status) {
     case 'connecting': return 'Connecting…';
     case 'sending': return 'Sending changes…';
-    case 'synced': return '<span class="ok">Up to date</span> on every phone signed in';
+    case 'synced': return '<span class="ok">Up to date</span> on every device signed in';
     case 'error': return esc(sync.error);
     default: return '';
   }

@@ -75,6 +75,10 @@ localStorage `tripPlanner.guides` (up to 10). `planSuggestions` in `app.js` and 
   day, and both sync. Always go through `modeFor(trip, day)` and `travel(miles, mode)`.
 - Distances are computed in miles. Show them with `fmtDist()`, and temperatures with `temp()`. Both follow
   `state.settings.units` (`'metric'`/`'imperial'`, per phone, defaulting from the phone's language).
+- The app is English only. Dates and times go through `fmtDay()`, `fmtTime()` and `fmtClock()`, which follow
+  `state.settings.dateOrder` (`'dmy'`/`'mdy'`) and `state.settings.clock` (`'24'`/`'12'`), per phone, defaulting
+  from the device (`deviceFormats`). Don't call `toLocale…String(undefined, …)`: it follows the device's language.
+- User-facing text says "device", not "phone" (the app also runs on computers).
 
 **Maps (`maps.js`).** Leaflet (vendored) is loaded on first use. Addresses are looked up with
 Nominatim. The basemap is a MapLibre GL vector layer inside Leaflet (`L.maplibreGL`, vendored in `vendor/maplibre`),

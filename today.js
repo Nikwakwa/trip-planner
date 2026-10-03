@@ -120,7 +120,7 @@ function openNearMe() {
   near.error = '';
   $('#near-dialog').showModal();
   renderNearMe();
-  if (!navigator.geolocation) { near.status = 'error'; near.error = 'This phone’s browser can’t share its location.'; renderNearMe(); return; }
+  if (!navigator.geolocation) { near.status = 'error'; near.error = 'This device’s browser can’t share its location.'; renderNearMe(); return; }
   navigator.geolocation.getCurrentPosition((p) => {
     near.pos = { lat: p.coords.latitude, lng: p.coords.longitude };
     near.status = 'ready';

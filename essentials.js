@@ -166,7 +166,7 @@ function loadEssentials(place) {
 function localTime(tz) {
   try {
     const now = new Date();
-    const time = now.toLocaleTimeString(LOCALE, { timeZone: tz, hour: 'numeric', minute: '2-digit' });
+    const time = fmtClock(now, tz);
     const wall = zone => new Date(now.toLocaleString('en-US', zone ? { timeZone: zone } : {}));
     const diff = Math.round((wall(tz) - wall()) / 18e5) / 2;
     const rel = !diff ? 'same time as you' : `${Math.abs(diff)} h ${diff > 0 ? 'ahead of' : 'behind'} you`;
@@ -197,7 +197,7 @@ function renderEssentials() {
       : status === 'loading'
         ? emptyState('info', `Getting the essentials for ${esc(trip.place.name)}…`, 'Emergency number, plugs, local time and tips from the travel guide.')
         : !navigator.onLine
-          ? emptyState('cloud_off', 'Needs a connection once', 'Open this while online, and the essentials are saved on your phone for the trip.')
+          ? emptyState('cloud_off', 'Needs a connection once', 'Open this while online, and the essentials are saved on your device for the trip.')
           : emptyState('info', 'Nothing found', 'The travel guide may not cover this place, or the connection dropped.',
               `<button type="button" class="btn tonal ripple" data-action="retry-essentials">${icon('restart_alt')}Try again</button>`);
     return;
@@ -232,7 +232,7 @@ function renderEssentials() {
   body.innerHTML = `
     ${tiles ? `<div class="facts">${tiles}</div>` : ''}
     ${sections}
-    <p class="footnote">Facts: Wikidata. Tips: Wikivoyage, CC BY-SA. Saved on your phone ${esc(new Date(e.t).toLocaleDateString(LOCALE, { month: 'short', day: 'numeric' }))}.</p>`;
+    <p class="footnote">Facts: Wikidata. Tips: Wikivoyage, CC BY-SA. Saved on your device ${esc(new Date(e.t).toLocaleDateString(dateLocale(), { month: 'short', day: 'numeric' }))}.</p>`;
 }
 
 function openEssentials(trip) {

@@ -5,7 +5,7 @@ the same address shows a desktop layout on a wide screen, by itself.
 
 - Plain HTML, CSS and JavaScript — no frameworks, no server of your own.
 - Everything you type is saved on the phone itself (browser storage).
-- Optional: sign in to share trips between phones (e.g. yours and your partner's).
+- Optional: sign in to share trips between devices (e.g. yours and your partner's).
 - Type a city or country for a new trip: the app finds the real place and suggests
   things to do there (from the Wikivoyage travel guide).
 - Each trip day shows the weather forecast; on rainy days the suggestions favor indoor places.
@@ -31,7 +31,7 @@ the same address shows a desktop layout on a wide screen, by itself.
 | `styles.css` | The look: colors, spacing, fonts. |
 | `app.js` | The behavior: adding plans, saving, switching trips. |
 | `places.js` | Finds a trip's place (OpenStreetMap) and builds a guide for it (Wikivoyage, Wikipedia). |
-| `sync.js` | Sign-in and syncing plans between phones (Firebase). |
+| `sync.js` | Sign-in and syncing plans between devices (Firebase). |
 | `firebase-config.js` | Your Firebase project's settings (see below). |
 | `firestore.rules` | Database rules: each account only sees its own plans. |
 | `vendor/firebase/` | Firebase library, stored in the app. |
@@ -80,7 +80,7 @@ online, then close and reopen it.
 Plans are stored in the app on your phone (and, when signed in, in your Firebase account). Use **More → Save backup file** before the trip,
 and **Restore from backup file** to bring plans back or move them to another phone.
 
-## Sync between phones
+## Sync between devices
 
 Both phones sign in with the **same email and password**; then a plan added on one phone
 appears on the other within a second or two (or as soon as it is back online).

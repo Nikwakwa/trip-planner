@@ -51,14 +51,27 @@ function toISO(date) {
 function todayISO() { return toISO(new Date()); }
 const daysBetween = (a, b) => Math.round((parseDate(b) - parseDate(a)) / 864e5);
 // The app is in English only for now, so dates and times are always written in English, whatever the
-// device's language. An English device keeps its own style ("Oct 30, 2:30 PM"); others get "30 Oct, 14:30".
-const LOCALE = /^en\b/i.test(navigator.language || '') ? navigator.language : 'en-GB';
+// device's language. The day/month order and the clock are a choice (More → Appearance), and start
+// from the device's own habits.
+function deviceFormats() {
+  const loc = /^en\b/i.test(navigator.language || '') ? navigator.language : 'en-GB';
+  try {
+    const parts = new Intl.DateTimeFormat(loc, { month: 'short', day: 'numeric' }).formatToParts(new Date()).map(p => p.type);
+    const cycle = new Intl.DateTimeFormat(loc, { hour: 'numeric' }).resolvedOptions().hourCycle || '';
+    return { dateOrder: parts.indexOf('month') < parts.indexOf('day') ? 'mdy' : 'dmy', clock: /^h1/.test(cycle) ? '12' : '24' };
+  } catch { return { dateOrder: 'dmy', clock: '24' }; }
+}
+const dateLocale = () => (state.settings.dateOrder === 'mdy' ? 'en-US' : 'en-GB');   // "Oct 31" or "31 Oct"
 function fmtDay(s, opts = { weekday: 'short', month: 'short', day: 'numeric' }) {
-  return parseDate(s).toLocaleDateString(LOCALE, opts);
+  return parseDate(s).toLocaleDateString(dateLocale(), opts);
+}
+// A clock time, "14:30" or "2:30 PM". `tz` shows it in another time zone.
+function fmtClock(date, tz) {
+  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hourCycle: state.settings.clock === '12' ? 'h12' : 'h23', ...(tz && { timeZone: tz }) });
 }
 function fmtTime(t) {
   const [h, m] = t.split(':').map(Number);
-  return new Date(2000, 0, 1, h, m).toLocaleTimeString(LOCALE, { hour: 'numeric', minute: '2-digit' });
+  return fmtClock(new Date(2000, 0, 1, h, m));
 }
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
@@ -195,7 +208,7 @@ function travel(d, mode = 'transit') {
 const usesImperial = () => /-(US|LR|MM)$/i.test(navigator.language || '');
 const imperial = () => (state.settings.units || (usesImperial() ? 'imperial' : 'metric')) === 'imperial';
 function fmtDist(d) {
-  const n = (v, dec) => (v < 10 ? v.toFixed(dec) : Math.round(v).toLocaleString(LOCALE));
+  const n = (v, dec) => (v < 10 ? v.toFixed(dec) : Math.round(v).toLocaleString('en-US'));
   if (imperial()) return d < 0.1 ? '<0.1 mi' : `${n(d, 1)} mi`;
   const km = d * 1.609;
   if (km < 1) return `${Math.max(50, Math.round(km * 20) * 50)} m`;
@@ -433,7 +446,7 @@ function defaultState() {
 }
 
 function defaultSettings() {
-  return { theme: 'auto', suggestions: true, lookup: true, units: usesImperial() ? 'imperial' : 'metric' };
+  return { theme: 'auto', suggestions: true, lookup: true, units: usesImperial() ? 'imperial' : 'metric', ...deviceFormats() };
 }
 
 /* ---------- Loading & saving ---------- */
@@ -455,7 +468,7 @@ function saveLocal() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (e) {
-    snackbar('Could not save — phone storage may be full');
+    snackbar('Could not save — device storage may be full');
   }
 }
 
@@ -643,7 +656,7 @@ function renderWelcome() {
       </button>
     </section>
     <p class="welcome-note">Pick a place and you’ll get ideas for things to do there, day by day.
-      Already planning on another phone? Sign in under <b>More</b> to bring your trips here.</p>`;
+      Already planning on another device? Sign in under <b>More</b> to bring your trips here.</p>`;
 }
 
 function renderTripTabs(trip) {
@@ -957,7 +970,7 @@ function renderIdeas(trip) {
         'Looking up sights, food and more in the Wikivoyage travel guide.');
     } else if (!trip.place && !navigator.onLine) {
       html += emptyState('cloud_off', `Ideas for ${esc(trip.name)} need a connection`,
-        'Connect to the internet once, and the guide is saved on your phone for later.');
+        'Connect to the internet once, and the guide is saved on your device for later.');
     } else if (!trip.place) {
       html += emptyState('location_off', `Couldn’t find ${esc(trip.name)} on the map`,
         'Edit the trip and pick the city or country from the list to get ideas for it.',
@@ -971,7 +984,7 @@ function renderIdeas(trip) {
         </div>`);
     } else {
       html += emptyState('cloud_off', `Ideas for ${esc(trip.place.name)} need a connection`,
-        'Connect to the internet once, and the guide is saved on your phone for later.');
+        'Connect to the internet once, and the guide is saved on your device for later.');
     }
   } else {
     const taken = new Set(trip.items.flatMap(i => matchPlaces(i, guide).map(p => p.id)));
@@ -1050,15 +1063,15 @@ function renderMore() {
     account = `
       <li><div class="row">
         <span class="row-icon">${icon('sync')}</span>
-        <span class="row-text"><span class="row-title">Sync between phones</span>
-          <span class="row-sub">Not set up yet — see “Sync between phones” in the README</span></span>
+        <span class="row-text"><span class="row-title">Sync between devices</span>
+          <span class="row-sub">Not set up yet — see “Sync between devices” in the README</span></span>
       </div></li>`;
   } else if (!signedIn) {
     account = `
       <li><button type="button" class="row accent ripple" data-action="sign-in">
         <span class="row-icon">${icon('login')}</span>
         <span class="row-text"><span class="row-title">Sign in to sync</span>
-          <span class="row-sub">Share trips and plans with another phone using the same login</span></span>
+          <span class="row-sub">Share trips and plans with another device using the same login</span></span>
       </button></li>`;
   } else {
     account = `
@@ -1069,7 +1082,7 @@ function renderMore() {
       </div></li>
       <li><button type="button" class="row ripple" data-action="sign-out">
         <span class="row-icon">${icon('logout')}</span>
-        <span class="row-text"><span class="row-title">Sign out</span><span class="row-sub">Plans stay on this phone but stop syncing</span></span>
+        <span class="row-text"><span class="row-title">Sign out</span><span class="row-sub">Plans stay on this device but stop syncing</span></span>
       </button></li>`;
   }
 
@@ -1110,6 +1123,18 @@ function renderMore() {
             <button type="button" class="ripple" data-action="units" data-value="${value}" aria-pressed="${imperial() === (value === 'imperial')}">${label}</button>`).join('')}
         </div>
       </div></li>
+      <li><div class="row">
+        <div class="segmented" role="group" aria-label="Date format">
+          ${[['dmy', '31 Oct'], ['mdy', 'Oct 31']].map(([value, label]) => `
+            <button type="button" class="ripple" data-action="date-order" data-value="${value}" aria-pressed="${state.settings.dateOrder === value}">${label}</button>`).join('')}
+        </div>
+      </div></li>
+      <li><div class="row">
+        <div class="segmented" role="group" aria-label="Time format">
+          ${[['24', '24-hour · 14:30'], ['12', '12-hour · 2:30 PM']].map(([value, label]) => `
+            <button type="button" class="ripple" data-action="clock" data-value="${value}" aria-pressed="${state.settings.clock === value}">${label}</button>`).join('')}
+        </div>
+      </div></li>
       <li><button type="button" class="row ripple" data-action="toggle-suggestions" role="switch" aria-checked="${state.settings.suggestions}">
         <span class="row-icon">${icon('auto_awesome')}</span>
         <span class="row-text"><span class="row-title">Day suggestions</span><span class="row-sub">Ideas under each day, from the city’s travel guide</span></span>
@@ -1132,7 +1157,7 @@ function renderMore() {
       <li><div class="row">
         <span class="row-icon">${icon('offline_pin')}</span>
         <span class="row-text"><span class="row-title">Works offline</span>
-          <span class="row-sub">${offlineReady ? '<span class="ok">Ready</span> — saved on this phone' : 'Open the app once while online'}</span></span>
+          <span class="row-sub">${offlineReady ? '<span class="ok">Ready</span> — saved on this device' : 'Open the app once while online'}</span></span>
       </div></li>
       <li><div class="row">
         <span class="row-icon">${icon('shield')}</span>
@@ -1163,8 +1188,8 @@ function renderMore() {
     <input type="file" id="import-file" accept=".json,application/json" hidden>
 
     <p class="footnote">${icon('shield', 'sm')}${signedIn
-      ? 'Your plans are stored on this phone and in your account.'
-      : 'Your plans are stored only on this phone.'}</p>
+      ? 'Your plans are stored on this device and in your account.'
+      : 'Your plans are stored only on this device.'}</p>
     <p class="footnote">Maps, address and place search: © OpenStreetMap contributors. City guides: Wikivoyage and Wikipedia, CC BY-SA.</p>`;
 }
 
@@ -1417,7 +1442,7 @@ $('#trip-delete').addEventListener('click', async () => {
   const ok = await askConfirm({
     icon: 'delete',
     title: `Delete ${trip.name}?`,
-    text: `This removes the trip and its ${plural(trip.items.length, 'plan')} from this phone.`,
+    text: `This removes the trip and its ${plural(trip.items.length, 'plan')} from this device.`,
     ok: 'Delete',
   });
   if (!ok) return;
@@ -1664,6 +1689,16 @@ document.addEventListener('click', async (e) => {
       save();
       render();
       break;
+    case 'date-order':
+      state.settings.dateOrder = el.dataset.value;
+      save();
+      render();
+      break;
+    case 'clock':
+      state.settings.clock = el.dataset.value;
+      save();
+      render();
+      break;
     case 'day-travel': {
       // Switches this day to the other way of getting around (or back to the trip's own).
       const trip = activeTrip();
@@ -1754,7 +1789,7 @@ document.addEventListener('click', async (e) => {
       const ok = await askConfirm({
         icon: 'logout',
         title: 'Sign out?',
-        text: 'Your plans stay on this phone, but changes will no longer sync with other phones until you sign in again.',
+        text: 'Your plans stay on this device, but changes will no longer sync with other devices until you sign in again.',
         ok: 'Sign out',
       });
       if (ok) {
@@ -1781,8 +1816,8 @@ document.addEventListener('click', async (e) => {
         icon: 'restart_alt',
         title: 'Erase everything?',
         text: sync.saved
-          ? 'All trips, plans and checklist items will be deleted — on this phone and on every phone signed in to your account. Save a backup first if you might want them back.'
-          : 'All trips, plans and checklist items on this phone will be deleted. Save a backup first if you might want them back.',
+          ? 'All trips, plans and checklist items will be deleted — on this device and on every device signed in to your account. Save a backup first if you might want them back.'
+          : 'All trips, plans and checklist items on this device will be deleted. Save a backup first if you might want them back.',
         ok: 'Erase',
       });
       if (ok) {
@@ -1915,6 +1950,8 @@ function cleanBackup(data) {
     suggestions: s.suggestions !== false,
     lookup: s.lookup !== false,
     units: ['metric', 'imperial'].includes(s.units) ? s.units : defaultSettings().units,
+    dateOrder: ['dmy', 'mdy'].includes(s.dateOrder) ? s.dateOrder : defaultSettings().dateOrder,
+    clock: ['24', '12'].includes(s.clock) ? s.clock : defaultSettings().clock,
   };
   return { version: 1, activeTripId, trips, checklist, settings };
 }
@@ -1936,7 +1973,7 @@ document.addEventListener('change', async (e) => {
     icon: 'upload',
     title: 'Restore this backup?',
     text: `It has ${plural(restored.trips.length, 'trip')} and ${plural(n, 'plan')}. It will replace everything currently in the app` +
-      (sync.saved ? ' — also on the other phones signed in to your account.' : '.'),
+      (sync.saved ? ' — also on the other devices signed in to your account.' : '.'),
     ok: 'Restore',
   });
   if (!ok) return;
