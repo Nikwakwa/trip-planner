@@ -67,7 +67,8 @@ localStorage `tripPlanner.guides` (up to 10). `planSuggestions` in `app.js` and 
   `state.settings.units` (`'metric'`/`'imperial'`, per phone, defaulting from the phone's language).
 
 **Maps (`maps.js`).** Leaflet (vendored) is loaded on first use. Tiles come from OSM, and addresses are looked up with
-Nominatim. Plans are ordered by `time`, then by `slot` (written by Optimize route, e.g. `"12:30~01"`),
+Nominatim. Tiles are CARTO (Voyager / dark, following the theme) when `window.CARTO_KEY` is set in
+`firebase-config.js`, else standard OSM tiles with a CSS invert in dark mode (`tileUrl`, `setMapTheme`). Plans are ordered by `time`, then by `slot` (written by Optimize route, e.g. `"12:30~01"`),
 then everything else (`byPlanOrder`).
 
 **Weather, hours, essentials, drag.**

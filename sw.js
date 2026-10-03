@@ -2,7 +2,7 @@
    Strategy: show the saved copy instantly, and quietly fetch a fresh copy
    in the background (when online) for next time. */
 
-const CACHE = 'trip-planner-v16';
+const CACHE = 'trip-planner-v17';
 const TILES = 'trip-planner-map-tiles';   // map images you've viewed, kept across versions
 const MAX_TILES = 800;                     // roughly 15 MB at most
 const FILES = [
@@ -77,7 +77,7 @@ self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  if (url.hostname === 'tile.openstreetmap.org') {
+  if (url.hostname.endsWith('.basemaps.cartocdn.com') || url.hostname === 'tile.openstreetmap.org') {
     event.respondWith(mapTile(req));
     return;
   }

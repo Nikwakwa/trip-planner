@@ -182,3 +182,15 @@ In Chrome or Edge, the install icon in the address bar makes it a desktop app.
 
 Your trips are per device: **sign in (More → Sign in to sync)** with the same account as on your phone to see the
 same trips. Tickets & bookings and appearance settings stay on the device where you set them.
+
+## Map style
+
+Out of the box the maps use the standard OpenStreetMap look (darkened in dark mode). For cleaner maps, with a
+real dark version that follows the app's light/dark setting, add a free CARTO key:
+
+1. Go to <https://carto.com/basemaps/apikey>, enter your email, and choose non-commercial use. No account or card;
+   the key arrives by email.
+2. In `firebase-config.js`, replace `window.CARTO_KEY = null;` with `window.CARTO_KEY = 'your-key';` and upload the change.
+
+The free key allows 5 million map images a month, far more than this app uses. Map areas you've viewed are still
+kept on the phone for offline use.

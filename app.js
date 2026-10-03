@@ -501,6 +501,7 @@ function applyAppearance() {
   const t = state.settings.theme;
   document.documentElement.dataset.theme =
     (t === 'light' || t === 'dark') ? t : (darkQuery.matches ? 'dark' : 'light');
+  setMapTheme();      // maps.js: the map is light or dark too
 }
 darkQuery.addEventListener('change', () => render());
 

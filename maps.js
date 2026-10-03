@@ -2,12 +2,22 @@
 
 /* =========================================================
    Maps, route optimizing and address lookup.
-   Uses OpenStreetMap: map images (tiles) and address search (Nominatim).
+   Uses OpenStreetMap data: map images (tiles, drawn by CARTO) and address search (Nominatim).
    The map library (Leaflet) is stored in the app and loaded on first use.
    Functions here use helpers from app.js, which is loaded right after.
    ========================================================= */
 
-const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+// Map images. With a CARTO key (firebase-config.js; free for personal use): CARTO's clean styles drawn
+// from OpenStreetMap data, a light and a dark one, following the app's theme ({r} asks for sharper
+// images on high-resolution screens). Without a key: the standard OpenStreetMap map, darkened by CSS in dark mode.
+const OSM_TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const cartoKey = () => window.CARTO_KEY || '';
+const mapTheme = () => (document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
+function tileUrl(theme) {
+  if (!cartoKey()) return OSM_TILES;
+  const style = theme === 'dark' ? 'dark_all' : 'rastertiles/voyager';
+  return `https://{s}.basemaps.cartocdn.com/${style}/{z}/{x}/{y}{r}.png?key=${encodeURIComponent(cartoKey())}`;
+}
 const DAY_HUES = [25, 250, 145, 300, 60, 200, 340, 100];
 
 /* ---------- Plan order ----------
@@ -427,19 +437,32 @@ function renderMapBody() {
     <p class="map-credit">Map data © OpenStreetMap contributors. Travel times are estimates.</p>`;
 }
 
+// Light or dark map, to match the app (called when the theme changes, and whenever the map is drawn).
+function setMapTheme() {
+  // Without a CARTO key there's no dark map: the light one is darkened by CSS instead.
+  $('#map').classList.toggle('inverted', !cartoKey() && mapTheme() === 'dark');
+  if (!mapView.tiles || mapView.theme === mapTheme()) return;
+  mapView.theme = mapTheme();
+  mapView.tiles.setUrl(tileUrl(mapView.theme));
+}
+
 function drawMap(fit) {
   const L = window.L;
   if (!L || !mapShown()) return;
   if (!mapView.map) {
     mapView.map = L.map('map', { zoomControl: false });
     L.control.zoom({ position: 'topright' }).addTo(mapView.map);
-    L.tileLayer(TILE_URL, {
-      maxZoom: 19,
+    mapView.theme = mapTheme();
+    const osm = '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
+    mapView.tiles = L.tileLayer(tileUrl(mapView.theme), {
+      maxZoom: cartoKey() ? 20 : 19,
+      subdomains: cartoKey() ? 'abcd' : 'abc',
       crossOrigin: true,
-      attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>',
+      attribution: cartoKey() ? `${osm} © <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>` : osm,
     }).addTo(mapView.map);
     mapView.layer = L.layerGroup().addTo(mapView.map);
   }
+  setMapTheme();
   const trip = activeTrip();
   mapView.layer.clearLayers();
   mapView.markers.clear();
