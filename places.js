@@ -11,7 +11,7 @@
    ========================================================= */
 
 const GUIDES_KEY = 'tripPlanner.guides';
-const GUIDE_VERSION = 4;          // 2: full descriptions ("about") and opening hours; 3: photos; 4: price, website, photos of destinations. Older saved guides are refreshed.
+const GUIDE_VERSION = 5;          // 2: full descriptions ("about") and opening hours; 3: photos; 4: price, website, photos of destinations; 5: how well known ("fame"). Older saved guides are refreshed.
 const MAX_SAVED_GUIDES = 16;
 const WIKIVOYAGE = 'https://en.wikivoyage.org/w/api.php';
 
@@ -352,6 +352,19 @@ async function fillPhotos(list) {
   for (const x of list) if (!x.image && found.has(x.wikidata)) x.image = found.get(x.wikidata);
 }
 
+// How well known each place is: the number of Wikipedia languages with an article about it
+// (a burying ground has a handful, a great museum over fifty). Saved as "fame".
+async function fillFame(list) {
+  const ids = [...new Set(list.filter(x => x.wikidata).map(x => x.wikidata))];
+  const found = new Map();
+  for (let i = 0; i < ids.length; i += 150) {
+    const query = `SELECT ?item ?n WHERE { VALUES ?item { ${ids.slice(i, i + 150).map(q => 'wd:' + q).join(' ')} } ?item wikibase:sitelinks ?n }`;
+    const data = await getJSON('https://query.wikidata.org/sparql', { format: 'json', query });
+    for (const b of data.results.bindings) found.set(b.item.value.split('/').pop(), Number(b.n.value) || 0);
+  }
+  for (const x of list) if (found.has(x.wikidata)) x.fame = found.get(x.wikidata);
+}
+
 // Groups places into a few neighborhoods (for "Ideas for a day around …").
 function clusterAreas(places, k) {
   let centers = places.slice(0, k).map(p => ({ lat: p.lat, lng: p.lng }));
@@ -395,14 +408,24 @@ async function wikivoyageGuide(place) {
   if (!main) return null;
 
   let list = readListings(main, '');
-  const districts = districtTitles(main).slice(0, 12);
-  const areaName = t => t.slice(main.title.length + 1);
+  let districts = districtTitles(main).slice(0, 12);
+  let pages = [];
   if (districts.length) {
-    for (const page of await wikivoyagePages(districts)) list.push(...readListings(page, areaName(page.title)));
+    pages = await wikivoyagePages(districts);
+  } else {
+    // A huge city (New York): its districts are pages of their own ("Manhattan"), split up again
+    // ("Manhattan/Midtown"). They are the names in the page's list of regions, whatever its heading ("Boroughs").
+    const linked = [...new Set([...main.text.matchAll(/region\d+name\s*=\s*\[\[([^\]|#:]+)/g)].map(m => m[1].trim().replace(/_/g, ' ')))];
+    const parts = await wikivoyagePages(linked.slice(0, 8));
+    const inner = parts.flatMap(p => districtTitles(p).slice(0, 14)).slice(0, 36);
+    pages = [...parts, ...(await wikivoyagePages(inner))];
+    districts = pages.map(p => p.title);
   }
+  for (const page of pages) list.push(...readListings(page, page.title.slice(page.title.lastIndexOf('/') + 1)));
   await fillCoordinates(list);
   await fillPhotos(list).catch(() => {});      // photos are a bonus: the guide works without them
   await fillPhotosByName(list).catch(() => {});
+  await fillFame(list).catch(() => {});
 
   // Keep places with a map position that really are in (or near) this place.
   const reach = place.kind === 'city' ? 30 : place.kind === 'region' ? 400 : 1500;
@@ -460,8 +483,10 @@ function bestListings(list, max) {
       had.notable = Math.max(had.notable, x.notable) + 0.5;
     }
   }
+  // The kind of listing first, then how well known it is (worth up to two points).
+  const rank = x => LISTING_RANK[x.type] + x.notable + Math.min(2, (x.fame || 0) / 25);
   return [...byKey.values()]
-    .sort((a, b) => (LISTING_RANK[b.type] + b.notable) - (LISTING_RANK[a.type] + a.notable))
+    .sort((a, b) => rank(b) - rank(a))
     .slice(0, max);
 }
 
@@ -497,6 +522,7 @@ function listingPlaces(list, inName) {
     ...(x.price ? { price: x.price.slice(0, 200) } : {}),
     ...(x.tip ? { tip: x.tip } : {}),
     ...(x.url ? { url: x.url } : {}),
+    ...(x.fame ? { fame: x.fame } : {}),
   }));
 }
 
@@ -539,6 +565,7 @@ async function nearbyGuide(center) {
   list = list.filter(x => x.type !== 'city' && x.type !== 'vicinity');
   await fillCoordinates(list);
   await fillPhotos(list).catch(() => {});
+  await fillFame(list).catch(() => {});
   list = bestListings(list.filter(x => x.lat !== null && miles(center, x) < NEAR_REACH), 120);
   if (list.length < 3) return null;
   return {

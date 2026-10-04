@@ -329,6 +329,132 @@ function planSuggestions(trip, guide, days) {
   return out;
 }
 
+/* ---------- Auto-fill day ---------- */
+
+const DAY_MINUTES = 8 * 60;      // a full day: the visits and the travel between them
+const HOP_MINUTES = 20;          // getting from one stop to the next
+const FILL_MAX = { sight: 9, shopping: 1, other: 1 };   // per day, counting the plans already there (meals are left to you)
+
+// How interesting a guide place is, from 0 (a minor sight) to about 8 (world famous): mostly how well
+// known it is ("fame", places.js), with a little for a photo and a long description.
+function placeInterest(p) {
+  return Math.log2(1 + (p.fame || 0)) + (p.photo ? 0.5 : 0) + ((p.about || '').length > 250 ? 0.5 : 0);
+}
+
+// Not with a guide made from Wikipedia articles near the center (places.js): too many of them aren't places to visit.
+const canAutoFill = (day, guide) => !!guide && day >= todayISO() && guide.source !== 'Wikipedia' && (guide.joined || guide.kind !== 'destinations');
+
+// Fills a day's free time with guide places around its plans (or, for an empty day, around the
+// neighborhood suggested for it), then puts the day in the shortest order. Nothing gets a time.
+function autoFillDay(trip, day) {
+  const guide = guideFor(trip);
+  if (!canAutoFill(day, guide)) return { error: 'There’s no guide for this day yet.' };
+  const items = dayItems(trip, day);
+  const visits = items.filter(i => i.category !== 'stay');
+  const count = {};
+  let minutes = 0;
+  for (const i of visits) {
+    count[i.category] = (count[i.category] || 0) + 1;
+    minutes += planLength(i, guide) + HOP_MINUTES;
+  }
+  if (!count.food) minutes += 60;      // room for lunch
+  const taken = new Set(trip.items.flatMap(i => matchPlaces(i, guide).map(p => p.id)));
+  const openThatDay = (p) => {
+    const rules = p.hours && guideHours(p.hours);
+    return !rules || hoursOn(rules, day).length > 0;
+  };
+  // Only the most interesting quarter of the guide is worth a stop: better a shorter day than one padded
+  // with minor sights. Evening places are left out: the app can't tell where the day ends.
+  const fits = p => FILL_MAX[p.cat] && p.when !== 'evening' && (!guide.joined || p.local);
+  const scores = guide.places.filter(fits).map(placeInterest).sort((a, b) => a - b);
+  const floor = scores.length ? Math.min(scores[Math.floor(scores.length * 3 / 4)], 4.5) : 0;
+  const pool = guide.places
+    .filter(p => fits(p) && !taken.has(p.id) && placeInterest(p) >= floor && openThatDay(p))
+    .map(p => ({ p, interest: placeInterest(p) }));
+
+  // Where the day happens: around its plans on the map. An empty day goes to the most interesting
+  // place not in the trip yet, and what's around it.
+  let points = visits.map(i => coordsOf(i, guide)).filter(Boolean);
+  if (!points.length) {
+    const top = pool.slice().sort((a, b) => b.interest - a.interest)[0];
+    const base = baseFor(trip, day, guide);
+    points = top ? [top.p] : base ? [base.c] : [];
+  }
+  const driving = modeFor(trip, day) === 'drive';
+  const reach = driving ? 12 : 2.5;           // miles from the day's plans
+  const perMile = driving ? 0.3 : 1.2;        // what a mile further costs, in points of interest
+  const wet = isWetDay(trip, day);
+  const length = p => (p.mins < 360 ? p.mins : 90);
+  const around = points.slice();      // the day stays around these: it doesn't wander off stop by stop
+  const picked = [];
+  while (picked.length < 6) {
+    let best = null;
+    for (const c of pool) {
+      if (picked.includes(c) || (count[c.p.cat] || 0) >= FILL_MAX[c.p.cat]) continue;
+      if (minutes + length(c.p) + HOP_MINUTES > DAY_MINUTES + 30) continue;
+      if (Math.min(...around.map(pt => miles(pt, c.p))) > reach) continue;
+      const d = Math.min(...points.map(pt => miles(pt, c.p)));
+      // The most interesting place that isn't far: a famous sight a mile away beats a minor one next door.
+      // Indoors counts for more when rain is likely.
+      const score = c.interest - d * perMile + (wet && c.p.tags.includes('rainy') ? 1.5 : 0);
+      if (!best || score > best.score) best = { c, score };
+    }
+    if (!best) break;
+    picked.push(best.c);
+    points.push(best.c.p);
+    count[best.c.p.cat] = (count[best.c.p.cat] || 0) + 1;
+    minutes += length(best.c.p) + HOP_MINUTES;
+  }
+  if (!picked.length) {
+    return { error: minutes > DAY_MINUTES - 60 ?'This day already looks full.' : 'No more ideas from the guide near this day’s plans.' };
+  }
+  const added = picked.map(({ p }) => ({
+    id: uid(), title: p.name, category: p.cat, date: day, time: '',
+    place: p.place || p.name, link: '', notes: '', done: false,
+    lat: p.lat, lng: p.lng, guideId: p.id,
+  }));
+  trip.items.push(...added);
+  const route = optimizeDay(trip, day);
+  return {
+    added,
+    undo: () => {
+      if (route.undo) route.undo();
+      trip.items = trip.items.filter(i => !added.includes(i));
+    },
+  };
+}
+
+function runAutoFill(day) {
+  const trip = activeTrip();
+  const result = autoFillDay(trip, day);
+  if (result.error) { snackbar(result.error); return; }
+  const redraw = () => { save(); render(); if (mapShown()) refreshMap(); };
+  redraw();
+  snackbar(`Added ${plural(result.added.length, 'plan')} to ${fmtDay(day, { weekday: 'long' })}`, 'Undo', () => { result.undo(); redraw(); }, 8000);
+}
+
+/* ---------- Consider booking ahead ---------- */
+
+// What a guide says about places that sell out ("sold out weeks in advance", "by reservation only"…).
+const BOOK_TEXT = new RegExp([
+  'sells? out', 'sold out', 'booked (?:up|out|solid)', '(?:days|weeks|months) (?:in advance|ahead)',
+  'book(?:ed|ing|ings)? (?:well|far|long) (?:in advance|ahead)',
+  'reserv(?:e|ation|ations) (?:\w+ ){0,2}(?:required|essential|a must)',
+  'by (?:reservation|appointment|prior arrangement) only', 'waiting list',
+].join('|'), 'i');
+
+// A line for a plan's card, "Book ahead", only for what is known to sell out: the answer kept from
+// Gemini (assistant.js) or, until there is one, the guide saying so. A fee or timed entry isn't enough.
+function bookingNote(item, trip, guide) {
+  if (item.booked || item.done || (item.date && item.date < todayISO())) return null;
+  // A ticket is attached, or it's the hotel or the flight itself (there because it was booked).
+  if (filesOf(item.id).length || ['stay', 'transport'].includes(item.category)) return null;
+  const known = sellsOut(item, trip);
+  if (known) return known.ahead ? { text: known.why ? `Book ahead: ${known.why}` : 'Sells out: book ahead' } : null;
+  const p = matchPlaces(item, guide)[0];
+  return p && BOOK_TEXT.test([p.about, p.blurb, p.price, p.tip, p.hours].filter(Boolean).join(' ')) ? { text: 'Sells out: book ahead' } : null;
+}
+
 /* ---------- Photos of guide places (from Wikimedia, when the guide has one) ---------- */
 
 const photoImg = (p, cls) => (p.photo
@@ -473,7 +599,7 @@ function defaultState() {
 }
 
 function defaultSettings() {
-  return { theme: 'auto', suggestions: true, lookup: true, units: usesImperial() ? 'imperial' : 'metric', ...deviceFormats() };
+  return { theme: 'auto', suggestions: true, lookup: true, booking: true, units: usesImperial() ? 'imperial' : 'metric', ...deviceFormats() };
 }
 
 /* ---------- Checking data that comes from outside the app ----------
@@ -530,6 +656,7 @@ function tidyItem(i, newId = false) {
   if ('guideId' in out && !isId(out.guideId)) delete out.guideId;
   if ('slot' in out && !/^\d{2}:\d{2}~\d{2}$/.test(out.slot)) delete out.slot;
   if ('geoMiss' in out && out.geoMiss !== true) delete out.geoMiss;
+  if ('booked' in out && typeof out.booked !== 'boolean') delete out.booked;
   return out;
 }
 
@@ -819,6 +946,7 @@ function itemHTML(item, trip, { showDate = false, drag = false, note = null, sch
         aria-checked="${item.done}" aria-label="Done: ${esc(item.title)}" title="Done"><span class="box">${icon('check')}</span></button>`;
   // The address line is skipped when it only repeats the title.
   const showPlace = item.place && norm(item.place) !== norm(item.title);
+  const book = bookingNote(item, trip, guideFor(trip));
   return `
     <li class="item ${item.done ? 'done' : ''}" data-id="${esc(item.id)}" ${drag ? 'data-drag' : ''}>
       <button type="button" class="item-main ripple" data-action="edit">
@@ -828,6 +956,7 @@ function itemHTML(item, trip, { showDate = false, drag = false, note = null, sch
           <span class="item-title">${esc(item.title)}</span>
           ${showPlace ? `<span class="item-sub">${esc(item.place)}</span>` : ''}
           ${note && !item.done ? `<span class="item-hours ${note.warn ? 'warn' : ''}">${icon(note.warn ? 'event_busy' : 'schedule')}${esc(note.text)}</span>` : ''}
+          ${book ? `<span class="item-hours book">${icon('confirmation_number')}${esc(book.text)}</span>` : ''}
           ${item.notes ? `<span class="item-notes">${esc(item.notes)}</span>` : ''}
         </span>
         ${photo ? `<span class="item-photo">${icon(cat.icon + '-fill')}${photoImg({ photo }, '')}</span>` : ''}
@@ -974,6 +1103,7 @@ function renderPlan(trip) {
   // Plans with an address that isn't in the guide get looked up on the map, then their opening hours.
   lookupMissing(trip, planned);
   lookupHours(trip, planned);
+  lookupBooking(trip);         // assistant.js: which plans are known to sell out
   // Save the trip's essentials while online, so they're there on arrival.
   essentialsFor(trip);
 }
@@ -1268,6 +1398,11 @@ function renderMore() {
         <span class="row-text"><span class="row-title">Find addresses and opening hours</span><span class="row-sub">Sends the place names you typed (not your plans) to OpenStreetMap</span></span>
         <span class="switch ${state.settings.lookup ? 'on' : ''}" aria-hidden="true"></span>
       </button></li>
+      ${aiReady() ? `<li><button type="button" class="row ripple" data-action="toggle-booking" role="switch" aria-checked="${state.settings.booking !== false}">
+        <span class="row-icon">${icon('confirmation_number')}</span>
+        <span class="row-text"><span class="row-title">Flag plans that sell out</span><span class="row-sub">Sends the names of your plans to Google Gemini (free service)</span></span>
+        <span class="switch ${state.settings.booking !== false ? 'on' : ''}" aria-hidden="true"></span>
+      </button></li>` : ''}
     </ul>
 
     <h2 class="group-label">App</h2>
@@ -1477,6 +1612,7 @@ function openItemForm(item, defaults = {}) {
   for (const f of ['title', 'category', 'date', 'time', 'place', 'link', 'notes']) {
     itemForm.elements[f].value = v[f] || '';
   }
+  itemForm.elements.booked.checked = v.booked === true;
   $('#item-delete').hidden = !item;
   showTimeClear();
   setPlanExamples();
@@ -1511,6 +1647,7 @@ itemForm.addEventListener('submit', (e) => {
     place: f.place.value.trim(),
     link: f.link.value.trim(),
     notes: f.notes.value.trim(),
+    booked: f.booked.checked,
   };
   if (!data.title) return;
   const trip = activeTrip();
@@ -1984,6 +2121,11 @@ document.addEventListener('click', async (e) => {
       save();
       render();
       break;
+    case 'toggle-booking':
+      state.settings.booking = state.settings.booking === false;
+      save();
+      render();
+      break;
     case 'day-map':
       openMap(el.dataset.date);
       break;
@@ -2000,6 +2142,9 @@ document.addEventListener('click', async (e) => {
     }
     case 'optimize':
       runOptimize(el.dataset.date);
+      break;
+    case 'autofill':
+      runAutoFill(el.dataset.date);
       break;
     case 'undo-optimize':
       if (mapView.note && mapView.note.undo) mapView.note.undo();
@@ -2153,7 +2298,7 @@ function eraseDeviceData() {
   for (const key of [AI_KEY, PACKING_KEY, GUIDES_KEY, WEATHER_KEY, HOURS_KEY, ESSENTIALS_KEY, INFO_KEY]) {
     try { localStorage.removeItem(key); } catch { /* storage unavailable */ }
   }
-  ai.saved = { chats: {} };
+  ai.saved = { chats: {}, booking: {} };
   for (const kept of [packingHidden, savedGuides]) for (const k of Object.keys(kept)) delete kept[k];
   readyGuides.clear();
   guideStatus.clear();
@@ -2225,6 +2370,7 @@ function cleanBackup(data) {
       guideId: isId(i.guideId) ? i.guideId : undefined,
       slot: /^\d{2}:\d{2}~\d{2}$/.test(i.slot) ? i.slot : undefined,
       geoMiss: i.geoMiss === true || undefined,
+      booked: i.booked === true || undefined,
     })),
   }));
   const checklist = (Array.isArray(data.checklist) ? data.checklist : [])
@@ -2236,6 +2382,7 @@ function cleanBackup(data) {
     theme: ['auto', 'light', 'dark'].includes(s.theme) ? s.theme : 'auto',
     suggestions: s.suggestions !== false,
     lookup: s.lookup !== false,
+    booking: s.booking !== false,
     units: ['metric', 'imperial'].includes(s.units) ? s.units : defaultSettings().units,
     dateOrder: ['dmy', 'mdy'].includes(s.dateOrder) ? s.dateOrder : defaultSettings().dateOrder,
     clock: ['24', '12'].includes(s.clock) ? s.clock : defaultSettings().clock,

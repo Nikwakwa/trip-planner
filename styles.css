@@ -1164,8 +1164,13 @@ dialog.alert[open] { animation: alert-in .4s var(--ease-decel); }
   background: var(--outline);
   transition: all .35s var(--ease-spring);
 }
-.switch.on { background: var(--primary); border-color: var(--primary); }
-.switch.on::after { left: 22px; top: 2px; width: 24px; height: 24px; background: var(--on-primary); }
+.switch.on, :checked + .switch { background: var(--primary); border-color: var(--primary); }
+.switch.on::after, :checked + .switch::after { left: 22px; top: 2px; width: 24px; height: 24px; background: var(--on-primary); }
+/* A switch in a form (a real checkbox, drawn as the switch next to it) */
+.switch-row { position: relative; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 4px 0 16px; cursor: pointer; }
+.switch-row > span:first-child { flex: 1; font-size: 16px; line-height: 24px; }
+.switch-row input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.switch-row input:focus-visible + .switch { outline: 2px solid var(--primary); outline-offset: 2px; }
 
 /* ---------- Trip card buttons ---------- */
 .hero-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
@@ -1471,6 +1476,7 @@ dialog.map-sheet[open] { display: flex; flex-direction: column; }
 }
 .item-hours .icon { width: 16px; height: 16px; flex: none; }
 .item-hours.warn { color: var(--error); font-weight: 600; }
+.item-hours.book { color: var(--primary); font-weight: 600; }
 
 /* ---------- Drag to plan (drag.js) ---------- */
 [data-drag] { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }

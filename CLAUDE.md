@@ -83,6 +83,10 @@ localStorage `tripPlanner.guides` (up to 10). `planSuggestions` in `app.js` and 
   `local: true`). "Nearby ideas" then only use local places, and never anything over 25 miles away.
 - Places may also carry `price`, `tip` (how to get there) and `url` (`GUIDE_VERSION` 4). Destinations without a photo
   get the picture of the Wikipedia article with the same name (`fillPhotosByName`).
+- Places carry `fame` (`GUIDE_VERSION` 5): the number of Wikipedia languages with an article about them, from Wikidata
+  (`fillFame`). It also helps decide which 160 listings a guide keeps.
+- A huge city whose Wikivoyage districts are pages of their own (New York: "Manhattan", then "Manhattan/Midtown") is
+  read two levels deep, from the page's region list.
 - Place search (`searchPlaces`) re-ranks Photon's results so countries and cities come before villages with the
   same name.
 
@@ -202,6 +206,15 @@ Phone styles are the default. Add desktop overrides in the media blocks at the e
 - The plan form lists matching real places under the name and the address as you type (`findMatches`: the guide, then
   Photon, kept to places near the trip with `nearTrip`). Picking one fills the address and saves its `lat`/`lng` (and
   `guideId`), so no address lookup is needed. Nothing is matched without a pick.
+- "Auto-fill day" (a day tool, `autoFillDay` in app.js) adds guide sights to a day until it holds about 8 hours, then
+  runs `optimizeDay`. It picks by interest first (`placeInterest`, mostly the place's `fame`), minus a cost per mile
+  from the day's plans, and only from the most interesting quarter of the guide; an empty day starts from the most
+  interesting place not in the trip yet. No AI, no times, no meals, with Undo. Not offered with a Wikipedia guide.
+- Plan cards show "Book ahead: …" (`bookingNote`) only for what is known to sell out, not for every fee or timed
+  entry. `lookupBooking` (assistant.js) asks Flash-Lite once per new plan name, a trip's plans in one request, and
+  keeps the answers per device in `ai.saved.booking`; until there's an answer, only the guide's own words count
+  ("sells out", "weeks in advance"). The note goes when the plan's form has "Booked, or no booking needed" switched on
+  (`item.booked`, synced) or a ticket is attached. Switch in More: `settings.booking`.
 - Ideas (Ideas tab) have "Add to a day" (`pick-day` / `set-day`) in place of the done checkbox.
 - On desktop, hovering a plan highlights its pin (`hotPin`), and the docked map opens on today's route during the trip.
 - Keyboard focus is shown with a global `:focus-visible` outline. Don't remove outlines without a replacement.

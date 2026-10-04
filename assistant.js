@@ -254,6 +254,70 @@ function parseAnswer(text) {
   return { text: typeof data.reply === 'string' ? data.reply.trim() : '', changes };
 }
 
+/* ---------- Which plans sell out? ----------
+   Asked in the background (the lighter model, a whole trip's new plans in one request), and kept on
+   this device per plan name. Only what is known to sell out counts, not every place with a ticket. */
+
+const BOOKING_RULES = `You know which tourist sights, activities, shows and restaurants are hard to get into without booking.
+For each numbered plan, say whether it is widely known to sell out, so that a traveller has to buy tickets or reserve
+days or weeks ahead to get in at all (for example: the Statue of Liberty's pedestal and crown, Alcatraz, the Last Supper
+in Milan, the Anne Frank House, the Sagrada Família, the Alhambra, a hit Broadway show, a restaurant that is booked out
+weeks ahead).
+Answer false for anything a traveller can normally walk into or buy a ticket for on the day, even if it charges a fee,
+has queues or uses timed entry: most museums, aquariums, zoos, parks, churches, streets, markets, neighborhoods, ordinary
+restaurants. Answer false when you are not sure, or when you don't recognize the place.
+"why" is a short reason of at most 8 words when true (like "Crown tickets sell out months ahead"), and "" when false.`;
+
+ai.saved.booking = ai.saved.booking || {};
+const bookingCheck = { busy: false, retryAt: 0 };
+const bookingKey = (item, trip) => norm(`${item.title} | ${placeLabel(trip)}`).slice(0, 200);
+const sellsOut = (item, trip) => ai.saved.booking[bookingKey(item, trip)] || null;
+
+function lookupBooking(trip) {
+  if (state.settings.booking === false || !aiReady() || !navigator.onLine || bookingCheck.busy || Date.now() < bookingCheck.retryAt) return;
+  const today = todayISO();
+  const todo = trip.items.filter(i => !['stay', 'transport'].includes(i.category) && !i.done && !i.booked
+    && !(i.date && i.date < today) && !sellsOut(i, trip)).slice(0, 40);
+  if (!todo.length) return;
+  bookingCheck.busy = true;
+  bookingCheck.retryAt = Date.now() + 60 * 1000;         // at most one request a minute
+  const text = `Plans of a trip to ${placeLabel(trip)}:\n` + todo.map((i, k) => `${k + 1}. ${i.title}${i.place && norm(i.place) !== norm(i.title) ? ` (${i.place})` : ''}`).join('\n');
+  const body = {
+    systemInstruction: { parts: [{ text: BOOKING_RULES }] },
+    contents: [{ role: 'user', parts: [{ text }] }],
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseSchema: {
+        type: 'object',
+        properties: { plans: { type: 'array', items: {
+          type: 'object',
+          properties: { number: { type: 'integer' }, sells_out: { type: 'boolean' }, why: { type: 'string' } },
+          required: ['number', 'sells_out', 'why'],
+        } } },
+        required: ['plans'],
+      },
+      temperature: 0,
+    },
+  };
+  callGemini(AI_MODELS[1].id, body).then((answer) => {
+    const list = JSON.parse(answer).plans;
+    const said = new Map((Array.isArray(list) ? list : []).filter(a => a && typeof a === 'object').map(a => [a.number, a]));
+    todo.forEach((item, k) => {
+      const a = said.get(k + 1);
+      // A plan left out of the answer counts as "no", so it isn't asked about again and again.
+      ai.saved.booking[bookingKey(item, trip)] = { ahead: !!(a && a.sells_out === true), why: aiText(a && a.why, 70), t: Date.now() };
+    });
+    // Keep the newest 400 answers.
+    const keys = Object.keys(ai.saved.booking);
+    if (keys.length > 400) keys.sort((x, y) => ai.saved.booking[x].t - ai.saved.booking[y].t).slice(0, keys.length - 400).forEach((k) => { delete ai.saved.booking[k]; });
+    saveAI();
+    renderSoon();
+  }).catch((e) => {
+    console.warn('Booking check', e);
+    bookingCheck.retryAt = Date.now() + 15 * 60 * 1000;
+  }).finally(() => { bookingCheck.busy = false; });
+}
+
 /* ---------- Turning proposed changes into real edits ---------- */
 
 const aiIsDate = v => isDate(v);

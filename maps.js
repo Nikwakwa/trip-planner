@@ -229,7 +229,9 @@ function optimizeDay(trip, day) {
 
 function dayToolsHTML(trip, day, items, guide) {
   const located = items.filter(it => coordsOf(it, guide));
-  if (!located.length) return '';
+  const fill = canAutoFill(day, guide)
+    ? `<button type="button" class="assist-chip ripple" data-action="autofill" data-date="${day}">${icon('auto_awesome')}Auto-fill day</button>` : '';
+  if (!located.length) return fill ? `<div class="day-tools">${fill}</div>` : '';
   const canOptimize = located.length >= 3 && located.some(it => !it.time);
   // With 2+ stops there are travel times: this day can get around differently from the rest of the trip.
   const mode = TRAVEL_MODES[modeFor(trip, day)];
@@ -250,6 +252,7 @@ function dayToolsHTML(trip, day, items, guide) {
       ${canOptimize ? `<button type="button" class="assist-chip ripple" data-action="optimize" data-date="${day}">${icon('route')}Optimize route</button>` : ''}
       ${located.length >= 2 ? `<button type="button" class="assist-chip ripple ${own ? 'selected' : ''}" data-action="day-travel" data-date="${day}"
         aria-label="Getting around this day: ${mode.label}. Tap to switch">${icon(mode.icon)}${mode.short}${own ? ' this day' : ''}</button>` : ''}
+      ${fill}
     </div>`;
 }
 
