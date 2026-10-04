@@ -93,6 +93,7 @@ How to answer:
 - Answer with JSON only:
   {"reply": "...", "add": [...], "update": [...], "remove": [...], "dates": {"start": "", "end": ""}}
 - "reply" is short plain text (no markdown), in the user's language. Say what you suggest and why, briefly.
+  When it makes several points, put each one in its own short paragraph, with an empty line (\\n\\n) between them.
 - The other fields are changes to the trip. Leave them empty for questions or advice. The user sees your
   changes as a preview and decides whether to apply them, so only change what the user asked for.
 - "add": new plans. Give every field:
@@ -393,8 +394,8 @@ function renderChat() {
   const chat = chatOf(trip);
   const lite = ai.saved.liteDay === todayISO();
   $('#ai-sub').textContent = !aiReady() ? 'Use another AI app (below)'
-    : lite ? `${AI_MODELS[1].label} · the bigger model’s free allowance is used up until tomorrow`
-    : `${AI_MODELS[0].label} · free`;
+    : lite ? 'Gemini · lighter model until tomorrow (today’s free allowance is used up)'
+    : 'Gemini · free';
 
   const body = $('#ai-body');
   body.innerHTML = `
@@ -420,7 +421,6 @@ function renderChat() {
       </ol>
     </div>
     <div class="ai-bottom">
-      ${chat.length ? `<button type="button" class="btn text ripple" data-action="ai-booking">${icon('confirmation_number')}Add a booking</button>` : ''}
       <button type="button" class="btn text ripple ai-paste-toggle" data-action="ai-paste">${ai.paste ? 'Hide' : 'Use another AI app instead'}</button>
     </div>`;
   $('#ai-send').disabled = ai.busy || !aiReady() || !navigator.onLine;
