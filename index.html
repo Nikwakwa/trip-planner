@@ -101,6 +101,7 @@
         <span class="field-label">What</span>
         <input name="title" required maxlength="120" placeholder="e.g. Visit the old town" autocomplete="off">
       </label>
+      <ul class="place-list" data-match="title" aria-label="Matching places" aria-live="polite" hidden></ul>
       <fieldset class="choice-chips" id="item-category">
         <legend>Type</legend>
       </fieldset>
@@ -113,6 +114,7 @@
         <span class="field-label">Place or address</span>
         <input name="place" maxlength="200" placeholder="A place name or an address" autocomplete="off">
       </label>
+      <ul class="place-list" data-match="place" aria-label="Matching places" aria-live="polite" hidden></ul>
       <label class="field">
         <span class="field-label">Link — tickets, booking…</span>
         <input name="link" inputmode="url" maxlength="500" placeholder="https://" autocomplete="off">

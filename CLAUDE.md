@@ -199,6 +199,9 @@ Phone styles are the default. Add desktop overrides in the media blocks at the e
 - Phones have a `#day-strip` under the trip tabs (`renderDayStrip`). `markCurrentDay()` highlights the day on screen
   there and in the desktop sidebar.
 - The plan form's example texts come from the trip's guide and the chosen type (`planExamples`). Don't hard-code a city.
+- The plan form lists matching real places under the name and the address as you type (`findMatches`: the guide, then
+  Photon, kept to places near the trip with `nearTrip`). Picking one fills the address and saves its `lat`/`lng` (and
+  `guideId`), so no address lookup is needed. Nothing is matched without a pick.
 - Ideas (Ideas tab) have "Add to a day" (`pick-day` / `set-day`) in place of the done checkbox.
 - On desktop, hovering a plan highlights its pin (`hotPin`), and the docked map opens on today's route during the trip.
 - Keyboard focus is shown with a global `:focus-visible` outline. Don't remove outlines without a replacement.

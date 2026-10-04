@@ -1351,7 +1351,126 @@ function setPlanExamples() {
   itemForm.elements.place.placeholder = ex.place;
 }
 
+// "Near the trip": within reach of a city, or anywhere inside a region's or country's borders.
+function nearTrip(trip, guide) {
+  const near = trip.place || (guide && guide.places[0]);
+  const reach = { region: 400, country: 1500 }[trip.place && trip.place.kind] || 60;
+  const box = trip.place && trip.place.kind !== 'city' && trip.place.bbox;
+  return p => !near || miles(near, p) < reach
+    || (box && p.lng >= box[0] - 1 && p.lng <= box[2] + 1 && p.lat >= box[1] - 1 && p.lat <= box[3] + 1);
+}
+
+/* Matching places: as you type a plan's name or its address, real places near the trip appear
+   below (from the guide, then OpenStreetMap). Picking one fills in the address and pins the
+   plan on the map at that exact spot. */
+const planMatch = { chosen: null, results: [], field: '', timer: 0, ctl: null, typeSet: false };
+const NUMBER_FIRST = new Set(['US', 'CA', 'GB', 'IE', 'AU', 'NZ', 'FR']);   // "9 West Street", not "West Street 9"
+const OSM_CATEGORY = {
+  shop: 'shopping',
+  restaurant: 'food', cafe: 'food', bar: 'food', pub: 'food', fast_food: 'food', ice_cream: 'food', food_court: 'food', biergarten: 'food',
+  hotel: 'stay', hostel: 'stay', guest_house: 'stay', motel: 'stay', apartment: 'stay',
+  station: 'transport', aerodrome: 'transport', bus_station: 'transport', ferry_terminal: 'transport',
+  attraction: 'sight', museum: 'sight', viewpoint: 'sight', gallery: 'sight', artwork: 'sight', park: 'sight',
+  theatre: 'event', cinema: 'event', stadium: 'event',
+};
+
+function matchFromPhoton(f) {
+  const p = f.properties;
+  const street = p.street && (p.housenumber
+    ? (NUMBER_FIRST.has(p.countrycode) ? `${p.housenumber} ${p.street}` : `${p.street} ${p.housenumber}`) : p.street);
+  const town = p.city || p.district || p.county || p.state || '';
+  const address = [street, town !== p.name && town].filter(Boolean).join(', ');
+  return {
+    name: p.name,
+    // With a street, the address alone; a park or a square keeps its name ("Central Park, New York").
+    place: (street ? address : [p.name, address].filter(Boolean).join(', ')).slice(0, 200),
+    sub: address || p.country || '',
+    cat: OSM_CATEGORY[p.osm_key] || OSM_CATEGORY[p.osm_value] || '',
+    lat: Math.round(f.geometry.coordinates[1] * 1e5) / 1e5,
+    lng: Math.round(f.geometry.coordinates[0] * 1e5) / 1e5,
+  };
+}
+
+async function findMatches(trip, q, signal) {
+  const guide = guideFor(trip);
+  const fromGuide = guide ? guide.places.filter(p => norm(p.name).includes(norm(q))).slice(0, 3).map(p => ({
+    name: p.name, place: p.place || p.name, sub: p.area || guide.city || '', cat: p.cat, lat: p.lat, lng: p.lng, guideId: p.id,
+  })) : [];
+  if (!navigator.onLine) return fromGuide;
+  const params = new URLSearchParams({ q, limit: '8', lang: 'en' });
+  // Results close to the trip come first: around its plans, else its city.
+  const by = trip.items.find(i => typeof i.lat === 'number') || trip.place || (guide && guide.places[0]);
+  if (by) { params.set('lat', by.lat); params.set('lon', by.lng); }
+  const res = await fetch('https://photon.komoot.io/api/?' + params, { signal });
+  if (!res.ok) return fromGuide;
+  const fits = nearTrip(trip, guide);
+  const seen = new Set(fromGuide.map(m => norm(m.name)));
+  const found = (await res.json()).features
+    .filter(f => f.properties.name && !['country', 'state', 'county', 'city'].includes(f.properties.type))
+    .map(matchFromPhoton)
+    .filter(m => fits(m) && !seen.has(norm(m.name) + m.sub) && !seen.has(norm(m.name)) && seen.add(norm(m.name) + m.sub));
+  return [...fromGuide, ...found].slice(0, 5);
+}
+
+function showMatches(field, results) {
+  planMatch.field = field;
+  planMatch.results = results;
+  for (const box of itemForm.querySelectorAll('[data-match]')) {
+    const mine = box.dataset.match === field && results.length > 0;
+    box.hidden = !mine;
+    box.innerHTML = !mine ? '' : results.map((m, i) => `
+      <li><button type="button" class="place-opt ripple" data-match-index="${i}">
+        ${icon(CATEGORIES[m.cat] ? CATEGORIES[m.cat].icon + '-fill' : 'location_on')}
+        <span class="row-text"><span class="row-title">${esc(m.name)}</span>${m.sub ? `<span class="row-sub">${esc(m.sub)}</span>` : ''}</span>
+      </button></li>`).join('');
+  }
+}
+
+function onMatchInput(e) {
+  const field = e.target.name;
+  const q = e.target.value.trim();
+  const trip = activeTrip();
+  clearTimeout(planMatch.timer);
+  if (planMatch.ctl) planMatch.ctl.abort();
+  if (!trip || q.length < 3) return showMatches(field, []);
+  planMatch.timer = setTimeout(async () => {
+    const ctl = planMatch.ctl = new AbortController();
+    try {
+      showMatches(field, await findMatches(trip, q, ctl.signal));
+    } catch (err) {
+      if (err.name !== 'AbortError') showMatches(field, []);
+    }
+  }, 300);
+}
+itemForm.elements.title.addEventListener('input', onMatchInput);
+itemForm.elements.place.addEventListener('input', onMatchInput);
+
+itemForm.addEventListener('click', (e) => {
+  const opt = e.target.closest('[data-match-index]');
+  if (!opt) return;
+  const m = planMatch.results[Number(opt.dataset.matchIndex)];
+  const f = itemForm.elements;
+  // Picked under the name: the place's full name replaces what was typed of it ("brattle" → "Brattle Book Shop").
+  if (planMatch.field === 'title' && norm(m.name).includes(norm(f.title.value.trim()))) f.title.value = m.name.slice(0, 120);
+  f.place.value = m.place;
+  if (m.cat && !editingItemId && !planMatch.typeSet) { f.category.value = m.cat; setPlanExamples(); }
+  planMatch.chosen = m;
+  showMatches('', []);
+});
+
+// Moving on to another field puts the list away.
+itemForm.addEventListener('focusin', (e) => {
+  if (planMatch.field && e.target.name !== planMatch.field && !e.target.closest('[data-match]')) {
+    clearTimeout(planMatch.timer);
+    if (planMatch.ctl) planMatch.ctl.abort();
+    showMatches('', []);
+  }
+});
+
 function openItemForm(item, defaults = {}) {
+  planMatch.chosen = null;
+  planMatch.typeSet = false;
+  showMatches('', []);
   editingItemId = item ? item.id : null;
   const v = item || { title: '', category: 'sight', date: '', time: '', place: '', link: '', notes: '', ...defaults };
   $('#item-dialog-title').textContent = item ? 'Edit plan' : (v.date ? 'New plan' : 'New idea');
@@ -1367,7 +1486,7 @@ function openItemForm(item, defaults = {}) {
 }
 
 // Another type of plan: other examples.
-$('#item-category').addEventListener('change', setPlanExamples);
+$('#item-category').addEventListener('change', () => { planMatch.typeSet = true; setPlanExamples(); });
 
 itemForm.addEventListener('submit', (e) => {
   e.preventDefault();
@@ -1385,9 +1504,12 @@ itemForm.addEventListener('submit', (e) => {
   const trip = activeTrip();
   if (!trip) { itemDialog.close(); return; }
   const found = editingItemId && findItem(editingItemId);
+  // A place picked from the list of matches (and its address left as it was filled in): its exact spot.
+  const m = planMatch.chosen && planMatch.chosen.place === data.place ? planMatch.chosen : null;
+  const spot = m ? { lat: m.lat, lng: m.lng, ...(m.guideId ? { guideId: m.guideId } : {}) } : {};
   if (editingItemId && !found) {
     // The plan was removed while its form was open (on another device): saving puts it back.
-    trip.items.push({ id: editingItemId, done: false, ...data });
+    trip.items.push({ id: editingItemId, done: false, ...data, ...spot });
   } else if (editingItemId) {
     // A new address means the saved map position no longer applies.
     if (found.item.place !== data.place) {
@@ -1398,9 +1520,10 @@ itemForm.addEventListener('submit', (e) => {
     }
     // A new day or a set time replaces the position chosen by Optimize route.
     if (found.item.date !== data.date || data.time) delete found.item.slot;
-    Object.assign(found.item, data);
+    if (m) { delete found.item.guideId; delete found.item.geoMiss; }
+    Object.assign(found.item, data, spot);
   } else {
-    trip.items.push({ id: uid(), done: false, ...data });
+    trip.items.push({ id: uid(), done: false, ...data, ...spot });
   }
   saveFormFiles(editingItemId || trip.items[trip.items.length - 1].id);
   save();

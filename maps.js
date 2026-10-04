@@ -59,12 +59,7 @@ function lookupMissing(trip, items) {
       const tries = norm(item.place).includes(norm(city)) || !item.place.includes(',')
         ? [norm(item.place).includes(norm(city)) ? item.place : `${item.place}, ${where}`]
         : [item.place, `${item.place}, ${where}`];
-      const near = trip.place || (guide && guide.places[0]);
-      // "Near the trip": within reach of a city, or anywhere inside a region's or country's borders.
-      const reach = { region: 400, country: 1500 }[trip.place && trip.place.kind] || 60;
-      const box = trip.place && trip.place.kind !== 'city' && trip.place.bbox;
-      const fits = p => !near || miles(near, p) < reach
-        || (box && p.lng >= box[0] - 1 && p.lng <= box[2] + 1 && p.lat >= box[1] - 1 && p.lat <= box[3] + 1);
+      const fits = nearTrip(trip, guide);
       // One question to OpenStreetMap's address search (at most one a second).
       const ask = async (q) => {
         const waitMs = geoLast + 1100 - Date.now();
