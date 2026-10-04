@@ -178,23 +178,28 @@ function dropOn(target) {
     const fromDay = item.date;
     const was = fromDay === target.day ? dayItems(trip, target.day) : null;
     item.date = target.day;
-    if (!item.time) {
-      // Number the untimed plans in their new order, after the timed plan before them.
-      const order = dayItems(trip, target.day).filter(i => i !== item);
-      order.splice(target.index, 0, item);
-      // Put back where it was: nothing changes.
-      if (was && order.every((it, k) => it === was[k])) { render(); return; }
+    // The day's plans in their new order. It holds if the plans with a time are still in time order:
+    // then the plans without a time are numbered where they now sit, after the timed plan before them.
+    const order = dayItems(trip, target.day).filter(i => i !== item);
+    order.splice(target.index, 0, item);
+    // Put back where it was: nothing changes.
+    if (was && order.every((it, k) => it === was[k])) { render(); return; }
+    const timed = order.filter(i => i.time);
+    const inTimeOrder = timed.every((it, k) => !k || timed[k - 1].time <= it.time);
+    if (inTimeOrder) {
       let anchor = '00:00', n = 0;
       for (const it of order) {
         if (it.time) { anchor = it.time; n = 0; }
         else it.slot = `${anchor}~${String(++n).padStart(2, '0')}`;
       }
-      message = fromDay === target.day ? 'Moved' : `Moved to ${fmtDay(target.day, { weekday: 'long' })}`;
-    } else {
-      message = fromDay === target.day
-        ? `Stays at ${fmtTime(item.time)} — plans with a time keep their time order`
-        : `Moved to ${fmtDay(target.day, { weekday: 'long' })}, ${fmtTime(item.time)}`;
+    } else if (fromDay === target.day) {
+      // A timed plan dropped on the wrong side of another timed plan: it can't go there.
+      render();
+      snackbar(`Stays at ${fmtTime(item.time)}, in time order with the day’s other timed plans`);
+      return;
     }
+    message = fromDay === target.day ? 'Moved'
+      : `Moved to ${fmtDay(target.day, { weekday: 'long' })}${item.time ? `, ${fmtTime(item.time)}` : ''}`;
   }
 
   const changed = before.some(([i, date, slot]) => i.date !== date || i.slot !== slot);

@@ -108,7 +108,8 @@ then everything else (`byPlanOrder`).
 - Weather is only fetched for city-sized places. Rainy days reorder `planSuggestions` toward `rainy`-tagged places.
 - `drag.js` uses a long-press, then pointer events plus a non-passive `touchmove` to stop the page scrolling. Elements
   marked `data-drag` (plan cards in the Plan view, `.idea-chip`s in the ideas tray) can be dragged. A drop rewrites
-  `date` and renumbers the untimed plans' `slot`s for that day.
+  `date` and renumbers the untimed plans' `slot`s for that day. A plan with a time can be dropped anywhere that keeps
+  the day's timed plans in time order (the untimed ones around it are renumbered); otherwise it stays put.
 
 **AI assistant (`assistant.js`).**
 - It calls the Firebase AI Logic REST endpoint (`firebasevertexai.googleapis.com/v1beta/projects/{id}/models/{model}:generateContent`)
