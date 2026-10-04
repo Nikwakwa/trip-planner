@@ -263,15 +263,23 @@ For each numbered plan, say whether it is widely known to sell out, so that a tr
 days or weeks ahead to get in at all (for example: the Statue of Liberty's pedestal and crown, Alcatraz, the Last Supper
 in Milan, the Anne Frank House, the Sagrada Família, the Alhambra, a hit Broadway show, a restaurant that is booked out
 weeks ahead).
+Also answer true for an event that happens once, at a set date and time, with seats sold by ticket: a sports game or
+match, a concert, a play or musical, a festival. Without a ticket bought beforehand there is no getting in, even when
+the event doesn't sell out.
 Answer false for anything a traveller can normally walk into or buy a ticket for on the day, even if it charges a fee,
 has queues or uses timed entry: most museums, aquariums, zoos, parks, churches, streets, markets, neighborhoods, ordinary
 restaurants. Answer false when you are not sure, or when you don't recognize the place.
-"why" is a short reason of at most 8 words when true (like "Crown tickets sell out months ahead"), and "" when false.`;
+"why" is a short reason of at most 8 words when true (like "Crown tickets sell out months ahead", or
+"Game tickets are sold ahead"), and "" when false.`;
+const BOOKING_VERSION = 2;      // raise it when the rules change: the answers kept on devices are asked again
 
 ai.saved.booking = ai.saved.booking || {};
 const bookingCheck = { busy: false, retryAt: 0 };
 const bookingKey = (item, trip) => norm(`${item.title} | ${placeLabel(trip)}`).slice(0, 200);
-const sellsOut = (item, trip) => ai.saved.booking[bookingKey(item, trip)] || null;
+const sellsOut = (item, trip) => {
+  const had = ai.saved.booking[bookingKey(item, trip)];
+  return had && had.v === BOOKING_VERSION ? had : null;
+};
 
 function lookupBooking(trip) {
   if (state.settings.booking === false || !aiReady() || !navigator.onLine || bookingCheck.busy || Date.now() < bookingCheck.retryAt) return;
@@ -305,7 +313,7 @@ function lookupBooking(trip) {
     todo.forEach((item, k) => {
       const a = said.get(k + 1);
       // A plan left out of the answer counts as "no", so it isn't asked about again and again.
-      ai.saved.booking[bookingKey(item, trip)] = { ahead: !!(a && a.sells_out === true), why: aiText(a && a.why, 70), t: Date.now() };
+      ai.saved.booking[bookingKey(item, trip)] = { ahead: !!(a && a.sells_out === true), why: aiText(a && a.why, 70), t: Date.now(), v: BOOKING_VERSION };
     });
     // Keep the newest 400 answers.
     const keys = Object.keys(ai.saved.booking);
