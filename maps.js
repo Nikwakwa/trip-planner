@@ -75,7 +75,10 @@ function lookupMissing(trip, items) {
         const res = await fetch('https://nominatim.openstreetmap.org/search?' + params);
         if (!res.ok) throw new Error('lookup ' + res.status);
         const [found] = await res.json();
-        return found ? { lat: Number(found.lat), lng: Number(found.lon) } : null;
+        if (!found) return null;
+        // Asked for a house number but only the street was found: the pin could be miles along it.
+        const street = /^\s*\d/.test(q) && (found.category === 'highway' || found.addresstype === 'road');
+        return { lat: Number(found.lat), lng: Number(found.lon), street };
       };
       // The plans around it (the day before to the day after) that are on the map: a looser search
       // can answer with a place of the same name far away, so its answer has to be near them.
@@ -97,9 +100,13 @@ function lookupMissing(trip, items) {
       const inCity = q => (trip.place && trip.place.kind === 'city' && !norm(q).includes(norm(city)) ? `${q}, ${where}` : q);
       try {
         let hit = null;
+        let street = null; // only the street of the address: kept in case nothing better turns up
         for (const q of tries) {
           const found = await ask(q);
-          if (found && (tries.length === 1 || fits(found))) { hit = found; break; }
+          if (found && (tries.length === 1 || fits(found))) {
+            if (!found.street) { hit = found; break; }
+            street = street || found;
+          }
         }
         // Not found as written ("27-05 39th Avenue, Long Island City" is filed under Queens). Other ways:
         // the looser search, the place's name without its street ("Pier 86, Manhattan"), then the plan's own name.
@@ -110,15 +117,20 @@ function lookupMissing(trip, items) {
         if (!hit) {
           const parts = item.place.split(',').map(s => s.trim()).filter(Boolean);
           const name = item.title.replace(/^check[ -]?(in|out)\s*:?\s*/i, '').trim();
+          // "High Line at W 34th Street": the place itself, without where along it.
+          const bare = q => q.split(/\s+(?:at|near)\s+/i)[0].trim();
           const others = [
             parts.length >= 3 && `${parts[0]}, ${parts[parts.length - 1]}`,
             !['food', 'transport'].includes(item.category) && norm(name) !== norm(item.place) && name,
-          ].filter(Boolean);
+            bare(parts[0] || '') !== parts[0] && bare(parts[0]),
+            bare(name) !== name && norm(bare(name)) !== norm(bare(parts[0] || '')) && bare(name),
+          ].filter((q, i, all) => q && !all.slice(0, i).some(o => o && norm(o) === norm(q)));
           for (const q of others) {
             const found = await ask(inCity(q));
-            if (found && plausible(found)) { hit = found; break; }
+            if (found && !found.street && plausible(found)) { hit = found; break; }
           }
         }
+        if (!hit && street) hit = street;
         if (hit) {
           item.lat = hit.lat;
           item.lng = hit.lng;

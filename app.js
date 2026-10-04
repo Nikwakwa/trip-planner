@@ -588,9 +588,16 @@ let state = load();
 state.settings = { ...defaultSettings(), ...state.settings };
 // Once after the address lookup got better at finding places: plans marked "not found on the map"
 // are looked up again.
-if (state.settings.geoRetry !== 2) {
-  state.settings.geoRetry = 2;
+if (!(state.settings.geoRetry >= 2)) {
   for (const t of state.trips) t.items.forEach((i) => { delete i.geoMiss; });
+}
+// Once after it stopped settling for the street when a house number isn't known ("1000 Fifth Avenue"
+// was pinned somewhere along Fifth Avenue): addresses with a house number are looked up again.
+if (!(state.settings.geoRetry >= 3)) {
+  state.settings.geoRetry = 3;
+  for (const t of state.trips) t.items.forEach((i) => {
+    if (/^\s*\d/.test(i.place || '')) { delete i.lat; delete i.lng; delete i.geoMiss; }
+  });
 }
 saveLocal();
 
