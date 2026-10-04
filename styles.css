@@ -2102,3 +2102,10 @@ button.suggest-title { border-radius: 12px; padding: 4px 8px 4px 0; text-align: 
 }
 .leg-base { flex: none; overflow: visible; white-space: nowrap; }
 .leg-link { flex-wrap: wrap; row-gap: 0; }
+
+/* About a plan (info.js): a short list of facts, label above text */
+.pi-facts { display: grid; gap: 10px; margin: 0 0 10px; }
+.pi-facts dt { font-size: 12px; line-height: 16px; font-weight: 650; color: var(--primary); }
+.pi-facts dd { margin: 0; font-size: 14px; line-height: 20px; color: var(--on-surface); white-space: pre-line; }
+.pi-small { font-size: 12px !important; margin: 0 !important; }
+.pi-hours.warn, .pi-hours.warn .icon { color: var(--error); }

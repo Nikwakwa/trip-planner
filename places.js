@@ -11,8 +11,8 @@
    ========================================================= */
 
 const GUIDES_KEY = 'tripPlanner.guides';
-const GUIDE_VERSION = 3;          // 2: full descriptions ("about") and opening hours; 3: photos. Older saved guides are refreshed.
-const MAX_SAVED_GUIDES = 10;
+const GUIDE_VERSION = 4;          // 2: full descriptions ("about") and opening hours; 3: photos; 4: price, website, photos of destinations. Older saved guides are refreshed.
+const MAX_SAVED_GUIDES = 16;
 const WIKIVOYAGE = 'https://en.wikivoyage.org/w/api.php';
 
 async function getJSON(url, params, signal) {
@@ -290,6 +290,8 @@ function readListings(page, area) {
       blurb: shortBlurb(content),
       about: longBlurb(content),
       price: plainText(p.price),
+      tip: plainText(p.directions).slice(0, 200),
+      url: /^https?:\/\//i.test(p.url || '') ? p.url.trim().split(/\s/)[0].slice(0, 300) : '',
       hours: plainText(p.hours).slice(0, 200),
       wikidata: /^Q\d+$/.test(p.wikidata || '') ? p.wikidata : '',
       lat: Number.isFinite(lat) && Math.abs(lat) <= 90 ? lat : null,
@@ -400,60 +402,15 @@ async function wikivoyageGuide(place) {
   }
   await fillCoordinates(list);
   await fillPhotos(list).catch(() => {});      // photos are a bonus: the guide works without them
+  await fillPhotosByName(list).catch(() => {});
 
   // Keep places with a map position that really are in (or near) this place.
   const reach = place.kind === 'city' ? 30 : place.kind === 'region' ? 400 : 1500;
-  list = list.filter(x => x.lat !== null && miles(place, x) < reach);
-
-  // The same place can be listed on the main page and on its district page.
-  const byKey = new Map();
-  for (const x of list) {
-    const key = x.wikidata || norm(x.name);
-    const had = byKey.get(key);
-    if (!had) byKey.set(key, x);
-    else {
-      if (!had.area) had.area = x.area;
-      if (!had.hours) had.hours = x.hours;
-      if (!had.image) had.image = x.image;
-      if (x.blurb.length > had.blurb.length) had.blurb = x.blurb;
-      if (x.about.length > had.about.length) had.about = x.about;
-      had.notable = Math.max(had.notable, x.notable) + 0.5;
-    }
-  }
-  list = [...byKey.values()]
-    .sort((a, b) => (LISTING_RANK[b.type] + b.notable) - (LISTING_RANK[a.type] + a.notable))
-    .slice(0, 160);
+  list = bestListings(list.filter(x => x.lat !== null && miles(place, x) < reach), 160);
   if (list.length < 5) return null;
 
   const isDestinations = list.filter(x => x.type === 'city' || x.type === 'vicinity').length >= list.length * 0.6;
-  // Each place needs its own id: two names can come out the same once shortened to plain letters.
-  const usedIds = new Set();
-  const placeId = (x) => {
-    const base = 'wv-' + (x.wikidata || norm(x.name).replace(/[^a-z0-9]+/g, '-')).slice(0, 50);
-    let id = base;
-    for (let n = 2; usedIds.has(id); n++) id = `${base}-${n}`;
-    usedIds.add(id);
-    return id;
-  };
-  const places = list.map(x => ({
-    id: placeId(x),
-    name: x.name,
-    aliases: x.alt && x.alt.length < 50 ? [x.alt] : [],
-    cat: LISTING_CAT[x.type] || 'sight',
-    area: x.area || (x.type === 'city' ? 'City' : x.type === 'vicinity' ? 'Destination' : ''),
-    lat: Math.round(x.lat * 1e5) / 1e5,
-    lng: Math.round(x.lng * 1e5) / 1e5,
-    mins: guessMinutes(x.type, x.name),
-    when: x.type === 'drink' ? 'evening' : 'any',
-    tags: [
-      /^\s*free\b/i.test(x.price) ? 'free' : '',
-      x.type !== 'city' && RAINY.test(x.name) ? 'rainy' : '',
-    ].filter(Boolean),
-    blurb: x.blurb || (x.type === 'city' ? `A destination in ${place.name}.` : ''),
-    ...(x.image ? { photo: commonsPhoto(x.image) } : {}),
-    ...(x.hours ? { hours: x.hours } : {}),
-    ...(x.about.length > x.blurb.length ? { about: x.about } : {}),
-  }));
+  const places = listingPlaces(list, place.name);
 
   // Neighborhoods for empty days: the city's districts, or groups of nearby places.
   let dayAreas = [];
@@ -485,6 +442,182 @@ async function wikivoyageGuide(place) {
     dayTitles,
     places,
   };
+}
+
+// The best-known listings, each once: the same place can be on a city's page and on its district's page.
+function bestListings(list, max) {
+  const byKey = new Map();
+  for (const x of list) {
+    const key = x.wikidata || norm(x.name);
+    const had = byKey.get(key);
+    if (!had) byKey.set(key, x);
+    else {
+      if (!had.area) had.area = x.area;
+      if (!had.hours) had.hours = x.hours;
+      if (!had.image) had.image = x.image;
+      if (x.blurb.length > had.blurb.length) had.blurb = x.blurb;
+      if (x.about.length > had.about.length) had.about = x.about;
+      had.notable = Math.max(had.notable, x.notable) + 0.5;
+    }
+  }
+  return [...byKey.values()]
+    .sort((a, b) => (LISTING_RANK[b.type] + b.notable) - (LISTING_RANK[a.type] + a.notable))
+    .slice(0, max);
+}
+
+// Listings → the guide's places. inName: the city or country, for a destination without a description.
+function listingPlaces(list, inName) {
+  // Each place needs its own id: two names can come out the same once shortened to plain letters.
+  const usedIds = new Set();
+  const placeId = (x) => {
+    const base = 'wv-' + (x.wikidata || norm(x.name).replace(/[^a-z0-9]+/g, '-')).slice(0, 50);
+    let id = base;
+    for (let n = 2; usedIds.has(id); n++) id = `${base}-${n}`;
+    usedIds.add(id);
+    return id;
+  };
+  return list.map(x => ({
+    id: placeId(x),
+    name: x.name,
+    aliases: x.alt && x.alt.length < 50 ? [x.alt] : [],
+    cat: LISTING_CAT[x.type] || 'sight',
+    area: x.area || (x.type === 'city' ? 'City' : x.type === 'vicinity' ? 'Destination' : ''),
+    lat: Math.round(x.lat * 1e5) / 1e5,
+    lng: Math.round(x.lng * 1e5) / 1e5,
+    mins: guessMinutes(x.type, x.name),
+    when: x.type === 'drink' ? 'evening' : 'any',
+    tags: [
+      /^\s*free\b/i.test(x.price) ? 'free' : '',
+      x.type !== 'city' && RAINY.test(x.name) ? 'rainy' : '',
+    ].filter(Boolean),
+    blurb: x.blurb || (x.type === 'city' ? `A destination in ${inName}.` : ''),
+    ...(x.image ? { photo: commonsPhoto(x.image) } : x.photoUrl ? { photo: x.photoUrl } : {}),
+    ...(x.hours ? { hours: x.hours } : {}),
+    ...(x.about.length > x.blurb.length ? { about: x.about } : {}),
+    ...(x.price ? { price: x.price.slice(0, 200) } : {}),
+    ...(x.tip ? { tip: x.tip } : {}),
+    ...(x.url ? { url: x.url } : {}),
+  }));
+}
+
+// Destinations (cities, parks) usually come without a photo or a Wikidata id: the picture of the
+// Wikipedia article with the same name is used.
+async function fillPhotosByName(list) {
+  const names = [...new Set(list.filter(x => !x.image && (x.type === 'city' || x.type === 'vicinity')).map(x => x.name))];
+  const found = new Map();
+  for (let i = 0; i < names.length; i += 40) {
+    const data = await getJSON('https://en.wikipedia.org/w/api.php', wm({
+      action: 'query', prop: 'pageimages', piprop: 'thumbnail', pithumbsize: '480', pilimit: 'max', redirects: '1', titles: names.slice(i, i + 40).join('|'),
+    }));
+    // The answer names the article, which may differ from what was asked ("NYC" → "New York City").
+    const renamed = rows => new Map((rows || []).map(r => [r.from, r.to]));
+    const normalized = renamed(data.query.normalized), redirects = renamed(data.query.redirects);
+    const photos = new Map((data.query.pages || []).filter(p => p.thumbnail).map(p => [p.title, p.thumbnail.source]));
+    for (const name of names.slice(i, i + 40)) {
+      const title = normalized.get(name) || name;
+      const photo = photos.get(redirects.get(title) || title);
+      if (photo) found.set(name, photo);
+    }
+  }
+  for (const x of list) if (!x.image && found.has(x.name)) x.photoUrl = found.get(x.name);
+}
+
+/* ---------- Guides for where the plans are ----------
+   A trip to a country or region gets a guide of destinations, which says nothing about the streets
+   around its plans. So each group of plans also gets a guide of what is near it, read from the
+   Wikivoyage pages closest to it (for New York: the pages of the neighborhoods around the plans). */
+
+const NEAR_REACH = 6;       // miles around a group of plans
+
+async function nearbyGuide(center) {
+  const data = await getJSON(WIKIVOYAGE, wm({ action: 'query', list: 'geosearch', gscoord: `${center.lat}|${center.lng}`, gsradius: '10000', gslimit: '12' }));
+  const titles = (data.query ? data.query.geosearch : []).map(p => p.title);
+  if (!titles.length) return null;
+  let list = [];
+  // A district page ("Manhattan/Chinatown") names its area; a town's own page doesn't need one.
+  for (const page of await wikivoyagePages(titles)) list.push(...readListings(page, page.title.includes('/') ? page.title.split('/').pop() : ''));
+  list = list.filter(x => x.type !== 'city' && x.type !== 'vicinity');
+  await fillCoordinates(list);
+  await fillPhotos(list).catch(() => {});
+  list = bestListings(list.filter(x => x.lat !== null && miles(center, x) < NEAR_REACH), 120);
+  if (list.length < 3) return null;
+  return {
+    city: titles[0].split('/')[0].replace(/\s*\([^)]*\)$/, ''),
+    source: 'Wikivoyage',
+    sourceUrl: 'https://en.wikivoyage.org/wiki/' + encodeURIComponent(titles[0].replace(/ /g, '_')),
+    kind: 'near',
+    center: { lat: Math.round(center.lat * 1e4) / 1e4, lng: Math.round(center.lng * 1e4) / 1e4 },
+    dayAreas: [],
+    dayTitles: {},
+    places: listingPlaces(list, ''),
+  };
+}
+
+// The groups of plans that need their own guide: away from the trip's own city (or anywhere, for
+// a country or region), with at least two plans on the map. Biggest first, five at most.
+function planGroups(trip) {
+  const groups = [];
+  for (const it of trip.items) {
+    if (typeof it.lat !== 'number' || typeof it.lng !== 'number') continue;
+    const g = groups.find(x => miles(x, it) < NEAR_REACH);
+    if (g) { g.lat = (g.lat * g.n + it.lat) / (g.n + 1); g.lng = (g.lng * g.n + it.lng) / (g.n + 1); g.n++; }
+    else groups.push({ lat: it.lat, lng: it.lng, n: 1 });
+  }
+  const city = trip.place && trip.place.kind === 'city' ? trip.place : null;
+  return groups.filter(g => g.n >= 2 && (!city || miles(city, g) > 15)).sort((a, b) => b.n - a.n).slice(0, 5);
+}
+
+// The saved guides near the trip's plans. Starts fetching the missing ones.
+function nearbyGuides(trip) {
+  const out = [];
+  for (const g of planGroups(trip)) {
+    // A guide fetched for (almost) the same spot is reused: the middle of a group moves as plans are added.
+    const key = Object.keys(savedGuides).find(k => savedGuides[k].kind === 'near' && miles(savedGuides[k].center, g) < 2.5);
+    if (key) {
+      if (!readyGuides.has(key)) {
+        readyGuides.set(key, prepGuide({ ...savedGuides[key], id: key }));
+        readyGuides.get(key).places.forEach((p) => { p.local = true; });      // not one of the trip's destinations
+      }
+      out.push(readyGuides.get(key));
+      if (savedGuides[key].v !== GUIDE_VERSION) loadNearbyGuide(g, key);
+    } else {
+      loadNearbyGuide(g, `near:${g.lat.toFixed(3)},${g.lng.toFixed(3)}`);
+    }
+  }
+  return out;
+}
+
+function loadNearbyGuide(center, key) {
+  if (guideStatus.has(key) || !navigator.onLine) return;
+  guideStatus.set(key, 'loading');
+  nearbyGuide(center).then((guide) => {
+    if (!guide) throw new Error('nothing nearby');
+    storeGuide(key, guide);
+    guideStatus.delete(key);
+    readyGuides.delete(key);
+    renderSoon();
+  }).catch((e) => {
+    console.warn('No guide near', key, e);
+    guideStatus.set(key, 'failed');
+  });
+}
+
+// The trip's guide with the guides near its plans added: one list of places for suggestions,
+// opening hours, photos and details. Built once per set of guides.
+const joinedGuides = new Map();
+function withNearby(trip, main) {
+  const near = nearbyGuides(trip);
+  if (!near.length) return main;
+  const key = [main ? main.id + (main.saved || '') : '-', ...near.map(g => g.id + g.saved)].join('|');
+  if (!joinedGuides.has(key)) {
+    joinedGuides.clear();
+    const seen = new Set();
+    const places = [...near.flatMap(g => g.places), ...(main ? main.places : [])].filter(p => !seen.has(p.id) && seen.add(p.id));
+    joinedGuides.set(key, main
+      ? { ...main, places, joined: true }
+      : { ...near[0], id: key, kind: 'city', places, joined: true });
+  }
+  return joinedGuides.get(key);
 }
 
 // Fallback: the most-read Wikipedia articles about places around the center.

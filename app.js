@@ -160,17 +160,26 @@ function prepGuide(g) {
 
 // The guide for the trip's place: sights, food and more from the travel guide (see places.js).
 function guideFor(trip) {
-  return placeGuide(trip);
+  return withNearby(trip, placeGuide(trip));
 }
 
 const placeLabel = trip => (trip.place ? trip.place.label : trip.name);
 
 // Which guide places does a plan refer to? (a plan named after a sight → that sight's entry)
+const matchMemo = new WeakMap();     // plan → its last answer (this is asked many times per redraw)
 function matchPlaces(item, guide) {
   if (!guide) return [];
-  if (item.guideId) return guide.places.filter(p => p.id === item.guideId);
+  if (item.guideId) {
+    const byId = guide.places.filter(p => p.id === item.guideId);
+    if (byId.length) return byId;
+  }
   const text = norm(`${item.place} | ${item.title}`);
-  return guide.places.filter(p => p.re.test(text));
+  const key = `${guide.id}|${guide.places.length}|${text}`;
+  const had = matchMemo.get(item);
+  if (had && had.key === key) return had.found;
+  const found = guide.places.filter(p => p.re.test(text));
+  matchMemo.set(item, { key, found });
+  return found;
 }
 
 function coordsOf(item, guide) {
@@ -264,16 +273,22 @@ function planSuggestions(trip, guide, days) {
     const anchors = anchorsByDay.get(day);
     const pool = guide.places.filter(p => !taken.has(p.id) && !shown.has(p.id));
     let ranked, title;
-    if (anchors.length) {
-      title = 'Nearby ideas';
-      ranked = pool.map(p => {
+    // A free day on a trip with guides near its plans (places.js): ideas around that day's stay.
+    const stay = !anchors.length && guide.joined ? baseFor(trip, day, guide) : null;
+    const from = anchors.length ? anchors : stay ? [stay] : [];
+    if (from.length) {
+      title = anchors.length ? 'Nearby ideas' : 'Ideas near your stay';
+      // With guides near the plans, only their places count: not the city itself as a "destination".
+      ranked = pool.filter(p => !guide.joined || p.local).map(p => {
         let best = null;
-        for (const a of anchors) {
+        for (const a of from) {
           const d = miles(a.c, p);
           if (!best || d < best.d) best = { d, from: a.item };
         }
         return { p, ...best };
       }).sort((x, y) => x.d - y.d);
+      // "Nearby" has to be near: a country's destinations can be a flight away.
+      if (guide.kind === 'destinations' || guide.joined) ranked = ranked.filter(r => r.d < 25);
     } else if (areaList.length) {
       const area = areaList[areaIndex++ % areaList.length];
       const inArea = guide.places.filter(p => p.area === area);
@@ -283,7 +298,7 @@ function planSuggestions(trip, guide, days) {
     } else {
       // A small town, or a country / region's destinations: best known first.
       title = guide.kind === 'destinations' ? `Places to go in ${guide.city}` : `Ideas for a day in ${guide.city}`;
-      ranked = pool.map(p => ({ p }));
+      ranked = pool.filter(p => !p.local).map(p => ({ p }));
     }
 
     // Rain likely (weather.js): indoor places nearby come first.
@@ -353,9 +368,11 @@ function openPlaceInfo(id, day) {
     ${tags.trim() ? `<div class="pi-tags">${tags}</div>` : ''}
     <p class="pi-text">${esc(p.about || p.blurb)}</p>
     ${p.hours ? `<p class="pi-hours">${icon('schedule')}<span>${esc(p.hours)}</span></p>` : ''}
+    ${factsHTML([['Price', p.price], ['Getting there', p.tip]])}
     <div class="pi-links">
       <a class="assist-chip ripple" href="${esc(mapsUrl(p.place || p.name, trip))}" target="_blank" rel="noopener">${icon('map')}Map</a>
-      ${guide.sourceUrl ? `<a class="assist-chip ripple" href="${esc(guide.sourceUrl)}" target="_blank" rel="noopener">${icon('open_in_new')}${esc(guide.source)}</a>` : ''}
+      ${safeUrl(p.url) ? `<a class="assist-chip ripple" href="${esc(safeUrl(p.url))}" target="_blank" rel="noopener">${icon('link')}${esc(hostLabel(safeUrl(p.url)))}</a>` : ''}
+      ${guide.sourceUrl && !p.local ? `<a class="assist-chip ripple" href="${esc(guide.sourceUrl)}" target="_blank" rel="noopener">${icon('open_in_new')}${esc(guide.source)}</a>` : ''}
     </div>
     <div class="sheet-actions">
       ${added
@@ -786,6 +803,7 @@ function itemHTML(item, trip, { showDate = false, drag = false, note = null, sch
       item.place && `<a class="assist-chip ripple" href="${esc(mapsUrl(item.place, trip))}" target="_blank" rel="noopener">${icon('location_on')}Directions</a>`,
       link && `<a class="assist-chip ripple" href="${esc(link)}" target="_blank" rel="noopener">${icon('link')}${esc(hostLabel(link))}</a>`,
       filesOf(item.id).length && `<button type="button" class="assist-chip ripple" data-action="files">${icon('confirmation_number')}${filesOf(item.id).length === 1 ? 'Ticket' : `${filesOf(item.id).length} files`}</button>`,
+      hasPlanInfo(item, guideFor(trip)) && `<button type="button" class="assist-chip icon-only ripple" data-action="plan-info" aria-label="About ${esc(item.title)}" title="About this place">${icon('info')}</button>`,
       item.date && !item.done && `<a class="assist-chip icon-only ripple" href="${esc(calendarUrl(item, trip))}" target="_blank" rel="noopener" aria-label="Add ${esc(item.title)} to Google Calendar" title="Add to Google Calendar">${icon('calendar_add_on')}</a>`,
     ].filter(Boolean).join('');
   }
@@ -1083,10 +1101,11 @@ function renderIdeas(trip) {
     }
   } else {
     const taken = new Set(trip.items.flatMap(i => matchPlaces(i, guide).map(p => p.id)));
-    const destinations = guide.kind === 'destinations';
+    const destinations = guide.kind === 'destinations' && !guide.joined;
     const filter = destinations ? FILTERS[0] : FILTERS.find(f => f[0] === ui.filter) || FILTERS[0];
     const list = guide.places.filter(filter[2]);
-    const intro = !guide.source ? `${guide.places.length} hand-picked places in ${esc(guide.city)}.`
+    const intro = guide.joined ? `${guide.places.length} places near your plans and in ${esc(guide.city)}, from ${guide.source}.`
+      : !guide.source ? `${guide.places.length} hand-picked places in ${esc(guide.city)}.`
       : destinations ? `${guide.places.length} cities and destinations in ${esc(guide.city)}, from the ${guide.source} travel guide.`
       : `${guide.places.length} places in ${esc(guide.city)}, from ${guide.source}.`;
     html += `
@@ -1987,7 +2006,7 @@ window.addEventListener('scroll', onScroll, { passive: true });
 // "Erase everything" also clears what is kept on this device only: tickets, assistant chats,
 // hidden packing suggestions, and the saved guides, forecasts, opening hours and essentials.
 function eraseDeviceData() {
-  for (const key of [AI_KEY, PACKING_KEY, GUIDES_KEY, WEATHER_KEY, HOURS_KEY, ESSENTIALS_KEY]) {
+  for (const key of [AI_KEY, PACKING_KEY, GUIDES_KEY, WEATHER_KEY, HOURS_KEY, ESSENTIALS_KEY, INFO_KEY]) {
     try { localStorage.removeItem(key); } catch { /* storage unavailable */ }
   }
   ai.saved = { chats: {} };
@@ -1997,6 +2016,8 @@ function eraseDeviceData() {
   weather.saved = {};
   hours.saved = {};
   essentials.saved = {};
+  planInfo.saved = {};
+  joinedGuides.clear();
   eraseFiles();     // files.js
 }
 

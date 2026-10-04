@@ -43,7 +43,7 @@ Asset scripts (they download from the internet and rewrite files in the repo):
 
 **Classic scripts that share one global scope.** `index.html` loads, in this order:
 `theme.js` (in the `<head>`), then at the end of the page `firebase-config.js` → `places.js` → `weather.js` → `hours.js` → `essentials.js` → `mapstyle.js` → `maps.js` →
-`drag.js` → `today.js` → `calendar.js` → `files.js` → `packing.js` → `assistant.js` → `sync.js` → `app.js`. Don't use `app.js` names (`$`, `CATEGORIES`, …) at load time
+`drag.js` → `today.js` → `calendar.js` → `files.js` → `packing.js` → `info.js` → `assistant.js` → `sync.js` → `app.js`. Don't use `app.js` names (`$`, `CATEGORIES`, …) at load time
 in the earlier files, only inside functions. The files are not modules. The feature files call helpers defined in `app.js` (`$`, `esc`, `icon`,
 `save`, `render`, `snackbar`, `state`, …) at runtime, which works because `app.js` loads last and the calls
 happen after startup. Top-level names must stay unique across all files.
@@ -76,6 +76,13 @@ localStorage `tripPlanner.guides` (up to 10). `planSuggestions` in `app.js` and 
 - Places may carry `about` (the full description, shown in the details sheet `openPlaceInfo`) and `hours`.
 - Saved guides are stamped with `GUIDE_VERSION`. Bump it when the guide shape changes: older saved guides keep
   working, and are re-fetched quietly in the background.
+- Guides near the plans: a country or region trip's own guide only lists destinations. So each group of located
+  plans (`planGroups`: within 6 miles, at least two plans; for a city trip only groups over 15 miles away) gets a
+  `kind: 'near'` guide built from the Wikivoyage pages closest to it (`nearbyGuide`, saved as `near:lat,lng`).
+  `guideFor(trip)` returns the trip's guide with those places added (`withNearby`, `guide.joined`; their places have
+  `local: true`). "Nearby ideas" then only use local places, and never anything over 25 miles away.
+- Places may also carry `price`, `tip` (how to get there) and `url` (`GUIDE_VERSION` 4). Destinations without a photo
+  get the picture of the Wikipedia article with the same name (`fillPhotosByName`).
 - Place search (`searchPlaces`) re-ranks Photon's results so countries and cities come before villages with the
   same name.
 
@@ -133,6 +140,9 @@ then everything else (`byPlanOrder`).
   the destination via `tripTimeZone` (the Essentials time zone). Visit length comes from `planLength` (today.js).
 - `files.js`: attachments go in IndexedDB `tripPlannerFiles` (per phone, never synced or backed up). `tickets.index`
   maps plan id → file list. The plan form stages changes in `tickets.form`, and they're written on save.
+- `info.js`: the "i" button on a plan's card opens "About this place" (`openPlanInfo`, in the `#place-dialog` sheet):
+  the guide entry, the opening hours for the day, and the start of the Wikipedia article found by name among the
+  articles within 1.5 km of the plan (`wikiAbout`, saved per device in `tripPlanner.info`).
 - `packing.js`: suggestions are rules over the forecast, plans, travel mode and Essentials. Hidden ones are kept
   per phone (`tripPlanner.packing`).
 - Guide places may carry `photo` (a Commons `Special:FilePath` or Wikipedia thumbnail URL; `GUIDE_VERSION` 3). Photos

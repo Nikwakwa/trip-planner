@@ -48,6 +48,7 @@ the same address shows a desktop layout on a wide screen, by itself.
 | `calendar.js` | Add plans to Google Calendar, or the whole trip as a calendar file. |
 | `files.js` | Tickets & bookings attached to plans (kept on the phone). |
 | `packing.js` | Packing suggestions for the Checklist. |
+| `info.js` | "About this place" for a plan: what it is, hours, photos, what to know (Wikivoyage, Wikipedia). |
 | `vendor/leaflet/` | Leaflet map library (BSD-2 license), stored in the app. |
 | `fonts/`, `icons/sprite.svg` | Google Sans Flex and Material Symbols, stored for offline use (`tools/fetch-assets.ps1`). |
 | `manifest.webmanifest` | Tells the phone the app's name, icon and colors so it can be installed. |
