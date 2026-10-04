@@ -107,7 +107,12 @@
       </fieldset>
       <div class="row2">
         <label class="field"><span class="field-label">Day</span><input type="date" name="date"></label>
-        <label class="field"><span class="field-label">Time</span><input type="time" name="time"></label>
+        <div class="field with-btn">
+          <label class="field-main"><span class="field-label">Time</span><input type="time" name="time"></label>
+          <button type="button" class="icon-btn ripple" id="time-clear" aria-label="Remove the time" title="Remove the time" hidden>
+            <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#close"/></svg>
+          </button>
+        </div>
       </div>
       <p class="hint">No day? It stays in Ideas until you pick one.</p>
       <label class="field">

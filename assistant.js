@@ -99,14 +99,18 @@ How to answer:
 - "add": new plans. Give every field:
   {"guide_id": id of the travel guide place, or "" if it isn't one,
    "title": ..., "category": ..., "date": "YYYY-MM-DD", or "" to save it as an idea without a day,
-   "time": "HH:MM" (24-hour), or "" if the exact time doesn't matter, "place": address or place name, "notes": "" or a short tip}
+   "time": "" unless the user gave a time (then "HH:MM", 24-hour), "place": address or place name, "notes": "" or a short tip}
 - "update": changed plans. Give the plan's "id" and all its fields with their new values
   (title, category, date, time, place, notes), copying the fields that don't change exactly as they are.
 - "remove": plans to delete, as {"id": ...}.
 - "dates": new first and last day of the trip, or "" for both to leave them as they are.
 - category is one of: sight, food, event, shopping, transport, stay, other.
-- When the user asks to plan a day or a time, give each plan that date (and usually a time):
-  plans on a day, not ideas. Only use date "" when the user asks for ideas to keep for later.
+- When the user asks to plan a day, give each plan that date: plans on a day, not ideas.
+  Only use date "" when the user asks for ideas to keep for later.
+- Times: never make up a time. Set "time" only when the user gives that time, asks you to set times
+  ("with times", "a schedule"), or a booking shows it. Otherwise "time" is "", also for a whole day you plan:
+  list the plans in the order to do them, and say in "reply" when something is best early or late.
+  Keep the time a plan already has, unless the user asks to change or remove it ("time": "" removes it).
 - For a place from the travel guide, set its guide_id and use its name as the title.
 - Plan realistic days: respect opening hours and visit lengths (mins), group nearby places (same area),
   leave time for meals and travel, and prefer indoor places (tag "rainy") on rainy days.

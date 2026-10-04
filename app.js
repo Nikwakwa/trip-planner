@@ -1478,12 +1478,24 @@ function openItemForm(item, defaults = {}) {
     itemForm.elements[f].value = v[f] || '';
   }
   $('#item-delete').hidden = !item;
+  showTimeClear();
   setPlanExamples();
   openFilesInForm(item ? item.id : null);   // files.js: tickets & bookings
   itemDialog.showModal();
   itemDialog.scrollTop = 0;
   if (!item) itemForm.elements.title.focus();
 }
+
+// The ✕ next to a set time takes it off again (a phone's time picker hides its own "Clear").
+function showTimeClear() {
+  $('#time-clear').hidden = !itemForm.elements.time.value;
+}
+itemForm.elements.time.addEventListener('input', showTimeClear);
+itemForm.elements.time.addEventListener('change', showTimeClear);
+$('#time-clear').addEventListener('click', () => {
+  itemForm.elements.time.value = '';
+  showTimeClear();
+});
 
 // Another type of plan: other examples.
 $('#item-category').addEventListener('change', () => { planMatch.typeSet = true; setPlanExamples(); });

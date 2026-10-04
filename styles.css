@@ -1415,6 +1415,8 @@ dialog.map-sheet[open] { display: flex; flex-direction: column; }
 .sheet-text { margin: -4px 4px 0; color: var(--on-surface-variant); font-size: 14px; line-height: 20px; }
 .field.with-btn { display: flex; align-items: center; gap: 4px; padding-right: 4px; }
 .field-main { flex: 1; display: grid; min-width: 0; }
+#time-clear { width: 36px; height: 36px; }
+#time-clear .icon { width: 20px; height: 20px; }
 .form-error {
   margin: -4px 4px 0;
   padding: 10px 14px;
