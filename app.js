@@ -1,7 +1,7 @@
 'use strict';
 
 /* =========================================================
-   Trip Planner — all app behavior lives in this file.
+   Dotted Line — all app behavior lives in this file.
    Data is kept in the browser's localStorage on the phone.
    ========================================================= */
 
@@ -1247,7 +1247,7 @@ function renderMore() {
       ${installPrompt ? `
         <li><button type="button" class="row accent ripple" data-action="install">
           <span class="row-icon">${icon('install_mobile')}</span>
-          <span class="row-text"><span class="row-title">Install app</span><span class="row-sub">Add Trip Planner to your home screen</span></span>
+          <span class="row-text"><span class="row-title">Install app</span><span class="row-sub">Add Dotted Line to your home screen</span></span>
         </button></li>` : ''}
       <li><div class="row">
         <span class="row-icon">${icon('offline_pin')}</span>
@@ -2004,7 +2004,7 @@ function exportBackup() {
   const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `trip-planner-backup-${todayISO()}.json`;
+  a.download = `dotted-line-backup-${todayISO()}.json`;
   document.body.append(a);
   a.click();
   a.remove();
@@ -2087,7 +2087,7 @@ document.addEventListener('change', async (e) => {
   try {
     restored = cleanBackup(JSON.parse(await file.text()));
   } catch {
-    snackbar("That file isn't a Trip Planner backup");
+    snackbar("That file isn't a Dotted Line backup");
     return;
   }
   const n = restored.trips.reduce((sum, t) => sum + t.items.length, 0);
@@ -2118,7 +2118,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
 });
 window.addEventListener('appinstalled', () => {
   installPrompt = null;
-  snackbar('Installed! Find Trip Planner on your home screen.');
+  snackbar('Installed! Find Dotted Line on your home screen.');
 });
 
 function updateOnlineBadge() { $('#offline-badge').hidden = navigator.onLine; }

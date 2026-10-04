@@ -35,7 +35,7 @@ function eventTimes(item, guide) {
 }
 
 function eventDetails(item, trip) {
-  return [item.notes, safeUrl(item.link), `${trip.name} — Trip Planner`].filter(Boolean).join('\n\n');
+  return [item.notes, safeUrl(item.link), `${trip.name} — Dotted Line`].filter(Boolean).join('\n\n');
 }
 
 function calendarUrl(item, trip) {
@@ -72,7 +72,7 @@ function downloadTripCalendar(trip) {
   const plans = trip.items.filter(i => i.date);
   if (!plans.length) { snackbar('No plans with a day yet'); return; }
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
-  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Trip Planner//EN', 'CALSCALE:GREGORIAN', `X-WR-CALNAME:${icsText(trip.name)}`];
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Dotted Line//EN', 'CALSCALE:GREGORIAN', `X-WR-CALNAME:${icsText(trip.name)}`];
   for (const item of plans) {
     const t = eventTimes(item, guide);
     lines.push('BEGIN:VEVENT', `UID:${item.id}@trip-planner`, `DTSTAMP:${stamp}`,

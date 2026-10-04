@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A trip-planner PWA for phones (the owner uses a Pixel), hosted on GitHub Pages. Plain HTML/CSS/JS:
+"Dotted Line": a trip-planner PWA for phones (the owner uses a Pixel), hosted on GitHub Pages. Plain HTML/CSS/JS:
 no framework, no build step, no package manager, no tests, no backend of our own. The README is
 written for a non-developer owner, so keep its explanations plain-language when updating it.
 

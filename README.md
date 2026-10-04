@@ -1,4 +1,4 @@
-# Trip Planner
+# Dotted Line
 
 A small, installable web app (PWA) for planning a trip on your phone — and on your computer:
 the same address shows a desktop layout on a wide screen, by itself.
