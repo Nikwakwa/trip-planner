@@ -215,6 +215,10 @@ Phone styles are the default. Add desktop overrides in the media blocks at the e
   keeps the answers per device in `ai.saved.booking`; until there's an answer, only the guide's own words count
   ("sells out", "weeks in advance"). The note goes when the plan's form has "Booked, or no booking needed" switched on
   (`item.booked`, synced) or a ticket is attached. Switch in More: `settings.booking`.
+- Colors: the trip's color themes the app itself (trip card, buttons, links). Each day also has its own color
+  (`dayTint(i)` in maps.js, set as `--day` on the day's section): its stop numbers, travel lines, dot in the day strip
+  and sidebar, and its pins and route on the map (day map and trip map alike). The "Book ahead" label is amber on
+  every trip, so it reads as a notice, not as part of the theme. Don't recolor whole days.
 - Ideas (Ideas tab) have "Add to a day" (`pick-day` / `set-day`) in place of the done checkbox.
 - On desktop, hovering a plan highlights its pin (`hotPin`), and the docked map opens on today's route during the trip.
 - Keyboard focus is shown with a global `:focus-visible` outline. Don't remove outlines without a replacement.

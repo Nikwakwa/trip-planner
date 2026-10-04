@@ -300,7 +300,9 @@ function cssColor(expr) {
   probe.style.color = '';
   return toHex(c);
 }
-const dayColor = i => toHex(`oklch(.6 .16 ${DAY_HUES[i % DAY_HUES.length]})`);
+// Each day of a trip has its own color: its stop numbers in the plan, its pins and its route on the map.
+const dayTint = i => `oklch(.6 .16 ${DAY_HUES[Math.max(0, i) % DAY_HUES.length]})`;
+const dayColor = i => toHex(dayTint(i));
 
 // The stops to show: one day, or every day of the trip ("all").
 function mapGroups(trip) {
@@ -310,7 +312,7 @@ function mapGroups(trip) {
     const items = dayItems(trip, day);
     return {
       day,
-      color: mapView.day === 'all' ? dayColor(i) : cssColor('var(--primary)'),
+      color: dayColor(mapView.day === 'all' ? i : tripDays(trip).indexOf(day)),
       stops: items.map(it => ({ it, c: coordsOf(it, guide) })),
     };
   });

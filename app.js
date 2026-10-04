@@ -847,11 +847,11 @@ function renderDayStrip(trip) {
   strip.hidden = days.length < 2;
   if (strip.hidden) return;
   const today = todayISO();
-  strip.innerHTML = days.map((d) => {
+  strip.innerHTML = days.map((d, i) => {
     const date = parseDate(d);
     return `<button type="button" class="ripple ${d === today ? 'today' : ''}" data-action="jump-day" data-date="${d}"
       aria-label="${esc(fmtDay(d, { weekday: 'long', month: 'long', day: 'numeric' }))}">
-      <small>${esc(fmtDay(d, { weekday: 'short' }))}</small> <b>${date.getDate()}</b></button>`;
+      <i class="day-dot" style="background:${dayTint(i)}"></i><small>${esc(fmtDay(d, { weekday: 'short' }))}</small> <b>${date.getDate()}</b></button>`;
   }).join('');
   markCurrentDay();
 }
@@ -881,10 +881,10 @@ function renderSidebar(trip) {
     ${days.length ? `
       <p class="side-label">${esc(trip.name)}</p>
       <ul class="side-days">
-        ${days.map((d) => {
+        ${days.map((d, k) => {
           const n = trip.items.filter(i => i.date === d).length;
           return `<li><button type="button" class="ripple ${d === today ? 'today' : ''}" data-action="jump-day" data-date="${d}">
-            <span>${esc(fmtDay(d, { weekday: 'short', day: 'numeric', month: 'short' }))}</span>${n ? `<small>${n}</small>` : ''}</button></li>`;
+            <i class="day-dot" style="background:${dayTint(k)}"></i><span>${esc(fmtDay(d, { weekday: 'short', day: 'numeric', month: 'short' }))}</span>${n ? `<small>${n}</small>` : ''}</button></li>`;
         }).join('')}
       </ul>` : ''}`;
 }
@@ -1081,7 +1081,7 @@ function renderPlan(trip) {
       items.length && plural(items.length, 'plan'),
     ].filter(Boolean).join(' · ');
     html += `
-      <section class="day ${isToday ? 'is-today' : ''}" id="day-${day}">
+      <section class="day ${isToday ? 'is-today' : ''}" id="day-${day}" style="--day:${dayTint(days.indexOf(day))}">
         <div class="day-head">
           <div class="day-text">
             <h2 class="day-title">${esc(fmtDay(day, { weekday: 'long', month: 'short', day: 'numeric' }))}</h2>

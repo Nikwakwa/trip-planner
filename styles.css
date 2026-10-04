@@ -1476,7 +1476,16 @@ dialog.map-sheet[open] { display: flex; flex-direction: column; }
 }
 .item-hours .icon { width: 16px; height: 16px; flex: none; }
 .item-hours.warn { color: var(--error); font-weight: 600; }
-.item-hours.book { color: var(--primary); font-weight: 600; }
+/* "Book ahead": an amber label, whatever the trip's color, so it isn't taken for part of the theme. */
+.item-hours.book {
+  width: fit-content;
+  padding: 3px 9px 3px 7px;
+  border-radius: 10px;
+  background: oklch(.9 .1 85);
+  color: oklch(.34 .07 70);
+  font-weight: 650;
+}
+html[data-theme="dark"] .item-hours.book { background: oklch(.42 .08 80); color: oklch(.95 .06 90); }
 
 /* ---------- Drag to plan (drag.js) ---------- */
 [data-drag] { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
@@ -2191,6 +2200,13 @@ button.suggest-title { border-radius: 12px; padding: 4px 8px 4px 0; text-align: 
 .plans .item-text { flex: 1; }
 .plans .item-title { font-size: 17px; line-height: 23px; font-weight: 650; }
 .item.done .stop-badge { background: var(--outline); }
+/* Each day has its own color (dayTint in maps.js): its stop numbers, the travel between them, its dot in the
+   list of days. The same color as the day's pins on the map. */
+.day .stop-badge { background: var(--day, var(--primary)); color: #fff; }
+.day .item.done .stop-badge { background: var(--outline); }
+.day .plans .leg-link > .icon { color: var(--day, var(--primary)); }
+.day .plans .leg-link::after { border-top-color: color-mix(in oklab, var(--day, var(--outline-variant)) 55%, transparent); }
+.day-dot { flex: none; align-self: center; width: 8px; height: 8px; border-radius: 50%; }
 .item-photo {
   position: relative;
   width: 84px;
