@@ -239,7 +239,17 @@ function dayToolsHTML(trip, day, items, guide) {
   // With 2+ stops there are travel times: this day can get around differently from the rest of the trip.
   const mode = TRAVEL_MODES[modeFor(trip, day)];
   const own = trip.dayTravel && trip.dayTravel[day];
+  // The day's travel, from the stay and back (as on the map).
+  const route = withBase(trip, day, located.map(it => ({ it, c: coordsOf(it, guide) })));
+  let total = 0, minutes = 0;
+  route.forEach((c, k) => {
+    if (!k) return;
+    const d = miles(route[k - 1], c);
+    total += d;
+    minutes += travel(d, modeFor(trip, day)).mins;
+  });
   return `
+    ${route.length > 1 ? `<p class="day-total">${icon('route', 'sm')}${esc(fmtDuration(Math.round(minutes)))} of travel · ${esc(fmtDist(total))}</p>` : ''}
     <div class="day-tools">
       <button type="button" class="assist-chip ripple" data-action="day-map" data-date="${day}">${icon('map')}Map</button>
       ${canOptimize ? `<button type="button" class="assist-chip ripple" data-action="optimize" data-date="${day}">${icon('route')}Optimize route</button>` : ''}

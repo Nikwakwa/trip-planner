@@ -188,7 +188,11 @@ Phone styles are the default. Add desktop overrides in the media blocks at the e
 
 **UI decisions worth keeping.**
 - The trip card (`.hero`) is compact on purpose, so today's plans are on the first screen.
-- Plan cards show one row of actions. Secondary ones are icon-only (`.assist-chip.icon-only`, with `title` and
+- Plan view (Wanderlog-like): each day has a big title, its travel total (`day-total`) and tools above the list,
+  the stay as a pill at the top (`stay-pill`), white cards (`.group.plans`) with the stop's number (same as its map
+  pin; plans not on the map keep their category icon) and a photo (`planPhoto` in info.js: the guide's, else the
+  Wikipedia article's, looked up three at a time), and dotted lines with the travel time between stops (`legHTML`).
+- Plan cards show one row of actions, with the done circle at its end. Secondary ones are icon-only (`.assist-chip.icon-only`, with `title` and
   `aria-label`). The address line is hidden when it repeats the title.
 - Suggestions are open only for the "focus day" (first day from today with suggestions). Other days show a one-line
   `suggest-toggle`, and `ui.suggest[day]` remembers a manual toggle.

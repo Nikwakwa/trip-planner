@@ -66,8 +66,21 @@ function wikiAbout(item, c, p) {
   }).finally(() => {
     planInfo.loading.delete(key);
     if ($('#place-dialog').open && planInfo.itemId === item.id) renderPlanInfo();
+    else renderSoon();     // a card's photo, and the next plans to look up
   });
   return had || null;
+}
+
+// A photo for a plan's card: the guide's, else the Wikipedia article's (looked up a few at a time).
+function planPhoto(item, guide) {
+  const p = matchPlaces(item, guide)[0];
+  if (p && p.photo) return p.photo;
+  const c = INFO_KINDS.includes(item.category) && coordsOf(item, guide);
+  if (!c) return '';
+  const had = planInfo.saved[infoKey(item, c)];
+  if (had) return had.img || '';
+  if (planInfo.loading.size < 3) wikiAbout(item, c, p || null);
+  return '';
 }
 
 // Does a plan have something to tell? (decides whether its card gets the "i" button)

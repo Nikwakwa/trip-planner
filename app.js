@@ -724,7 +724,7 @@ function renderDayStrip(trip) {
     const date = parseDate(d);
     return `<button type="button" class="ripple ${d === today ? 'today' : ''}" data-action="jump-day" data-date="${d}"
       aria-label="${esc(fmtDay(d, { weekday: 'long', month: 'long', day: 'numeric' }))}">
-      <small>${esc(fmtDay(d, { weekday: 'short' }))}</small><b>${date.getDate()}</b></button>`;
+      <small>${esc(fmtDay(d, { weekday: 'short' }))}</small> <b>${date.getDate()}</b></button>`;
   }).join('');
   markCurrentDay();
 }
@@ -790,7 +790,8 @@ function renderTripTabs(trip) {
 
 // drag: can be held and dragged to another day (Plan view). note: opening hours line (hours.js).
 // schedule: an idea in the Ideas tab, with "Add to a day" instead of the done checkbox.
-function itemHTML(item, trip, { showDate = false, drag = false, note = null, schedule = false } = {}) {
+// num: the stop's number on the day's map (shown in place of the category icon). photo: a picture of the place.
+function itemHTML(item, trip, { showDate = false, drag = false, note = null, schedule = false, num = 0, photo = '' } = {}) {
   const cat = CATEGORIES[item.category] || CATEGORIES.other;
   const link = safeUrl(item.link);
   const over = [
@@ -814,12 +815,14 @@ function itemHTML(item, trip, { showDate = false, drag = false, note = null, sch
       item.date && !item.done && `<a class="assist-chip icon-only ripple" href="${esc(calendarUrl(item, trip))}" target="_blank" rel="noopener" aria-label="Add ${esc(item.title)} to Google Calendar" title="Add to Google Calendar">${icon('calendar_add_on')}</a>`,
     ].filter(Boolean).join('');
   }
+  const check = schedule ? '' : `<button type="button" class="check ripple" data-action="toggle" role="checkbox"
+        aria-checked="${item.done}" aria-label="Done: ${esc(item.title)}" title="Done"><span class="box">${icon('check')}</span></button>`;
   // The address line is skipped when it only repeats the title.
   const showPlace = item.place && norm(item.place) !== norm(item.title);
   return `
     <li class="item ${item.done ? 'done' : ''}" data-id="${esc(item.id)}" ${drag ? 'data-drag' : ''}>
       <button type="button" class="item-main ripple" data-action="edit">
-        <span class="avatar" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}</span>
+        ${num ? `<span class="stop-badge" aria-label="Stop ${num}">${num}</span>` : `<span class="avatar" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}</span>`}
         <span class="item-text">
           <span class="overline">${esc(over)}</span>
           <span class="item-title">${esc(item.title)}</span>
@@ -827,10 +830,9 @@ function itemHTML(item, trip, { showDate = false, drag = false, note = null, sch
           ${note && !item.done ? `<span class="item-hours ${note.warn ? 'warn' : ''}">${icon(note.warn ? 'event_busy' : 'schedule')}${esc(note.text)}</span>` : ''}
           ${item.notes ? `<span class="item-notes">${esc(item.notes)}</span>` : ''}
         </span>
+        ${photo ? `<span class="item-photo">${icon(cat.icon + '-fill')}${photoImg({ photo }, '')}</span>` : ''}
       </button>
-      ${schedule ? '<span></span>' : `<button type="button" class="check ripple" data-action="toggle" role="checkbox"
-        aria-checked="${item.done}" aria-label="Done: ${esc(item.title)}"><span class="box">${icon('check')}</span></button>`}
-      ${chips ? `<div class="item-chips">${chips}</div>` : ''}
+      ${chips || check ? `<div class="item-chips">${chips}${check}</div>` : ''}
     </li>`;
 }
 
@@ -945,28 +947,25 @@ function renderPlan(trip) {
     const inRange = hasDates && day >= trip.start && day <= trip.end;
     const isToday = day === today;
     const sub = [
-      isToday ? '<b>Today</b>' : esc(fmtDay(day, { month: 'short', day: 'numeric' })),
+      isToday && '<b>Today</b>',
       inRange ? `Day ${daysBetween(trip.start, day) + 1}` : 'Outside trip dates',
+      items.length && plural(items.length, 'plan'),
     ].filter(Boolean).join(' · ');
     html += `
-      <section class="day" id="day-${day}">
+      <section class="day ${isToday ? 'is-today' : ''}" id="day-${day}">
         <div class="day-head">
-          <div class="date-badge ${isToday ? 'today' : ''}" aria-hidden="true">
-            <small>${esc(fmtDay(day, { weekday: 'short' }))}</small>
-            <strong>${parseDate(day).getDate()}</strong>
-          </div>
           <div class="day-text">
-            <div class="day-title">${esc(fmtDay(day, { weekday: 'long' }))}</div>
+            <h2 class="day-title">${esc(fmtDay(day, { weekday: 'long', month: 'short', day: 'numeric' }))}</h2>
             <div class="day-sub">${sub}</div>
           </div>
           ${weatherHTML(trip, day)}
           <button type="button" class="icon-btn tonal ripple" data-action="add-on-day" data-date="${day}"
             aria-label="Add a plan on ${esc(fmtDay(day, { weekday: 'long', month: 'long', day: 'numeric' }))}">${icon('add')}</button>
         </div>
-        ${items.length
-          ? `<ul class="group">${dayListHTML(items, trip, guide)}</ul>`
-          : `<button type="button" class="empty-day ripple" data-action="add-on-day" data-date="${day}">${icon('add')}Free day — tap to add a plan</button>`}
         ${dayToolsHTML(trip, day, items, guide)}
+        ${items.length
+          ? `<ul class="group plans">${dayListHTML(items, trip, guide)}</ul>`
+          : `<button type="button" class="empty-day ripple" data-action="add-on-day" data-date="${day}">${icon('add')}Free day — tap to add a plan</button>`}
         ${suggestionsHTML(suggestions.get(day), day, ui.suggest[day] ?? day === focusDay)}
       </section>`;
   }
@@ -986,7 +985,7 @@ function legHTML(a, b, mode, label = '') {
   const t = travel(d, mode);
   return `
     <li class="leg"><a class="leg-link ripple" href="${esc(directionsUrl(a, b, t.mode))}" target="_blank" rel="noopener"
-      aria-label="Directions ${label ? esc(label.toLowerCase()) : ''} ${esc(t.text)}, ${fmtDist(d)}">${label ? `${icon('hotel')}<span class="leg-base">${esc(label)}</span>` : ''}${icon(t.icon)}<span>${esc(t.text)} · ${fmtDist(d)}</span>${icon('open_in_new', 'open')}</a></li>`;
+      aria-label="Directions ${label ? esc(label.toLowerCase()) : ''} ${esc(t.text)}, ${fmtDist(d)}">${label ? `${icon('hotel')}<span class="leg-base">${esc(label)}:</span>` : ''}${icon(t.icon)}<span>${esc(t.text)} · ${fmtDist(d)}</span><span class="leg-go">Directions</span></a></li>`;
 }
 
 // A day's plans, with the travel time between each pair of stops, and to and from the home base (today.js).
@@ -996,16 +995,19 @@ function dayListHTML(items, trip, guide) {
   const base = baseFor(trip, day, guide);
   const located = items.filter(it => coordsOf(it, guide));
   const useBase = base && located.length && !items.includes(base.item);
-  let html = '';
-  let prev = null;
+  // The day starts at the hotel: its name, then the way to the first stop.
+  let html = useBase ? `
+    <li class="stay-pill"><button type="button" class="ripple" data-action="edit" data-id="${esc(base.item.id)}"
+      aria-label="Your stay: ${esc(base.item.title)}">${icon('hotel')}<span>${esc(base.item.title)}</span></button></li>` : '';
+  let prev = useBase ? base.c : null;
+  let num = 0;
   for (const item of items) {
     const c = coordsOf(item, guide);
-    if (c && useBase && item === located[0]) html += legHTML(base.c, c, mode, 'From your stay:');
     if (prev && c) html += legHTML(prev, c, mode);
-    html += itemHTML(item, trip, { drag: true, note: hoursNote(item, guide) });
+    html += itemHTML(item, trip, { drag: true, note: hoursNote(item, guide), num: c ? ++num : 0, photo: planPhoto(item, guide) });
     if (c) prev = c;
   }
-  if (useBase) html += legHTML(prev, base.c, mode, 'Back to your stay:');
+  if (useBase) html += legHTML(prev, base.c, mode, 'Back to your stay');
   return html;
 }
 
@@ -1071,14 +1073,14 @@ function renderIdeas(trip) {
     <h1 class="headline">Ideas</h1>
     <div class="segmented" role="group" aria-label="Ideas view">
       <button type="button" class="ripple" data-action="ideas-tab" data-tab="mine" aria-pressed="${tab === 'mine'}">${icon('lightbulb')}My ideas${ideas.length ? ` (${ideas.length})` : ''}</button>
-      <button type="button" class="ripple" data-action="ideas-tab" data-tab="explore" aria-pressed="${tab === 'explore'}">${icon('explore')}Explore ${esc(guide ? guide.city : trip.name)}</button>
+      <button type="button" class="ripple" data-action="ideas-tab" data-tab="explore" aria-pressed="${tab === 'explore'}">${icon('explore')}Explore</button>
     </div>`;
 
   if (tab === 'mine') {
     html += `
       <p class="supporting">Things you might do in ${esc(trip.name)}. Add one to a day when you're ready, or tap it to edit.</p>
       ${ideas.length
-        ? `<ul class="group">${ideas.map(it => itemHTML(it, trip, { schedule: true })).join('')}</ul>`
+        ? `<ul class="group plans">${ideas.map(it => itemHTML(it, trip, { schedule: true })).join('')}</ul>`
         : emptyState('travel_explore', 'No ideas yet', 'Save places you hear about here, then schedule them later.',
             guide ? `<button type="button" class="btn tonal ripple" data-action="ideas-tab" data-tab="explore">${icon('explore')}Explore ${esc(guide.city)}</button>` : '')}`;
   } else if (!guide) {
