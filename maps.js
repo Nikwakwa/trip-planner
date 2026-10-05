@@ -65,15 +65,23 @@ function lookupMissing(trip, items) {
         const waitMs = geoLast + 1100 - Date.now();
         if (waitMs > 0) await new Promise(r => setTimeout(r, waitMs));
         geoLast = Date.now();
-        const params = new URLSearchParams({ format: 'jsonv2', limit: '1', q, 'accept-language': 'en' });
+        const params = new URLSearchParams({ format: 'jsonv2', limit: '5', q, 'accept-language': 'en' });
         if (trip.place && trip.place.bbox) params.set('viewbox', trip.place.bbox.join(','));
         const res = await fetch('https://nominatim.openstreetmap.org/search?' + params);
         if (!res.ok) throw new Error('lookup ' + res.status);
-        const [found] = await res.json();
-        if (!found) return null;
-        // Asked for a house number but only the street was found: the pin could be miles along it.
-        const street = /^\s*\d/.test(q) && (found.category === 'highway' || found.addresstype === 'road');
-        return { lat: Number(found.lat), lng: Number(found.lon), street };
+        const all = (await res.json()).map(f => ({
+          lat: Number(f.lat), lng: Number(f.lon),
+          // Asked for a house number but only the street was found: the pin could be miles along it.
+          street: /^\s*\d/.test(q) && (f.category === 'highway' || f.addresstype === 'road'),
+        }));
+        if (!all.length) return null;
+        // The same address can exist in several places ("117 MacDougal St, New York" is in Brooklyn and
+        // in Manhattan): the one nearest the plans around it comes first, and the others are kept as "rivals".
+        const exact = all.filter(p => !p.street && fits(p));
+        if (exact.length < 2) return exact[0] || all[0];
+        const far = p => (around.length ? Math.min(...around.map(i => miles(i, p))) : 0);
+        exact.sort((a, b) => far(a) - far(b));
+        return { ...exact[0], rivals: exact.slice(1).filter(p => miles(p, exact[0]) > 0.1) };
       };
       // The plans around it (the day before to the day after) that are on the map: a looser search
       // can answer with a place of the same name far away, so its answer has to be near them.
@@ -102,6 +110,12 @@ function lookupMissing(trip, items) {
             if (!found.street) { hit = found; break; }
             street = street || found;
           }
+        }
+        // Several places with that address: the one where the plan's own name is found ("Comedy Cellar") is it.
+        if (hit && hit.rivals && hit.rivals.length && !['food', 'transport'].includes(item.category) && norm(item.title) !== norm(item.place)) {
+          const named = await ask(inCity(item.title)).catch(() => null);
+          const same = named && !named.street && [hit, ...hit.rivals].find(p => miles(p, named) < 0.2);
+          if (same) hit = same;
         }
         // Not found as written ("27-05 39th Avenue, Long Island City" is filed under Queens). Other ways:
         // the looser search, the place's name without its street ("Pier 86, Manhattan"), then the plan's own name.

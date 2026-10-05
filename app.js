@@ -173,11 +173,14 @@ function matchPlaces(item, guide) {
     const byId = guide.places.filter(p => p.id === item.guideId);
     if (byId.length) return byId;
   }
-  const text = norm(`${item.place} | ${item.title}`);
+  // Of an address, only what comes before the first comma counts: "117 MacDougal St, New York, NY"
+  // is not the city of New York. The longest name wins ("Boston Common" before "Boston").
+  const where = String(item.place || '').split(',')[0];
+  const text = norm(`${where} | ${item.title}`);
   const key = `${guide.id}|${guide.places.length}|${text}`;
   const had = matchMemo.get(item);
   if (had && had.key === key) return had.found;
-  const found = guide.places.filter(p => p.re.test(text));
+  const found = guide.places.filter(p => p.re.test(text)).sort((a, b) => b.name.length - a.name.length);
   matchMemo.set(item, { key, found });
   return found;
 }
@@ -724,6 +727,14 @@ if (!(state.settings.geoRetry >= 3)) {
   state.settings.geoRetry = 3;
   for (const t of state.trips) t.items.forEach((i) => {
     if (/^\s*\d/.test(i.place || '')) { delete i.lat; delete i.lng; delete i.geoMiss; }
+  });
+}
+// Once after a street address stopped counting as the city named in it ("117 MacDougal St, New York, NY"
+// was pinned at the center of New York): those plans are looked up again.
+if (!(state.settings.geoRetry >= 4)) {
+  state.settings.geoRetry = 4;
+  for (const t of state.trips) t.items.forEach((i) => {
+    if (i.guideId && /^\s*\d/.test(i.place || '')) { delete i.lat; delete i.lng; delete i.guideId; delete i.geoMiss; }
   });
 }
 saveLocal();

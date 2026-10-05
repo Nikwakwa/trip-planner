@@ -101,7 +101,9 @@ localStorage `tripPlanner.guides` (up to 10). `planSuggestions` in `app.js` and 
 - User-facing text says "device", not "phone" (the app also runs on computers).
 
 **Maps (`maps.js`).** Leaflet (vendored) is loaded on first use. Addresses are looked up with
-Nominatim. The basemap is a MapLibre GL vector layer inside Leaflet (`L.maplibreGL`, vendored in `vendor/maplibre`),
+Nominatim (`lookupMissing`); when an address exists in several places, the one nearest the plans around it wins, or
+the one where the plan's name is found. A plan matches a guide place by its title or by the part of its address
+before the first comma only (`matchPlaces`), so "…, New York, NY" isn't taken for the city. The basemap is a MapLibre GL vector layer inside Leaflet (`L.maplibreGL`, vendored in `vendor/maplibre`),
 using OpenFreeMap's "liberty" style as adjusted by `tuneMapStyle(style, theme)` in `mapstyle.js` (earlier POI labels;
 the dark theme is derived by recoloring every paint color, see `nightColor`). Pins, routes and popups stay Leaflet.
 If MapLibre or the style can't load, raster tiles are used: CARTO (Voyager / dark) when `window.CARTO_KEY` is set in
