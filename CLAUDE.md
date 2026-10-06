@@ -158,7 +158,10 @@ then everything else (`byPlanOrder`).
 Firebase compat SDKs are vendored and loaded lazily. The state is split into Firestore documents
 `users/{uid}/docs/{trip_…|item_…|check_…}`. After each save, the local state is compared with the last known remote copy (kept in
 localStorage `tripPlanner.sync`), and only the differences are sent. Remote snapshots are merged into
-`state`. `settings` stay on each phone and are never synced. `firestore.rules` must be pasted into the
+`state`. `settings` stay on each phone and are never synced. Account actions (Settings → Account): the sign-in sheet
+has two modes (`setAuthMode`); change password and delete account share `#account-dialog` and both ask for the current
+password first (`confirmUser`). `deleteAccount` stops listening before it empties the account, so this device keeps
+its plans. The status line counts unconfirmed documents (`waitingCount`) and shows `sync.saved.at`. `firestore.rules` must be pasted into the
 Firebase console by hand; it isn't deployed from here.
 
 **Offline / updates (`sw.js`).** The service worker serves cached files first and refreshes them in the background (stale-while-revalidate).

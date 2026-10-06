@@ -146,6 +146,7 @@ function pushChanges() {
         sync.inflight.delete(k);
         if (v === null) delete sync.saved.base[k]; else sync.saved.base[k] = v;
       }
+      sync.saved.at = Date.now();
       writeSyncInfo();
       if (!sync.inflight.size) setSyncStatus('synced');
     }, (err) => {
@@ -196,6 +197,7 @@ function mergeRemote(remote, pending, keepLocal) {
     if (sync.inflight.has(k) || pending.has(k)) continue;
     if (k in remote) base[k] = remote[k]; else delete base[k];
   }
+  sync.saved.at = Date.now();   // when this phone last heard from the account
   writeSyncInfo();
 
   const differs = Object.keys(merged).length !== Object.keys(local).length ||
@@ -328,6 +330,54 @@ async function resetPassword(email) {
   await sync.auth.sendPasswordResetEmail(email);
 }
 
+// Firebase asks for the password again before a change of password or deleting the account.
+async function confirmUser(password) {
+  await loadFirebase();
+  // Just after loading, Firebase needs a moment to remember who is signed in.
+  const user = sync.auth.currentUser || await new Promise((resolve) => {
+    const off = sync.auth.onAuthStateChanged((u) => { off(); resolve(u); });
+  });
+  if (!user) throw { code: 'auth/user-token-expired' };
+  await user.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(user.email, password));
+  return user;
+}
+
+// Other phones are signed out by Firebase (within the hour); this one stays signed in.
+async function changePassword(current, next) {
+  const user = await confirmUser(current);
+  await user.updatePassword(next);
+}
+
+// Deletes the account's documents, then the login itself. The plans stay on this phone.
+async function deleteAccount(password) {
+  const user = await confirmUser(password);
+  const col = sync.db.collection('users').doc(user.uid).collection('docs');
+  // Stop listening first: the emptied account would empty this phone too.
+  if (sync.unsubscribe) { sync.unsubscribe(); sync.unsubscribe = null; }
+  sync.col = null;
+  sync.known = null;
+  sync.inflight.clear();
+  // If it fails halfway, the phone connects again like a new one and puts its plans back.
+  if (sync.saved) { sync.saved.linked = false; sync.saved.base = {}; writeSyncInfo(); }
+  try {
+    await sync.db.waitForPendingWrites();   // or a change still on its way would come back afterwards
+    const snap = await col.get({ source: 'server' });
+    const refs = snap.docs.map(d => d.ref);
+    for (let i = 0; i < refs.length; i += 400) {
+      const batch = sync.db.batch();
+      refs.slice(i, i + 400).forEach(ref => batch.delete(ref));
+      await batch.commit();
+    }
+    await user.delete();
+  } catch (err) {
+    onUser(sync.auth.currentUser);
+    throw err;
+  }
+  sync.saved = null;
+  writeSyncInfo();
+  setSyncStatus('off');
+}
+
 async function signOut() {
   // Firebase remembers the sign-in by itself: it has to be loaded to make it forget.
   if (!sync.auth) await loadFirebase().catch(() => {});
@@ -350,6 +400,8 @@ function syncErrorText(err) {
     'auth/missing-password': 'Enter the password.',
     'auth/network-request-failed': 'No connection. Try again when you’re online.',
     'auth/too-many-requests': 'Too many tries. Wait a few minutes and try again.',
+    'auth/user-token-expired': 'This device was signed out. Sign in again first.',
+    'auth/requires-recent-login': 'Sign out, sign in again, then retry.',
     'auth/operation-not-allowed': 'Email sign-in isn’t turned on in Firebase yet (see README).',
     'permission-denied': 'The account’s database won’t allow this. Check the Firestore rules (see README).',
     'unavailable': 'Can’t reach the account right now. Changes will be sent later.',
@@ -360,13 +412,39 @@ function syncErrorText(err) {
   return texts[code] || (err && err.message) || 'Something went wrong.';
 }
 
+// How many changes made on this phone the account hasn't confirmed yet (counted per trip, plan or checklist item).
+function waitingCount() {
+  if (!sync.saved || !sync.saved.linked) return 0;
+  const local = stateDocs(state);
+  const base = sync.saved.base;
+  let n = 0;
+  for (const k in local) if (local[k] !== base[k]) n++;
+  for (const k in base) if (!(k in local)) n++;
+  return n;
+}
+
+// "today at 14:30" or "on 3 Oct": a clock time, so it isn't wrong a minute later.
+function lastSyncText() {
+  const at = sync.saved && sync.saved.at;
+  if (!at) return '';
+  const d = new Date(at);
+  const day = toISO(d);
+  return day === todayISO() ? `today at ${fmtClock(d)}` : `on ${fmtDay(day, { month: 'short', day: 'numeric' })}`;
+}
+
 function syncStatusText() {
-  if (!navigator.onLine) return 'Offline — changes will sync when you’re back online';
+  const n = waitingCount();
+  const waiting = `${plural(n, 'change')} waiting`;
+  const last = lastSyncText();
+  if (!navigator.onLine) {
+    if (n) return `${waiting} — sent when you’re back online`;
+    return last ? `Offline — everything was saved ${last}` : 'Offline — changes will sync when you’re back online';
+  }
   switch (sync.status) {
-    case 'connecting': return 'Connecting…';
-    case 'sending': return 'Sending changes…';
-    case 'synced': return '<span class="ok">Up to date</span> on every device signed in';
-    case 'error': return esc(sync.error);
+    case 'connecting': return n ? `Connecting… ${waiting}` : 'Connecting…';
+    case 'sending': return n ? `Sending ${plural(n, 'change')}…` : 'Sending changes…';
+    case 'synced': return `<span class="ok">All changes saved</span>${last ? ` · last synced ${last}` : ''}`;
+    case 'error': return esc(sync.error) + (n ? ` · ${waiting}` : '');
     default: return '';
   }
 }

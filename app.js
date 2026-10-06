@@ -1383,9 +1383,17 @@ function renderMore() {
         <span class="row-text"><span class="row-title">${esc(sync.saved.email)}</span>
           <span class="row-sub">${syncStatusText()}</span></span>
       </div></li>
+      <li><button type="button" class="row ripple" data-action="change-password">
+        <span class="row-icon">${icon('shield')}</span>
+        <span class="row-text"><span class="row-title">Change password</span></span>
+      </button></li>
       <li><button type="button" class="row ripple" data-action="sign-out">
         <span class="row-icon">${icon('logout')}</span>
         <span class="row-text"><span class="row-title">Sign out</span><span class="row-sub">Plans stay on this device but stop syncing</span></span>
+      </button></li>
+      <li><button type="button" class="row danger ripple" data-action="delete-account">
+        <span class="row-icon">${icon('delete')}</span>
+        <span class="row-text"><span class="row-title">Delete account</span><span class="row-sub">Removes the login and the trips stored in it</span></span>
       </button></li>`;
   }
 
@@ -1908,11 +1916,28 @@ $('#trip-delete').addEventListener('click', async () => {
 const authDialog = $('#auth-dialog');
 const authForm = $('#auth-form');
 
+let authCreate = false;   // the sheet is creating an account, not signing in
+
 function openAuthForm() {
   authForm.reset();
-  $('#auth-error').hidden = true;
+  setAuthMode(false);
   authDialog.showModal();
   authForm.elements.email.focus();
+}
+
+// The same sheet signs in or creates an account. What was typed stays when switching.
+function setAuthMode(create) {
+  authCreate = create;
+  $('#auth-title').textContent = create ? 'Create account' : 'Sign in to sync';
+  $('#auth-text').textContent = create
+    ? 'Choose an email and a password. You’ll use them on every device that should share these trips.'
+    : 'Use the same email and password on every device that should share these trips.';
+  $('#auth-repeat-field').hidden = !create;
+  authForm.elements.password.autocomplete = create ? 'new-password' : 'current-password';
+  $('#auth-submit').textContent = create ? 'Create account' : 'Sign in';
+  $('#auth-switch').textContent = create ? 'I have an account' : 'Create account';
+  $('#auth-forgot').hidden = create;
+  authError('');
 }
 
 function authError(text) {
@@ -1920,12 +1945,14 @@ function authError(text) {
   $('#auth-error').hidden = !text;
 }
 
-async function runAuth(create) {
+async function runAuth() {
+  const create = authCreate;
   const f = authForm.elements;
   const email = f.email.value.trim();
   const password = f.password.value;
   if (!email || !password) return authError('Enter the email and password.');
   if (create && password.length < 6) return authError('Use at least 6 characters for the password.');
+  if (create && password !== f.repeat.value) return authError('The two passwords don’t match.');
   authError('');
   authForm.querySelectorAll('button').forEach(b => { b.disabled = true; });
   try {
@@ -1939,8 +1966,12 @@ async function runAuth(create) {
   }
 }
 
-authForm.addEventListener('submit', (e) => { e.preventDefault(); runAuth(false); });
-$('#auth-create').addEventListener('click', () => runAuth(true));
+authForm.addEventListener('submit', (e) => { e.preventDefault(); runAuth(); });
+$('#auth-switch').addEventListener('click', () => {
+  setAuthMode(!authCreate);
+  const f = authForm.elements;
+  (!f.email.value ? f.email : !f.password.value ? f.password : authCreate ? f.repeat : f.password).focus();
+});
 $('#auth-forgot').addEventListener('click', async () => {
   const email = authForm.elements.email.value.trim();
   if (!email) return authError('Enter your email first, then tap “Forgot password?” again.');
@@ -1953,15 +1984,76 @@ $('#auth-forgot').addEventListener('click', async () => {
   }
 });
 $('#auth-show').addEventListener('click', (e) => {
-  const input = authForm.elements.password;
-  const show = input.type === 'password';
-  input.type = show ? 'text' : 'password';
+  const f = authForm.elements;
+  const show = f.password.type === 'password';
+  f.password.type = f.repeat.type = show ? 'text' : 'password';
   e.currentTarget.setAttribute('aria-pressed', String(show));
   e.currentTarget.querySelector('use').setAttribute('href', `${SPRITE}#${show ? 'visibility_off' : 'visibility'}`);
 });
 
+/* ---------- Account: change the password, delete the account ---------- */
+
+const accountDialog = $('#account-dialog');
+const accountForm = $('#account-form');
+let accountMode = 'password';   // or 'delete'
+
+function openAccountForm(mode) {
+  accountMode = mode;
+  const del = mode === 'delete';
+  accountForm.reset();
+  $('#account-title').textContent = del ? 'Delete account?' : 'Change password';
+  $('#account-text').textContent = del
+    ? `This deletes the account ${sync.saved.email} and the trips stored in it, for good. Other devices signed in lose their copy. ` +
+      'The trips stay on this device. Enter your password to confirm.'
+    : 'Other devices signed in to this account will have to sign in again with the new password.';
+  accountForm.querySelectorAll('[data-new-password]').forEach((el) => { el.hidden = del; });
+  $('#account-submit').textContent = del ? 'Delete account' : 'Change password';
+  $('#account-submit').classList.toggle('danger', del);
+  accountError('');
+  accountDialog.showModal();
+  accountForm.elements.current.focus();
+}
+
+function accountError(text) {
+  $('#account-error').textContent = text;
+  $('#account-error').hidden = !text;
+}
+
+accountForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = accountForm.elements;
+  const current = f.current.value;
+  const next = f.next.value;
+  if (!current) return accountError('Enter your current password.');
+  if (accountMode === 'password') {
+    if (next.length < 6) return accountError('Use at least 6 characters for the new password.');
+    if (next !== f.repeat.value) return accountError('The two new passwords don’t match.');
+    if (next === current) return accountError('That’s the password you already have.');
+  }
+  if (!navigator.onLine) return accountError('No connection. Try again when you’re online.');
+  accountError('');
+  accountForm.querySelectorAll('button').forEach(b => { b.disabled = true; });
+  try {
+    if (accountMode === 'password') {
+      await changePassword(current, next);
+      accountDialog.close();
+      snackbar('Password changed');
+    } else {
+      await deleteAccount(current);
+      accountDialog.close();
+      render();
+      snackbar('Account deleted — your trips are still on this device');
+    }
+  } catch (err) {
+    const wrong = /wrong-password|invalid-credential|invalid-login-credentials/.test((err && err.code) || '');
+    accountError(wrong ? 'The current password is wrong.' : syncErrorText(err));
+  } finally {
+    accountForm.querySelectorAll('button').forEach(b => { b.disabled = false; });
+  }
+});
+
 // Close buttons and tapping the dark area outside a sheet close it.
-for (const dlg of [itemDialog, tripDialog, authDialog, $('#confirm-dialog'), $('#map-dialog'), $('#info-dialog'), $('#place-dialog'), $('#ai-dialog'), $('#files-dialog'), $('#near-dialog')]) {
+for (const dlg of [itemDialog, tripDialog, authDialog, accountDialog, $('#confirm-dialog'), $('#map-dialog'), $('#info-dialog'), $('#place-dialog'), $('#ai-dialog'), $('#files-dialog'), $('#near-dialog')]) {
   dlg.addEventListener('click', (e) => {
     if (e.target === dlg || e.target.closest('[data-close]')) dlg.close();
   });
@@ -2239,6 +2331,12 @@ document.addEventListener('click', async (e) => {
     }
     case 'sign-in':
       openAuthForm();
+      break;
+    case 'change-password':
+      openAccountForm('password');
+      break;
+    case 'delete-account':
+      openAccountForm('delete');
       break;
     case 'sign-out': {
       const ok = await askConfirm({

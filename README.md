@@ -112,6 +112,10 @@ Notes:
 - The first time a phone signs in to an account that already has plans, it asks whether to
   add that phone's own trips too. Appearance settings stay separate on each phone.
 - Signing out keeps a copy of the plans on the phone, but it stops syncing.
+- Under **Settings → Account** you can see whether everything is saved (and how many changes are
+  still waiting while offline), **change the password** (the other phones then have to sign in
+  again) and **delete the account**. Deleting removes the login and the plans stored in it; the
+  phone you delete it from keeps its copy of the plans.
 
 ## Suggestions for any city or country
 

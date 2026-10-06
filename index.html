@@ -195,12 +195,12 @@
     <form id="auth-form" method="dialog" novalidate>
       <div class="handle" aria-hidden="true"></div>
       <div class="sheet-head">
-        <h2 tabindex="-1" autofocus>Sign in to sync</h2>
+        <h2 id="auth-title" tabindex="-1" autofocus>Sign in to sync</h2>
         <button type="button" class="icon-btn ripple" data-close aria-label="Close">
           <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#close"/></svg>
         </button>
       </div>
-      <p class="sheet-text">Use the same email and password on every device that should share these trips. First time? Tap <b>Create account</b>.</p>
+      <p class="sheet-text" id="auth-text"></p>
       <label class="field">
         <span class="field-label">Email</span>
         <input name="email" type="email" required autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false">
@@ -214,13 +214,48 @@
           <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#visibility"/></svg>
         </button>
       </div>
+      <label class="field" id="auth-repeat-field" hidden>
+        <span class="field-label">Repeat password</span>
+        <input name="repeat" type="password" minlength="6" autocomplete="new-password">
+      </label>
       <p id="auth-error" class="form-error" role="alert" hidden></p>
       <div class="sheet-actions">
-        <button type="button" class="btn text ripple" id="auth-create">Create account</button>
+        <button type="button" class="btn text ripple" id="auth-switch">Create account</button>
         <span class="spacer"></span>
-        <button type="submit" class="btn filled lg ripple">Sign in</button>
+        <button type="submit" class="btn filled lg ripple" id="auth-submit">Sign in</button>
       </div>
       <button type="button" class="btn text ripple forgot" id="auth-forgot">Forgot password?</button>
+    </form>
+  </dialog>
+
+  <!-- Bottom sheet: change the account's password, or delete the account -->
+  <dialog id="account-dialog" class="sheet">
+    <form id="account-form" method="dialog" novalidate>
+      <div class="handle" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 id="account-title" tabindex="-1" autofocus>Change password</h2>
+        <button type="button" class="icon-btn ripple" data-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#close"/></svg>
+        </button>
+      </div>
+      <p class="sheet-text" id="account-text"></p>
+      <label class="field">
+        <span class="field-label">Current password</span>
+        <input name="current" type="password" required autocomplete="current-password">
+      </label>
+      <label class="field" data-new-password>
+        <span class="field-label">New password</span>
+        <input name="next" type="password" minlength="6" autocomplete="new-password">
+      </label>
+      <label class="field" data-new-password>
+        <span class="field-label">Repeat new password</span>
+        <input name="repeat" type="password" minlength="6" autocomplete="new-password">
+      </label>
+      <p id="account-error" class="form-error" role="alert" hidden></p>
+      <div class="sheet-actions">
+        <span class="spacer"></span>
+        <button type="submit" class="btn filled lg ripple" id="account-submit">Change password</button>
+      </div>
     </form>
   </dialog>
 

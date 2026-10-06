@@ -696,6 +696,7 @@ main { max-width: 640px; margin: 0 auto; padding: 8px 16px 0; }
 .btn.tonal { background: var(--secondary-container); color: var(--on-secondary-container); }
 .btn.text { padding: 0 12px; color: var(--primary); }
 .btn.danger { color: var(--error); }
+.btn.filled.danger { background: var(--error-container); color: var(--on-error-container); }
 .btn.lg { height: 52px; padding: 0 32px; border-radius: 26px; font-size: 16px; }
 .btn.lg:active { border-radius: 14px; }
 
