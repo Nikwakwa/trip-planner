@@ -193,6 +193,11 @@ Phone styles are the default. Add desktop overrides in the media blocks at the e
 - With a mouse, `drag.js` starts a drag on move (no long-press).
 
 **UI decisions worth keeping.**
+- The navigation bar has four sections: Plan, Ideas, Checklist, Settings (`plan`, `ideas`, `pack` and `more` in the
+  code). Change section with `showView(view)` or `setView(view)` (app.js), never by setting `ui.view`: they keep each
+  section's scroll position (`scrollAt`) and the browser's history in step. Leaving the Plan adds one history step, so
+  the device's Back button returns to the Plan instead of closing the app. Tapping the section already open scrolls
+  to its top. The bar is 64px tall (`--nav-h`, Material 3 Expressive's shorter bar).
 - The trip card (`.hero`) is compact on purpose, so today's plans are on the first screen.
 - Plan view (Wanderlog-like): each day has a big title, its travel total (`day-total`) and tools above the list,
   the stay as a pill at the top (`stay-pill`), white cards (`.group.plans`) with the stop's number (same as its map
@@ -216,7 +221,7 @@ Phone styles are the default. Add desktop overrides in the media blocks at the e
   entry. `lookupBooking` (assistant.js) asks Flash-Lite once per new plan name, a trip's plans in one request, and
   keeps the answers per device in `ai.saved.booking`; until there's an answer, only the guide's own words count
   ("sells out", "weeks in advance"). The note goes when the plan's form has "Booked, or no booking needed" switched on
-  (`item.booked`, synced) or a ticket is attached. Switch in More: `settings.booking`.
+  (`item.booked`, synced) or a ticket is attached. Switch in Settings: `settings.booking`.
 - Colors: the trip's color themes the app itself (trip card, buttons, links). Each day also has its own color
   (`dayTint(i)` in maps.js, set as `--day` on the day's section): its stop numbers, travel lines, dot in the day strip
   and sidebar, and its pins and route on the map (day map and trip map alike). The "Book ahead" label is amber on

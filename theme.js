@@ -1,5 +1,5 @@
 /* Picks light or dark before the page is drawn, so it never flashes the wrong color.
-   It reads the choice saved by the app (More → Appearance). It is a file of its own, not
+   It reads the choice saved by the app (Settings → Appearance). It is a file of its own, not
    written inside index.html: the page only runs scripts that come from the app's files. */
 (function () {
   var pick;

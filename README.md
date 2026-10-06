@@ -16,7 +16,7 @@ the same address shows a desktop layout on a wide screen, by itself.
 - An **AI Assistant** that plans days and edits your trip when you ask (free, see below).
 - Each trip gets around by **public transit + walk** or **drive + walk** (set in the trip; a day can differ),
   for travel times, directions and route links. Distances and temperatures in metric or imperial units
-  (**More → Appearance → Units**).
+  (**Settings → Appearance → Units**).
 - During the trip: **Now & next** (what's on and when to leave for the next plan) and **What's near me**.
 - A **Stay** plan with an address (your hotel) becomes the **home base**: days start and end there.
 - **Photos** of places, **packing suggestions** from the forecast and your plans, **Add to calendar**,
@@ -69,7 +69,7 @@ somewhere. Free option: GitHub Pages (upload this folder to a GitHub repository 
 Then on the Pixel:
 
 1. Open the `https://…` address in Chrome.
-2. Go to **More → Install app** (or Chrome menu ⋮ → **Add to home screen → Install**).
+2. Go to **Settings → Install app** (or Chrome menu ⋮ → **Add to home screen → Install**).
 3. Open it once while online. From then on it works offline.
 
 ## Updating the app later
@@ -79,10 +79,10 @@ online, then close and reopen it.
 
 ## Your data
 
-Plans are stored in the app on your phone (and, when signed in, in your Firebase account). Use **More → Save backup file** before the trip,
+Plans are stored in the app on your phone (and, when signed in, in your Firebase account). Use **Settings → Save backup file** before the trip,
 and **Restore from backup file** to bring plans back or move them to another phone.
 
-**More → Erase everything** removes the trips, plans and checklist, and also what is kept on that device only:
+**Settings → Erase everything** removes the trips, plans and checklist, and also what is kept on that device only:
 tickets and bookings, AI Assistant chats, and the saved guides and forecasts.
 
 Safety: the app only runs its own code. Text that comes from outside (travel guides, a backup file, the AI Assistant,
@@ -104,7 +104,7 @@ This uses a free Firebase project (Google). One-time setup, about 5 minutes:
    (replace `window.FIREBASE_CONFIG = null;` with `window.FIREBASE_CONFIG = { … };`).
 5. **Authentication → Settings → Authorized domains → Add domain**: your GitHub Pages address,
    e.g. `yourname.github.io` (`localhost` is already there).
-6. Upload the changed files. In the app: **More → Sign in to sync → Create account** on the
+6. Upload the changed files. In the app: **Settings → Sign in to sync → Create account** on the
    first phone, then **Sign in** with the same email and password on the second phone.
 
 Notes:
@@ -130,10 +130,10 @@ best match is used). The app then fetches that place's
 All free services, no account or key needed:
 
 - **Weather** (Open-Meteo) shows up to about 16 days ahead. Days already fetched stay visible offline.
-  Temperatures follow **More → Appearance → Units** (°C or °F).
+  Temperatures follow **Settings → Appearance → Units** (°C or °F).
 - **Essentials** (the button on the trip's card) are fetched once while online and kept on the phone.
 - **Opening hours** come from OpenStreetMap, or the travel guide. They're hints: always check before
-  going. Turn off **More → Find addresses and opening hours** to stop these lookups.
+  going. Turn off **Settings → Find addresses and opening hours** to stop these lookups.
 
 ## AI Assistant
 
@@ -175,7 +175,7 @@ Notes:
 - **Tickets & bookings**: edit a plan → **Attach** a photo or PDF (boarding pass, museum ticket…). They're saved on
   that phone only — not synced to the other phone and not in backup files — and open offline.
 - **Add to calendar**: the **Calendar** button on a plan opens Google Calendar with it filled in. For the whole trip,
-  **More → Calendar file for …** saves a file to import (Google Calendar on a computer: Settings → Import & export).
+  **Settings → Calendar file for …** saves a file to import (Google Calendar on a computer: Settings → Import & export).
 - **What's near me** asks the phone for its location once; nothing is sent anywhere (the guide is already on the phone).
 - **Booking emails**: in the AI Assistant, tap **Add from a booking email**, paste the confirmation and send. As with
   everything the AI Assistant does, you see the plans first and tap **Apply**.
@@ -188,7 +188,7 @@ middle, and the trip's map always in view on the right. Click a day in the sideb
 that day's route; click a pin to find its plan in the list. Make the window narrow and it's the phone layout again.
 In Chrome or Edge, the install icon in the address bar makes it a desktop app.
 
-Your trips are per device: **sign in (More → Sign in to sync)** with the same account as on your phone to see the
+Your trips are per device: **sign in (Settings → Sign in to sync)** with the same account as on your phone to see the
 same trips. Tickets & bookings and appearance settings stay on the device where you set them.
 
 ## Map style

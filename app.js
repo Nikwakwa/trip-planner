@@ -56,7 +56,7 @@ const isTime = v => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v)
 // Ids end up in the page and in the names of synced documents: only letters, digits, "-", "_" and ".".
 const isId = v => typeof v === 'string' && /^[\w.-]{1,100}$/.test(v);
 // The app is in English only for now, so dates and times are always written in English, whatever the
-// device's language. The day/month order and the clock are a choice (More → Appearance), and start
+// device's language. The day/month order and the clock are a choice (Settings → Appearance), and start
 // from the device's own habits.
 function deviceFormats() {
   const loc = /^en\b/i.test(navigator.language || '') ? navigator.language : 'en-GB';
@@ -223,7 +223,7 @@ function travel(d, mode = 'transit') {
   return { icon: 'directions_subway', mode: 'transit', mins, text: `${mins < 60 ? '~' : ''}${fmtDuration(mins)} by transit` };
 }
 
-// Metric or imperial (More → Appearance → Units). Distances are worked out in miles.
+// Metric or imperial (Settings → Appearance → Units). Distances are worked out in miles.
 const usesImperial = () => /-(US|LR|MM)$/i.test(navigator.language || '');
 const imperial = () => (state.settings.units || (usesImperial() ? 'imperial' : 'metric')) === 'imperial';
 function fmtDist(d) {
@@ -741,6 +741,44 @@ saveLocal();
 
 const ui = { view: 'plan', ideasTab: 'mine', filter: 'all', shuffle: {}, suggest: {}, pickDay: null };
 
+/* ---------- The sections (Plan, Ideas, Checklist, Settings) ---------- */
+
+// 'more' is the Settings section.
+const VIEWS = ['plan', 'ideas', 'pack', 'more'];
+let scrollAt = {};     // section → how far down it was left, to come back to the same spot
+const pageView = () => (history.state && VIEWS.includes(history.state.view) ? history.state.view : 'plan');
+
+// Switches section without drawing it (the caller renders). Leaving the Plan adds one step to the
+// browser's history, so the device's Back button returns to the Plan instead of closing the app.
+function setView(view) {
+  const from = ui.view;
+  if (view === from) return;
+  scrollAt[from] = window.scrollY;
+  try {
+    if (from === 'plan') history.pushState({ view }, '');
+    else if (view !== 'plan') history.replaceState({ view }, '');
+    else if (pageView() !== 'plan') history.back();     // the popstate that follows finds the Plan already shown
+  } catch { /* history unavailable: Back just leaves the app, as before */ }
+  ui.view = view;
+}
+
+// Shows a section where it was left, or from its top.
+function showView(view, { top = false } = {}) {
+  setView(view);
+  render();
+  window.scrollTo(0, top ? 0 : scrollAt[view] || 0);
+}
+
+// The Back (or Forward) button.
+window.addEventListener('popstate', () => {
+  const view = pageView();
+  if (view === ui.view) return;
+  scrollAt[ui.view] = window.scrollY;
+  ui.view = view;
+  render();
+  window.scrollTo(0, scrollAt[view] || 0);
+});
+
 // The trip on screen, or null before the first trip is added.
 function activeTrip() {
   return state.trips.find(t => t.id === state.activeTripId) || state.trips[0] || null;
@@ -764,7 +802,7 @@ function toHex(css) {
   return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
 }
 
-// Light or dark: your choice in More → Appearance, or the phone's setting when "Automatic".
+// Light or dark: your choice in Settings → Appearance, or the phone's setting when "Automatic".
 const darkQuery = matchMedia('(prefers-color-scheme: dark)');
 function applyAppearance() {
   const t = state.settings.theme;
@@ -784,7 +822,7 @@ function applyTheme(seed) {
 
 /* ---------- Drawing the screen ---------- */
 
-const TITLES = { plan: '', ideas: '', pack: 'Checklist', more: 'More' };
+const TITLES = { plan: '', ideas: '', pack: 'Checklist', more: 'Settings' };
 
 // Trips made before place search (or saved while offline) get their place looked up once.
 const placeTried = new Set();
@@ -807,10 +845,8 @@ function onGuideReady(place, guide, quiet) {
   const trip = activeTrip();
   if (!quiet && trip && trip.place && placeKey(trip.place) === placeKey(place) && ui.view !== 'ideas') {
     snackbar(`${plural(guide.places.length, 'idea')} for ${place.name} ready`, 'Explore', () => {
-      ui.view = 'ideas';
       ui.ideasTab = 'explore';
-      window.scrollTo(0, 0);
-      render();
+      showView('ideas', { top: true });
     });
   }
 }
@@ -821,7 +857,7 @@ function render() {
   if (trip) ensurePlace(trip);
   applyTheme(trip ? trip.color : COLORS[0]);
 
-  for (const v of ['plan', 'ideas', 'pack', 'more']) {
+  for (const v of VIEWS) {
     $('#view-' + v).hidden = v !== ui.view;
   }
   document.querySelectorAll('.navbar button').forEach(b => {
@@ -900,20 +936,23 @@ function renderSidebar(trip) {
       </ul>` : ''}`;
 }
 
-// No trip yet: ask where the user wants to go.
+// No trip yet: ask where the user wants to go. The Ideas tab says what will show up there.
 function renderWelcome() {
+  const ideas = ui.view === 'ideas';
   $('#view-' + ui.view).innerHTML = `
     <section class="hero welcome">
       ${shape(HERO_SHAPE, 'hero-shape')}
       ${icon('flight_takeoff', 'hero-shape-icon')}
-      <p class="hero-overline">Plan a trip</p>
+      <p class="hero-overline">${ideas ? 'Ideas for your trip' : 'Plan a trip'}</p>
       <h1 class="hero-title">Where do you want to go?</h1>
       <button type="button" class="where-btn ripple" data-action="new-trip">
         ${icon('search')}<span>Search a city or country</span>
       </button>
     </section>
-    <p class="welcome-note">Pick a place and you’ll get ideas for things to do there, day by day.
-      Already planning on another device? Sign in under <b>More</b> to bring your trips here.</p>`;
+    <p class="welcome-note">${ideas
+      ? 'Pick a place first. Its sights, food and things to do show up here, to save for later or add to a day.'
+      : `Pick a place and you’ll get ideas for things to do there, day by day.
+      Already planning on another device? Sign in under <b>Settings</b> to bring your trips here.`}</p>`;
 }
 
 function renderTripTabs(trip) {
@@ -1351,7 +1390,7 @@ function renderMore() {
   }
 
   $('#view-more').innerHTML = `
-    <h1 class="headline">More</h1>
+    <h1 class="headline">Settings</h1>
 
     <h2 class="group-label">Account</h2>
     <ul class="group">${account}</ul>
@@ -1828,7 +1867,8 @@ tripForm.addEventListener('submit', async (e) => {
     trip = { id: uid(), items: [], ...data };
     state.trips.push(trip);
     state.activeTripId = trip.id;
-    ui.view = 'plan';
+    setView('plan');
+    scrollAt = {};
   }
   if (place) trip.place = place;
   else delete trip.place;
@@ -1856,6 +1896,7 @@ $('#trip-delete').addEventListener('click', async () => {
   if (!ok) return;
   state.trips = state.trips.filter(t => t.id !== trip.id);
   if (state.activeTripId === trip.id) state.activeTripId = state.trips.length ? state.trips[0].id : null;
+  scrollAt = {};
   save();
   tripDialog.close();
   render();
@@ -1945,17 +1986,17 @@ document.addEventListener('click', async (e) => {
     if (tripChip.dataset.trip === state.activeTripId) return;
     state.activeTripId = tripChip.dataset.trip;
     save();
+    scrollAt = {};
     window.scrollTo(0, 0);
     render();
     return;
   }
 
+  // The navigation bar. Tapping the section already open goes back to its top.
   const go = e.target.closest('[data-go]');
   if (go) {
-    if (ui.view === go.dataset.go) return;
-    ui.view = go.dataset.go;
-    window.scrollTo(0, 0);
-    render();
+    if (ui.view === go.dataset.go) window.scrollTo({ top: 0, behavior: 'smooth' });
+    else showView(go.dataset.go);
     return;
   }
 
@@ -2078,10 +2119,8 @@ document.addEventListener('click', async (e) => {
       render();
       break;
     case 'open-ideas':
-      ui.view = 'ideas';
       ui.ideasTab = el.dataset.tab;
-      window.scrollTo(0, 0);
-      render();
+      showView('ideas', { top: true });
       break;
     case 'filter':
       ui.filter = el.dataset.filter;
@@ -2145,7 +2184,7 @@ document.addEventListener('click', async (e) => {
       break;
     case 'jump-day': {
       // From the sidebar: go to that day in the plan, and show it on the map beside it.
-      if (ui.view !== 'plan') { ui.view = 'plan'; render(); }
+      if (ui.view !== 'plan') { setView('plan'); render(); }
       const card = document.getElementById('day-' + el.dataset.date);
       if (card) card.scrollIntoView({ block: 'start', behavior: 'smooth' });
       if (mapDocked()) openMap(el.dataset.date);
@@ -2240,9 +2279,8 @@ document.addEventListener('click', async (e) => {
         state = defaultState();
         eraseDeviceData();
         save();
-        ui.view = 'plan';
-        window.scrollTo(0, 0);
-        render();
+        scrollAt = {};
+        showView('plan', { top: true });
         snackbar('Started fresh');
       }
       break;
@@ -2424,8 +2462,8 @@ document.addEventListener('change', async (e) => {
   if (!ok) return;
   state = restored;
   save();
-  ui.view = 'plan';
-  render();
+  scrollAt = {};
+  showView('plan', { top: true });
   snackbar('Backup restored');
 });
 
@@ -2487,6 +2525,9 @@ if (navigator.storage && navigator.storage.persist) {
 
 /* ---------- Start ---------- */
 
+// Scrolling is handled per section (showView). After a reload, open the section that was showing.
+history.scrollRestoration = 'manual';
+ui.view = pageView();
 render();
 startSync();
 loadFileIndex();   // files.js: which plans have tickets attached

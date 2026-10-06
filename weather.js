@@ -97,7 +97,7 @@ function refreshWeather(trip, spot, entry) {
     .finally(() => weather.loading.delete(key));
 }
 
-// °F or °C, following More → Appearance → Units.
+// °F or °C, following Settings → Appearance → Units.
 const temp = c => `${Math.round(imperial() ? c * 9 / 5 + 32 : c)}°`;
 
 // The little forecast shown in each day's header.
