@@ -106,13 +106,27 @@ everything with the contents of `firestore.rules`, and **Publish**. Until then t
 To look at the results or remove a suggestion you don't want: **Firestore Database → Data**, collections
 `featureVotes` (one entry per person) and `featureIdeas` (the suggestions; delete an entry to remove it).
 
+## Report a problem
+
+The app has no server of its own, so it can't send email by itself. A free service,
+[Web3Forms](https://web3forms.com), does it: the app hands it the report, and it emails you.
+Free for 250 reports a month, no card. One-time setup, about a minute:
+
+1. Go to <https://web3forms.com>, type your email address and ask for an **access key**.
+2. The key arrives by email (a long code with dashes). Put it in `firebase-config.js`:
+   `window.REPORT_KEY = 'your-key-here';`
+3. Upload the changed file.
+
+The key is not secret: all it can do is send a message to your inbox, and it keeps your address out
+of the app's files. Until the key is there (or if sending fails), the form hands the report to the
+phone's Share menu instead, so it can still reach you by any messaging app.
+
 ## For the people you share the app with
 
 - **Settings → About → Privacy** explains where plans are kept and what is sent to which service.
-- **Settings → About → Report a problem** prepares a message with the version and the kind of device.
-  By default it opens the phone's Share menu, so they send it to you with any messaging app. To get
-  the reports by email instead, put your address in `firebase-config.js` (`window.SUPPORT_EMAIL`).
-  Anyone who looks at the app's files can read that address.
+- **Settings → About → Report a problem** is a form: they write what went wrong and can add their
+  email for an answer. The version, the kind of device and the app's last errors go with it, never
+  their plans (the form shows exactly what is sent). See "Report a problem" below to get these by email.
 - A new account gets an email with a link to **confirm the address**. Nothing is blocked without it;
   it makes sure "Forgot password?" can reach them. The email comes from Firebase and may land in spam.
 

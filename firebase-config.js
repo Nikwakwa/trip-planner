@@ -29,9 +29,10 @@ window.RECAPTCHA_SITE_KEY = '6Le14NotAAAAAGl2udC2aSPkAw8-VDJa03WxH0K8';
    Not secret either: it travels in every map image address. Leave null to keep the standard map. */
 window.CARTO_KEY = 'cb1_48dz_1_9c0fedddd14c506fe4c10c54';
 
-/* "Report a problem" in Settings: an email address for the reports. It is visible to anyone who
-   looks at the app's files. Leave null and the report goes through the device's Share menu instead. */
-window.SUPPORT_EMAIL = null;
+/* "Report a problem" in Settings: the Web3Forms "access key" that turns a report into an email to you
+   (see "Report a problem" in README.md). Not secret: it only lets the app send to your inbox, and it
+   keeps your address out of the app's files. Leave null and reports go through the Share menu instead. */
+window.REPORT_KEY = '11d1da7c-d8fe-4705-a225-3e893b02f5fe';
 
 /* Example (yours will have different values):
 window.FIREBASE_CONFIG = {

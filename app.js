@@ -1523,7 +1523,7 @@ function renderMore() {
       </button></li>
       <li><button type="button" class="row ripple" data-action="report-problem">
         <span class="row-icon">${icon('error')}</span>
-        <span class="row-text"><span class="row-title">Report a problem</span><span class="row-sub">Adds the app’s version and your device type to your message, not your plans</span></span>
+        <span class="row-text"><span class="row-title">Report a problem</span><span class="row-sub">Write what went wrong. The app’s version goes with it, never your plans</span></span>
       </button></li>
       <li><button type="button" class="row ripple" data-action="whats-new">
         <span class="row-icon">${icon('info')}</span>
@@ -2082,7 +2082,7 @@ accountForm.addEventListener('submit', async (e) => {
 });
 
 // Close buttons and tapping the dark area outside a sheet close it.
-for (const dlg of [itemDialog, tripDialog, authDialog, accountDialog, $('#about-dialog'), $('#vote-dialog'), $('#confirm-dialog'), $('#map-dialog'), $('#info-dialog'), $('#place-dialog'), $('#ai-dialog'), $('#files-dialog'), $('#near-dialog')]) {
+for (const dlg of [itemDialog, tripDialog, authDialog, accountDialog, $('#about-dialog'), $('#vote-dialog'), $('#report-dialog'), $('#confirm-dialog'), $('#map-dialog'), $('#info-dialog'), $('#place-dialog'), $('#ai-dialog'), $('#files-dialog'), $('#near-dialog')]) {
   dlg.addEventListener('click', (e) => {
     if (e.target === dlg || e.target.closest('[data-close]')) dlg.close();
   });
@@ -2374,7 +2374,7 @@ document.addEventListener('click', async (e) => {
       openPrivacy();
       break;
     case 'report-problem':
-      reportProblem();
+      openReport();
       break;
     case 'whats-new':
       openChangelog();
@@ -2649,6 +2649,7 @@ function openPrivacy() {
       '<b>Wikivoyage, Wikipedia and Wikidata</b>: your destination and the area around your plans, for guides, photos and essentials. <b>Open-Meteo</b>: your destination, for the weather.',
       '<b>The map</b> (OpenFreeMap, CARTO or OpenStreetMap): the part of the map you look at.',
       aiReady() && '<b>Google Gemini</b>: when you send a message to the AI Assistant, the message and that trip’s plans. “Flag plans that sell out” in Settings sends the names of your plans. Google’s reCAPTCHA checks that these requests really come from the app.',
+      window.REPORT_KEY && '<b>Web3Forms</b> (an email service): when you send “Report a problem”, what you wrote, your email if you gave it, the app’s version and the kind of device. It reaches the person who runs this copy of the app.',
       'Your location (“Near me”) is used on this device only.',
       'Like any website, the app’s host (GitHub) sees your device’s internet address when the app loads.',
     ]),
@@ -2676,33 +2677,130 @@ function openChangelog() {
   $('#about-body').scrollTop = 0;
 }
 
-// The version and the kind of device, to go with the user's own words. Nothing about the plans.
+/* ---------- Report a problem ----------
+   A form: what went wrong, in the user's words, plus what helps to find it (version, kind of
+   device, state of the app, the last errors). With window.REPORT_KEY set (firebase-config.js)
+   it is emailed to the owner through Web3Forms. Without it, or when sending fails, the same text
+   goes out through the device's Share menu. */
+
+const REPORT_URL = 'https://api.web3forms.com/submit';
+const reportDialog = $('#report-dialog');
+const reportForm = $('#report-form');
+let reportSentAt = 0;
+
+// The last few errors of this visit, to go with a report. Kept in memory only.
+const recentErrors = [];
+function noteError(text) {
+  recentErrors.push(`${new Date().toTimeString().slice(0, 8)} ${String(text).slice(0, 300)}`);
+  if (recentErrors.length > 5) recentErrors.shift();
+}
+window.addEventListener('error', (e) => {
+  if (e.message) noteError(`${e.message} (${String(e.filename || '').split('/').pop()}:${e.lineno || 0})`);
+});
+window.addEventListener('unhandledrejection', (e) => {
+  const r = e.reason;
+  noteError('Promise: ' + ((r && (r.message || r.code)) || r));
+});
+
+// What goes with the user's words. Counts and settings, never the plans themselves.
 function problemDetails() {
+  const plans = state.trips.reduce((n, t) => n + t.items.length, 0);
+  const account = !sync.configured ? 'sync not set up'
+    : !sync.saved ? 'not signed in'
+    : `signed in, sync ${sync.status}${sync.error ? ` (${sync.error})` : ''}, ${plural(waitingCount(), 'change')} waiting`;
   return [
-    `Dotted Line ${APP_VERSION}`,
+    `Version: ${APP_VERSION}`,
     `Device: ${navigator.userAgent}`,
-    `Window: ${innerWidth}×${innerHeight} · ${installed() ? 'installed' : 'in the browser'} · ${sync.saved ? 'signed in' : 'not signed in'} · ${navigator.onLine ? 'online' : 'offline'}`,
+    `Window: ${innerWidth}×${innerHeight}, ${installed() ? 'installed' : 'in the browser'}, ${navigator.onLine ? 'online' : 'offline'}, language ${navigator.language || '?'}`,
+    `App: section "${ui.view}", ${plural(state.trips.length, 'trip')}, ${plural(plans, 'plan')}, theme ${state.settings.theme}, ${state.settings.units}`,
+    `Account: ${account}`,
+    `Recent errors: ${recentErrors.length ? '\n  ' + recentErrors.join('\n  ') : 'none'}`,
   ].join('\n');
 }
 
-async function reportProblem() {
-  const text = `What went wrong:\n\n\n---\n${problemDetails()}`;
-  if (window.SUPPORT_EMAIL) {
-    location.href = `mailto:${encodeURIComponent(window.SUPPORT_EMAIL)}?subject=${encodeURIComponent(`Dotted Line ${APP_VERSION}: a problem`)}&body=${encodeURIComponent(text)}`;
-    return;
-  }
-  // No address set up: the report goes to whoever shared the app, with any messaging app.
+function reportError(text) {
+  $('#report-error').textContent = text;
+  $('#report-error').hidden = !text;
+}
+
+function openReport() {
+  reportForm.reset();
+  reportError('');
+  // The reply address is theirs to give: filled in from the account, and they can clear it.
+  reportForm.elements.email.value = sync.saved ? sync.saved.email : '';
+  $('#report-details').textContent = problemDetails();
+  $('#report-send').textContent = window.REPORT_KEY ? 'Send' : 'Share report';
+  $('#report-other').hidden = true;
+  $('#report-how').textContent = window.REPORT_KEY
+    ? 'Your message goes by email to the person who looks after this copy of the app.'
+    : 'Your message is handed to the Share menu: send it to the person who shared the app with you.';
+  reportDialog.showModal();
+  reportForm.elements.message.focus();
+}
+
+function reportText() {
+  const f = reportForm.elements;
+  const email = f.email.value.trim();
+  return `${f.message.value.trim()}\n\n${email ? `Reply to: ${email}\n` : ''}---\n${$('#report-details').textContent}`;
+}
+
+// Without an email service, or when it fails: any app on the device can carry the report.
+async function shareReport() {
+  const text = reportText();
   try {
     if (navigator.share) {
-      await navigator.share({ title: 'Dotted Line: a problem', text });
-      return;
+      await navigator.share({ title: `Dotted Line ${APP_VERSION}: a problem`, text });
+    } else {
+      await navigator.clipboard.writeText(text);
+      snackbar('Report copied — paste it in a message to the person who shared the app with you');
     }
-    await navigator.clipboard.writeText(text);
-    snackbar('Details copied — paste them in a message to the person who shared the app with you');
+    reportDialog.close();
   } catch (err) {
-    if (!err || err.name !== 'AbortError') snackbar(`You have version ${APP_VERSION} — mention it when you report the problem`);
+    if (!err || err.name !== 'AbortError') reportError('Couldn’t share it from here. Copy your text and send it yourself, with the version: ' + APP_VERSION + '.');
   }
 }
+
+reportForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = reportForm.elements;
+  const message = f.message.value.trim();
+  const email = f.email.value.trim();
+  if (message.length < 10) return reportError('Say a little more about what went wrong: what you did, and what happened.');
+  if (email && !/^\S+@\S+\.\S+$/.test(email)) return reportError('That email address doesn’t look right. Fix it, or leave it empty.');
+  reportError('');
+  if (!window.REPORT_KEY) return shareReport();
+  if (!navigator.onLine) return reportError('No connection. Your message stays here: try again when you’re online.');
+  if (Date.now() - reportSentAt < 30000) return reportError('You just sent one. Wait half a minute before the next.');
+
+  const buttons = reportForm.querySelectorAll('button');
+  buttons.forEach((b) => { b.disabled = true; });
+  try {
+    const res = await fetch(REPORT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        access_key: window.REPORT_KEY,
+        subject: `Dotted Line ${APP_VERSION}: a problem`,
+        from_name: 'Dotted Line',
+        message,
+        ...(email ? { email } : {}),      // becomes the address a reply goes to
+        details: $('#report-details').textContent,
+      }),
+    });
+    const answer = await res.json().catch(() => ({}));
+    if (!res.ok || !answer.success) throw new Error((answer.body && answer.body.message) || answer.message || `HTTP ${res.status}`);
+    reportSentAt = Date.now();
+    reportDialog.close();
+    snackbar('Sent — thank you');
+  } catch (err) {
+    console.warn('Report not sent', err);
+    reportError('Couldn’t send it just now. Try again in a moment, or use “Send another way”.');
+    $('#report-other').hidden = false;
+  } finally {
+    buttons.forEach((b) => { b.disabled = false; });
+  }
+});
+$('#report-other').addEventListener('click', shareReport);
 
 /* ---------- Offline & install support ---------- */
 

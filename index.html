@@ -368,6 +368,38 @@
     </div>
   </dialog>
 
+  <!-- Bottom sheet: report a problem, in your own words (app.js) -->
+  <dialog id="report-dialog" class="sheet">
+    <form id="report-form" method="dialog" novalidate>
+      <div class="handle" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 tabindex="-1" autofocus>Report a problem</h2>
+        <button type="button" class="icon-btn ripple" data-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#close"/></svg>
+        </button>
+      </div>
+      <p class="sheet-text" id="report-how"></p>
+      <label class="field">
+        <span class="field-label">What went wrong?</span>
+        <textarea name="message" rows="4" maxlength="2000" required placeholder="What you did, what you expected, and what happened instead"></textarea>
+      </label>
+      <label class="field">
+        <span class="field-label">Your email, if you’d like an answer (optional)</span>
+        <input name="email" type="email" maxlength="200" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false">
+      </label>
+      <details class="report-more">
+        <summary>Also sent: the app’s version and the kind of device. Never your plans.</summary>
+        <pre id="report-details"></pre>
+      </details>
+      <p id="report-error" class="form-error" role="alert" hidden></p>
+      <div class="sheet-actions">
+        <button type="button" class="btn text ripple" id="report-other" hidden>Send another way</button>
+        <span class="spacer"></span>
+        <button type="submit" class="btn filled lg ripple" id="report-send">Send</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- Sheet: vote for the features to build next, and suggest your own (vote.js) -->
   <dialog id="vote-dialog" class="sheet info-sheet">
     <div class="info-inner">

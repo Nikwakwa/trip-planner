@@ -176,7 +176,10 @@ password first (`confirmUser`). `deleteAccount` stops listening before it emptie
 its plans. The status line counts unconfirmed documents (`waitingCount`) and shows `sync.saved.at`. A new account gets
 a confirmation email; until `sync.saved.verified` is true Settings shows "Confirm your email" (nothing is blocked).
 Settings → About: the privacy note (`openPrivacy`; update it when a new outside service is called) and "Report a
-problem" (`reportProblem`: email when `window.SUPPORT_EMAIL` is set, else the Share menu). `firestore.rules` must be pasted into the
+problem" (`#report-dialog`, `openReport` in app.js): a form with the user's words, an optional reply email, and
+`problemDetails()` (version, device, counts, sync state, `recentErrors`; never plan content, and the form shows it).
+With `window.REPORT_KEY` (a Web3Forms access key, public by design) it is POSTed to Web3Forms, which emails the owner;
+without it, or when that fails, `shareReport` uses the Share menu or the clipboard. `firestore.rules` must be pasted into the
 Firebase console by hand; it isn't deployed from here.
 
 **Feature voting (`vote.js`).** Settings → About → "What should come next?" (`#vote-dialog`). The only data shared

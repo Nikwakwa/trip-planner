@@ -273,6 +273,17 @@ function runSelfCheck() {
   check('The app’s own proposals each have a name, a text and an id of their own', () =>
     (FEATURE_IDEAS.every(f => isId(f.id) && f.title && f.text) && new Set(FEATURE_IDEAS.map(f => f.id)).size === FEATURE_IDEAS.length) || 'a proposal is not filled in right');
 
+  /* ---------- Report a problem ---------- */
+  group = 'Report a problem';
+  check('A report carries the version and the state of the app, but nothing from the plans', () => sandbox(() => {
+    state = sample();
+    state.checklist[0].text = 'Passport';
+    const text = problemDetails();
+    if (!text.includes(`Version: ${APP_VERSION}`) || !text.includes('1 trip, 3 plans')) return 'the version or the counts are missing: ' + text;
+    const leaked = ['Lisbon', 'Castle', 'Castelo', 'Lunch', 'Book a table', 'Tram 28', 'Passport'].filter(w => text.includes(w));
+    return !leaked.length || 'it gives away: ' + leaked.join(', ');
+  }));
+
   /* ---------- The list of versions ---------- */
   group = 'What’s new';
   check('Every version has a number, a real date and something to say, newest first', () => {

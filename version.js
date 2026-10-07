@@ -6,6 +6,10 @@
      third number   fixes only
    Written for the people who use the app: what changed for them, in plain words. */
 const CHANGELOG = [
+  { v: '2.7.0', date: '2026-10-07', title: 'A real “Report a problem”', items: [
+    '“Report a problem” is now a form: write what went wrong, and add your email if you’d like an answer',
+    'You can see exactly what is sent with it: the version and the kind of device, never your plans',
+  ] },
   { v: '2.6.0', date: '2026-10-07', title: 'Have your say', items: [
     '“What should come next?” in Settings: vote for the features you’d like, as many as you want',
     'Suggest features of your own, for everyone to vote on',
