@@ -29,6 +29,10 @@ window.RECAPTCHA_SITE_KEY = '6Le14NotAAAAAGl2udC2aSPkAw8-VDJa03WxH0K8';
    Not secret either: it travels in every map image address. Leave null to keep the standard map. */
 window.CARTO_KEY = 'cb1_48dz_1_9c0fedddd14c506fe4c10c54';
 
+/* "Report a problem" in Settings: an email address for the reports. It is visible to anyone who
+   looks at the app's files. Leave null and the report goes through the device's Share menu instead. */
+window.SUPPORT_EMAIL = null;
+
 /* Example (yours will have different values):
 window.FIREBASE_CONFIG = {
   apiKey: 'AIza…',

@@ -286,6 +286,10 @@ function loadFirebase() {
     sync.auth = app.auth();
     sync.db = app.firestore();
     sync.auth.onAuthStateChanged(onUser);
+    // Back in the app, perhaps from the email with the confirmation link.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') recheckVerified();
+    });
   })().catch((e) => { firebaseLoading = null; throw e; });
   return firebaseLoading;
 }
@@ -311,6 +315,8 @@ function onUser(user) {
     sync.saved = { uid: user.uid, email: user.email, base: {}, linked: false };
     writeSyncInfo();
   }
+  setVerified(user.emailVerified);
+  recheckVerified();
   setSyncStatus('connecting');
   sync.col = sync.db.collection('users').doc(user.uid).collection('docs');
   sync.unsubscribe = sync.col.onSnapshot(onAccountSnapshot, (err) => {
@@ -321,8 +327,52 @@ function onUser(user) {
 
 async function signIn(email, password, create) {
   await loadFirebase();
-  if (create) await sync.auth.createUserWithEmailAndPassword(email, password);
-  else await sync.auth.signInWithEmailAndPassword(email, password);
+  if (create) {
+    const { user } = await sync.auth.createUserWithEmailAndPassword(email, password);
+    // The link can be sent again from Settings, so a failure here isn't shown.
+    user.sendEmailVerification().catch(err => console.warn('Confirmation email not sent', err));
+  } else {
+    await sync.auth.signInWithEmailAndPassword(email, password);
+  }
+}
+
+/* Confirming the email address: a link sent at sign-up. Nothing is blocked without it, but a
+   mistyped address would make "Forgot password?" useless. */
+
+function setVerified(verified) {
+  if (!sync.saved || sync.saved.verified === verified) return;
+  sync.saved.verified = verified;
+  writeSyncInfo();
+  if (ui.view === 'more') render();
+}
+
+// The phone only learns that the link was tapped by asking Firebase again.
+function recheckVerified() {
+  const user = sync.auth && sync.auth.currentUser;
+  if (!user || user.emailVerified || !navigator.onLine) return;
+  user.reload().then(() => {
+    const now = sync.auth.currentUser;
+    if (now && now.uid === user.uid) setVerified(now.emailVerified);
+  }).catch(() => {});
+}
+
+// true: the address is confirmed. false: not yet, and the link was sent again.
+async function verifyEmail() {
+  const user = await signedInUser();
+  await user.reload();
+  if (sync.auth.currentUser.emailVerified) { setVerified(true); return true; }
+  await user.sendEmailVerification();
+  return false;
+}
+
+async function signedInUser() {
+  await loadFirebase();
+  // Just after loading, Firebase needs a moment to remember who is signed in.
+  const user = sync.auth.currentUser || await new Promise((resolve) => {
+    const off = sync.auth.onAuthStateChanged((u) => { off(); resolve(u); });
+  });
+  if (!user) throw { code: 'auth/user-token-expired' };
+  return user;
 }
 
 async function resetPassword(email) {
@@ -332,12 +382,7 @@ async function resetPassword(email) {
 
 // Firebase asks for the password again before a change of password or deleting the account.
 async function confirmUser(password) {
-  await loadFirebase();
-  // Just after loading, Firebase needs a moment to remember who is signed in.
-  const user = sync.auth.currentUser || await new Promise((resolve) => {
-    const off = sync.auth.onAuthStateChanged((u) => { off(); resolve(u); });
-  });
-  if (!user) throw { code: 'auth/user-token-expired' };
+  const user = await signedInUser();
   await user.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(user.email, password));
   return user;
 }

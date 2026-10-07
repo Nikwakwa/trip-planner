@@ -349,6 +349,20 @@
     </div>
   </dialog>
 
+  <!-- Sheet: the privacy note (and the self-check's results) -->
+  <dialog id="about-dialog" class="sheet info-sheet">
+    <div class="info-inner">
+      <div class="handle" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 id="about-title" tabindex="-1" autofocus>Privacy</h2>
+        <button type="button" class="icon-btn ripple" data-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#close"/></svg>
+        </button>
+      </div>
+      <div id="about-body" class="info-body"></div>
+    </div>
+  </dialog>
+
   <!-- Centered dialog for big decisions -->
   <dialog id="confirm-dialog" class="alert">
     <form method="dialog">
@@ -363,6 +377,7 @@
   </dialog>
 
   <div id="theme-probe" hidden></div>
+  <script src="version.js"></script>
   <script src="firebase-config.js"></script>
   <script src="places.js"></script>
   <script src="weather.js"></script>

@@ -1383,6 +1383,11 @@ function renderMore() {
         <span class="row-text"><span class="row-title">${esc(sync.saved.email)}</span>
           <span class="row-sub">${syncStatusText()}</span></span>
       </div></li>
+      ${sync.saved.verified === false ? `<li><button type="button" class="row accent ripple" data-action="verify-email">
+        <span class="row-icon">${icon('send')}</span>
+        <span class="row-text"><span class="row-title">Confirm your email</span>
+          <span class="row-sub">Tap the link we emailed you, so “Forgot password?” can reach you. Tap here if you did, or to get a new link.</span></span>
+      </button></li>` : ''}
       <li><button type="button" class="row ripple" data-action="change-password">
         <span class="row-icon">${icon('shield')}</span>
         <span class="row-text"><span class="row-title">Change password</span></span>
@@ -1469,7 +1474,11 @@ function renderMore() {
         <li><button type="button" class="row accent ripple" data-action="install">
           <span class="row-icon">${icon('install_mobile')}</span>
           <span class="row-text"><span class="row-title">Install app</span><span class="row-sub">Add Dotted Line to your home screen</span></span>
-        </button></li>` : ''}
+        </button></li>` : onIOS && !installed() ? `
+        <li><div class="row">
+          <span class="row-icon">${icon('install_mobile')}</span>
+          <span class="row-text"><span class="row-title">Install app</span><span class="row-sub">Tap your browser’s Share button, then “Add to Home Screen”</span></span>
+        </div></li>` : ''}
       <li><div class="row">
         <span class="row-icon">${icon('offline_pin')}</span>
         <span class="row-text"><span class="row-title">Works offline</span>
@@ -1478,7 +1487,7 @@ function renderMore() {
       <li><div class="row">
         <span class="row-icon">${icon('shield')}</span>
         <span class="row-text"><span class="row-title">Data protected</span>
-          <span class="row-sub">${storagePersisted ? '<span class="ok">On</span> — Android won’t clear it' : 'Installing the app usually turns this on'}</span></span>
+          <span class="row-sub">${storagePersisted ? '<span class="ok">On</span> — your device won’t clear it' : 'Installing the app usually turns this on'}</span></span>
       </div></li>
     </ul>
 
@@ -1502,6 +1511,23 @@ function renderMore() {
       </button></li>
     </ul>
     <input type="file" id="import-file" accept=".json,application/json" hidden>
+
+    <h2 class="group-label">About</h2>
+    <ul class="group">
+      <li><button type="button" class="row ripple" data-action="privacy">
+        <span class="row-icon">${icon('shield')}</span>
+        <span class="row-text"><span class="row-title">Privacy</span><span class="row-sub">Where your plans are kept, and what is sent where</span></span>
+      </button></li>
+      <li><button type="button" class="row ripple" data-action="report-problem">
+        <span class="row-icon">${icon('error')}</span>
+        <span class="row-text"><span class="row-title">Report a problem</span><span class="row-sub">Adds the app’s version and your device type to your message, not your plans</span></span>
+      </button></li>
+      <li><button type="button" class="row ripple" data-action="whats-new">
+        <span class="row-icon">${icon('info')}</span>
+        <span class="row-text"><span class="row-title">What’s new</span>
+          <span class="row-sub">Version ${esc(APP_VERSION)} · ${esc(fmtDay(CHANGELOG[0].date, { day: 'numeric', month: 'short', year: 'numeric' }))}</span></span>
+      </button></li>
+    </ul>
 
     <p class="footnote">${icon('shield', 'sm')}${signedIn
       ? 'Your plans are stored on this device and in your account.'
@@ -1958,7 +1984,7 @@ async function runAuth() {
   try {
     await signIn(email, password, create);
     authDialog.close();
-    snackbar(create ? 'Account created — connecting…' : 'Signed in — connecting…');
+    snackbar(create ? 'Account created — we emailed you a link to confirm your address' : 'Signed in — connecting…');
   } catch (err) {
     authError(syncErrorText(err));
   } finally {
@@ -2053,7 +2079,7 @@ accountForm.addEventListener('submit', async (e) => {
 });
 
 // Close buttons and tapping the dark area outside a sheet close it.
-for (const dlg of [itemDialog, tripDialog, authDialog, accountDialog, $('#confirm-dialog'), $('#map-dialog'), $('#info-dialog'), $('#place-dialog'), $('#ai-dialog'), $('#files-dialog'), $('#near-dialog')]) {
+for (const dlg of [itemDialog, tripDialog, authDialog, accountDialog, $('#about-dialog'), $('#confirm-dialog'), $('#map-dialog'), $('#info-dialog'), $('#place-dialog'), $('#ai-dialog'), $('#files-dialog'), $('#near-dialog')]) {
   dlg.addEventListener('click', (e) => {
     if (e.target === dlg || e.target.closest('[data-close]')) dlg.close();
   });
@@ -2332,6 +2358,24 @@ document.addEventListener('click', async (e) => {
     case 'sign-in':
       openAuthForm();
       break;
+    case 'verify-email':
+      if (!navigator.onLine) { snackbar('No connection. Try again when you’re online.'); break; }
+      try {
+        const done = await verifyEmail();
+        snackbar(done ? 'Email confirmed' : `Link sent to ${sync.saved.email} — look in your spam folder too`);
+      } catch (err) {
+        snackbar(syncErrorText(err));
+      }
+      break;
+    case 'privacy':
+      openPrivacy();
+      break;
+    case 'report-problem':
+      reportProblem();
+      break;
+    case 'whats-new':
+      openChangelog();
+      break;
     case 'change-password':
       openAccountForm('password');
       break;
@@ -2565,10 +2609,91 @@ document.addEventListener('change', async (e) => {
   snackbar('Backup restored');
 });
 
+/* ---------- Privacy note & reporting a problem ---------- */
+
+function openPrivacy() {
+  const part = (ic, title, lines) => `
+    <section class="tip">
+      <h3>${icon(ic)}${title}</h3>
+      ${lines.filter(Boolean).map(l => `<p>${l}</p>`).join('')}
+    </section>`;
+  $('#about-title').textContent = 'Privacy';
+  $('#about-body').innerHTML = [
+    part('offline_pin', 'On this device', [
+      'Your trips, plans and checklist are saved on this device. Tickets you attach and your settings are kept here only.',
+    ]),
+    sync.configured && part('sync', 'In your account', [
+      'If you sign in, your email address, trips, plans and checklist are also stored with Google Firebase, so that your devices share them.',
+      'The person who runs this copy of the app can see them there. Your password is stored scrambled: nobody can read it.',
+    ]),
+    part('public', 'Sent to other services', [
+      'To do its job, the app asks free outside services. They get only what the question needs, never your account.',
+      '<b>OpenStreetMap services</b> (Photon, Nominatim, Overpass): the places you search for, and the names and addresses of your plans, to put them on the map and find opening hours. “Find addresses and opening hours” in Settings switches the automatic lookups off.',
+      '<b>Wikivoyage, Wikipedia and Wikidata</b>: your destination and the area around your plans, for guides, photos and essentials. <b>Open-Meteo</b>: your destination, for the weather.',
+      '<b>The map</b> (OpenFreeMap, CARTO or OpenStreetMap): the part of the map you look at.',
+      aiReady() && '<b>Google Gemini</b>: when you send a message to the AI Assistant, the message and that trip’s plans. “Flag plans that sell out” in Settings sends the names of your plans. Google’s reCAPTCHA checks that these requests really come from the app.',
+      'Your location (“Near me”) is used on this device only.',
+      'Like any website, the app’s host (GitHub) sees your device’s internet address when the app loads.',
+    ]),
+    part('shield', 'No ads, no tracking', [
+      'The app has no ads and no visitor statistics, and your plans are not sold or shared.',
+    ]),
+    part('delete', 'Removing your data', [
+      '<b>Erase everything</b> (Settings) clears this device' + (sync.configured ? ', and your account’s trips when you are signed in. <b>Delete account</b> removes your login and everything stored in it.' : '.'),
+    ]),
+  ].filter(Boolean).join('');
+  $('#about-dialog').showModal();
+  $('#about-body').scrollTop = 0;
+}
+
+// "What's new": every version since the first one (version.js), newest first.
+function openChangelog() {
+  $('#about-title').textContent = 'What’s new';
+  $('#about-body').innerHTML = CHANGELOG.map((c, i) => `
+    <section class="tip version">
+      <h3>${esc(c.title || 'Version ' + c.v)}</h3>
+      <p class="version-when">${c.title ? `Version ${esc(c.v)} · ` : ''}${esc(fmtDay(c.date, { day: 'numeric', month: 'short', year: 'numeric' }))}${i ? '' : ' · <span class="ok">on this device</span>'}</p>
+      <ul>${c.items.map(t => `<li>${esc(t)}</li>`).join('')}</ul>
+    </section>`).join('');
+  $('#about-dialog').showModal();
+  $('#about-body').scrollTop = 0;
+}
+
+// The version and the kind of device, to go with the user's own words. Nothing about the plans.
+function problemDetails() {
+  return [
+    `Dotted Line ${APP_VERSION}`,
+    `Device: ${navigator.userAgent}`,
+    `Window: ${innerWidth}×${innerHeight} · ${installed() ? 'installed' : 'in the browser'} · ${sync.saved ? 'signed in' : 'not signed in'} · ${navigator.onLine ? 'online' : 'offline'}`,
+  ].join('\n');
+}
+
+async function reportProblem() {
+  const text = `What went wrong:\n\n\n---\n${problemDetails()}`;
+  if (window.SUPPORT_EMAIL) {
+    location.href = `mailto:${encodeURIComponent(window.SUPPORT_EMAIL)}?subject=${encodeURIComponent(`Dotted Line ${APP_VERSION}: a problem`)}&body=${encodeURIComponent(text)}`;
+    return;
+  }
+  // No address set up: the report goes to whoever shared the app, with any messaging app.
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: 'Dotted Line: a problem', text });
+      return;
+    }
+    await navigator.clipboard.writeText(text);
+    snackbar('Details copied — paste them in a message to the person who shared the app with you');
+  } catch (err) {
+    if (!err || err.name !== 'AbortError') snackbar(`You have version ${APP_VERSION} — mention it when you report the problem`);
+  }
+}
+
 /* ---------- Offline & install support ---------- */
 
 let installPrompt = null;      // Chrome hands us this when the app can be installed
 let storagePersisted = false;
+// iPhones and iPads never offer to install: Settings explains how instead.
+const onIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const installed = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
@@ -2629,6 +2754,19 @@ ui.view = pageView();
 render();
 startSync();
 loadFileIndex();   // files.js: which plans have tickets attached
+
+// After an update: say so once, with a way to see what changed. (Not on the very first visit.)
+if (state.settings.seenVersion !== APP_VERSION) {
+  const updated = !!state.settings.seenVersion;
+  state.settings.seenVersion = APP_VERSION;
+  saveLocal();
+  if (updated) snackbar(`Updated to version ${APP_VERSION}`, 'What’s new', openChangelog, 10000);
+}
+
+// "?selfcheck" in the address: test the parts that must not break (selfcheck.js), and show the result.
+if (new URLSearchParams(location.search).has('selfcheck')) {
+  loadScript('selfcheck.js').then(() => showSelfCheck()).catch(err => console.warn(err));
+}
 
 // If the trip is happening now, jump to today's card.
 const todayCard = document.getElementById('day-' + todayISO());

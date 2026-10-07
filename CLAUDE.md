@@ -17,6 +17,11 @@ written for a non-developer owner, so keep its explanations plain-language when 
 
 There is no build, lint or test command. Check changes by loading the app in a browser at phone size.
 
+**Self-check before every push:** open `http://localhost:8080/?selfcheck`. It loads `selfcheck.js` (only then) and
+shows pass/fail for dates, the `tidy…` checks, backups, sync merging, AI answers and opening hours. From the console:
+`runSelfCheck().filter(r => !r.ok)`. It swaps `state` and `sync.saved` for made-up plans inside `sandbox()`, with
+saving and drawing switched off, all in one go (no `await`). When you change one of those parts, add a check.
+
 Testing notes (this machine has no Node or Python; use PowerShell or Git Bash):
 - `.claude/launch.json` starts `serve.ps1` for the browser pane (`preview_start` name `trip-planner`).
 - The service worker serves stale files after an edit. Before checking a change, unregister it and clear caches
@@ -29,7 +34,9 @@ Testing notes (this machine has no Node or Python; use PowerShell or Git Bash):
 - A test that swaps `state` and calls `render()` can still save (address lookups call `save()` when they finish).
   Copy the `tripPlanner.*` localStorage keys first and put them back afterwards.
 - The AI Assistant (App Check) only works on the live site, https://nikwakwa.github.io/trip-planner/. After a push,
-  wait until `sw.js` there shows the new `trip-planner-vN`, then open the site with a `?fresh=N` query to dodge caches.
+  wait until `version.js` there shows the new version, then open the site with a `?fresh=N` query to dodge caches.
+- Nothing here can run Safari. iPhone behavior is only reviewed in the code, never tested: say so, and ask the owner
+  to check on an iPhone (the self-check page runs there too).
 
 Asset scripts (they download from the internet and rewrite files in the repo):
 - `tools/fetch-assets.ps1`: re-downloads the font, **regenerates `icons/sprite.svg`** from the icon
@@ -42,7 +49,7 @@ Asset scripts (they download from the internet and rewrite files in the repo):
 ## Architecture
 
 **Classic scripts that share one global scope.** `index.html` loads, in this order:
-`theme.js` (in the `<head>`), then at the end of the page `firebase-config.js` → `places.js` → `weather.js` → `hours.js` → `essentials.js` → `mapstyle.js` → `maps.js` →
+`theme.js` (in the `<head>`), then at the end of the page `version.js` → `firebase-config.js` → `places.js` → `weather.js` → `hours.js` → `essentials.js` → `mapstyle.js` → `maps.js` →
 `drag.js` → `today.js` → `calendar.js` → `files.js` → `packing.js` → `info.js` → `assistant.js` → `sync.js` → `app.js`. Don't use `app.js` names (`$`, `CATEGORIES`, …) at load time
 in the earlier files, only inside functions. The files are not modules. The feature files call helpers defined in `app.js` (`$`, `esc`, `icon`,
 `save`, `render`, `snackbar`, `state`, …) at runtime, which works because `app.js` loads last and the calls
@@ -161,12 +168,18 @@ localStorage `tripPlanner.sync`), and only the differences are sent. Remote snap
 `state`. `settings` stay on each phone and are never synced. Account actions (Settings → Account): the sign-in sheet
 has two modes (`setAuthMode`); change password and delete account share `#account-dialog` and both ask for the current
 password first (`confirmUser`). `deleteAccount` stops listening before it empties the account, so this device keeps
-its plans. The status line counts unconfirmed documents (`waitingCount`) and shows `sync.saved.at`. `firestore.rules` must be pasted into the
+its plans. The status line counts unconfirmed documents (`waitingCount`) and shows `sync.saved.at`. A new account gets
+a confirmation email; until `sync.saved.verified` is true Settings shows "Confirm your email" (nothing is blocked).
+Settings → About: the privacy note (`openPrivacy`; update it when a new outside service is called) and "Report a
+problem" (`reportProblem`: email when `window.SUPPORT_EMAIL` is set, else the Share menu). `firestore.rules` must be pasted into the
 Firebase console by hand; it isn't deployed from here.
 
 **Offline / updates (`sw.js`).** The service worker serves cached files first and refreshes them in the background (stale-while-revalidate).
-When you **add a new app file**, add it to `FILES`. When you **ship any change**, bump `CACHE`
-(`trip-planner-vN`) so installed phones pick up the new version. The big vendored libraries (MapLibre, Firebase) are in
+When you **add a new app file**, add it to `FILES`. When you **ship any change**, add an entry at the top of `CHANGELOG` in `version.js`
+(`x.y.z`: the app looks or works differently . something new . fixes only), written for users in plain words.
+`APP_VERSION` is that first entry. `sw.js` imports it for its cache name (`trip-planner-v1.2.3`), which is how
+installed phones pick up the new version. Settings → About → "What's new" lists every entry (`openChangelog`), and
+after an update a snackbar offers it once (`settings.seenVersion`). The big vendored libraries (MapLibre, Firebase) are in
 `LIBS`: saved at install too, but the install doesn't fail without them. Files are saved without their `?query`.
 OSM tiles go in a separate cache that is kept between versions (`trip-planner-map-tiles`, capped at 900 tiles).
 

@@ -2,7 +2,8 @@
    Strategy: show the saved copy instantly, and quietly fetch a fresh copy
    in the background (when online) for next time. */
 
-const CACHE = 'trip-planner-v42';
+importScripts('version.js');                // APP_VERSION: a new number makes phones fetch the new files
+const CACHE = 'trip-planner-v' + APP_VERSION;
 const TILES = 'trip-planner-map-tiles';   // map images you've viewed, kept across versions
 const MAX_TILES = 900;                     // map pieces kept, roughly 40 MB at most
 const FILES = [
@@ -10,6 +11,7 @@ const FILES = [
   'index.html',
   'styles.css',
   'theme.js',
+  'version.js',
   'app.js',
   'firebase-config.js',
   'places.js',

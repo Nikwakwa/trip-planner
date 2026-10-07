@@ -53,6 +53,8 @@ the same address shows a desktop layout on a wide screen, by itself.
 | `fonts/`, `icons/sprite.svg` | Google Sans Flex and Material Symbols, stored for offline use (`tools/fetch-assets.ps1`). |
 | `manifest.webmanifest` | Tells the phone the app's name, icon and colors so it can be installed. |
 | `sw.js` | The "service worker": keeps a copy of the app so it opens offline. |
+| `version.js` | The app's version number and the list of what changed in each version ("What's new"). |
+| `selfcheck.js` | A self-check of the parts that must not break (see "Updating the app later"). |
 | `icons/` | The logo and the app icons for the home screen. |
 | `serve.ps1` | A tiny local web server for testing on this computer. |
 | `tools/make-icons.ps1` | Draws the logo (`icons/logo.svg`) and the app icons from it (needs Microsoft Edge). |
@@ -72,10 +74,32 @@ Then on the Pixel:
 2. Go to **Settings → Install app** (or Chrome menu ⋮ → **Add to home screen → Install**).
 3. Open it once while online. From then on it works offline.
 
+On an **iPhone or iPad**: open the address in Safari, tap the **Share** button, then **Add to Home Screen**.
+
 ## Updating the app later
 
 After changing files, the phone picks up the new version automatically: open the app while
 online, then close and reopen it.
+
+Every update gets a new **version number** and a few lines saying what changed, at the top of the list
+in `version.js`. The app shows that list under **Settings → About → What's new**, back to the first
+version, and offers it once after each update. A number has three parts, like `2.5.0`: the first changes
+when the app looks or works differently, the second when something new is added, the third for fixes only.
+
+Before sending an update out, run the **self-check**: add `?selfcheck` to the app's address
+(on this computer: <http://localhost:8080/?selfcheck>). It tests dates, backups, syncing, AI answers
+and opening hours on made-up plans (yours are not touched) and shows what passed. If a line is red,
+don't ship. It is also a quick first test on a new kind of phone.
+
+## For the people you share the app with
+
+- **Settings → About → Privacy** explains where plans are kept and what is sent to which service.
+- **Settings → About → Report a problem** prepares a message with the version and the kind of device.
+  By default it opens the phone's Share menu, so they send it to you with any messaging app. To get
+  the reports by email instead, put your address in `firebase-config.js` (`window.SUPPORT_EMAIL`).
+  Anyone who looks at the app's files can read that address.
+- A new account gets an email with a link to **confirm the address**. Nothing is blocked without it;
+  it makes sure "Forgot password?" can reach them. The email comes from Firebase and may land in spam.
 
 ## Your data
 

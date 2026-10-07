@@ -134,7 +134,7 @@ function openNearMe() {
   }, (err) => {
     near.status = 'error';
     near.error = err.code === 1
-      ? 'Location is blocked for this app. Allow it in Chrome’s site settings (the icon left of the address), then try again.'
+      ? 'Location is blocked for this app. Allow it for this site in your browser’s settings (on an iPhone: Settings → Privacy → Location Services), then try again.'
       : 'Couldn’t find where you are. Check that location is on, then try again.';
     renderNearMe();
   }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
