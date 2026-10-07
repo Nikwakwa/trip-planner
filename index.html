@@ -368,6 +368,41 @@
     </div>
   </dialog>
 
+  <!-- Sheet: vote for the features to build next, and suggest your own (vote.js) -->
+  <dialog id="vote-dialog" class="sheet info-sheet">
+    <div class="info-inner">
+      <div class="handle" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 tabindex="-1" autofocus>What’s next?</h2>
+        <button type="button" class="icon-btn ripple" data-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#close"/></svg>
+        </button>
+      </div>
+      <div id="vote-body" class="info-body">
+        <p class="sheet-text vote-intro">Vote for everything you’d like to see in the app. The most wanted get built first.</p>
+        <div id="vote-note"></div>
+        <ul id="vote-list" class="vote-list"></ul>
+        <form id="vote-form" class="vote-form" novalidate hidden>
+          <h3>Something else in mind?</h3>
+          <label class="field">
+            <span class="field-label">Your idea</span>
+            <input name="title" type="text" maxlength="80" autocomplete="off" required>
+          </label>
+          <label class="field">
+            <span class="field-label">A few more words (optional)</span>
+            <textarea name="text" rows="2" maxlength="300"></textarea>
+          </label>
+          <p class="vote-hint">Everyone who uses the app can read it and vote for it. Your name and email aren’t shown.</p>
+          <p id="vote-error" class="form-error" role="alert" hidden></p>
+          <div class="sheet-actions">
+            <span class="spacer"></span>
+            <button type="submit" class="btn tonal ripple">Send suggestion</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </dialog>
+
   <!-- Centered dialog for big decisions -->
   <dialog id="confirm-dialog" class="alert">
     <form method="dialog">
@@ -397,6 +432,7 @@
   <script src="packing.js"></script>
   <script src="info.js"></script>
   <script src="assistant.js"></script>
+  <script src="vote.js"></script>
   <script src="sync.js"></script>
   <script src="app.js"></script>
 </body>

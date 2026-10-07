@@ -1625,6 +1625,54 @@ a.fact .fact-icon { background: var(--error); color: var(--error-container); }
 .tip p:last-child { margin-bottom: 0; }
 .tip p b { color: var(--on-surface); font-weight: 650; }
 
+/* ---------- Voting for what comes next (vote.js) ---------- */
+.vote-intro { margin: 0 4px 12px; }
+.vote-note {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: var(--secondary-container);
+  color: var(--on-secondary-container);
+  font-size: 14px;
+  line-height: 20px;
+}
+.vote-note span { flex: 1; }
+.vote-note .icon { width: 20px; height: 20px; }
+.vote-note.bad { background: var(--error-container); color: var(--on-error-container); }
+.vote-list { display: grid; gap: 8px; margin: 0 0 24px; padding: 0; list-style: none; }
+.vote-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px; border-radius: 20px; background: var(--surface-container); }
+.vote-btn {
+  flex: none;
+  width: 52px;
+  min-height: 56px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 2px;
+  border: 1px solid var(--outline);
+  border-radius: 14px;
+  color: var(--on-surface-variant);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 650;
+  transition: background-color .2s var(--ease), color .2s var(--ease), border-radius .3s var(--ease);
+}
+.vote-btn .icon { width: 20px; height: 20px; transform: rotate(-90deg); }   /* the arrow, pointing up */
+.vote-btn[aria-pressed="true"] { background: var(--primary); border-color: transparent; color: var(--on-primary); }
+.vote-btn:active { border-radius: 22px; }
+.vote-btn:disabled { opacity: .5; pointer-events: none; }
+.vote-text { display: grid; gap: 2px; min-width: 0; padding-top: 2px; }
+.vote-title { font-size: 16px; line-height: 22px; font-weight: 650; overflow-wrap: anywhere; }
+.vote-sub { font-size: 14px; line-height: 20px; color: var(--on-surface-variant); overflow-wrap: anywhere; }
+.vote-tag { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; font-size: 12px; line-height: 16px; font-weight: 600; color: var(--primary); }
+.vote-tag .btn { height: 28px; font-size: 12px; }
+.sheet .vote-form { padding: 0; }
+.vote-form h3 { margin: 0 4px -4px; font-size: 18px; line-height: 24px; font-weight: 650; }
+.vote-hint { margin: -6px 4px 0; font-size: 12px; line-height: 16px; color: var(--on-surface-variant); }
+
 /* ---------- What's new (the list of versions) ---------- */
 .version h3 { margin-bottom: 2px; }
 .tip p.version-when { margin-bottom: 8px; font-size: 13px; line-height: 18px; }

@@ -1513,6 +1513,10 @@ function renderMore() {
 
     <h2 class="group-label">About</h2>
     <ul class="group">
+      ${sync.configured ? `<li><button type="button" class="row accent ripple" data-action="feature-votes">
+        <span class="row-icon">${icon('lightbulb')}</span>
+        <span class="row-text"><span class="row-title">What should come next?</span><span class="row-sub">Vote for new features, or suggest your own</span></span>
+      </button></li>` : ''}
       <li><button type="button" class="row ripple" data-action="privacy">
         <span class="row-icon">${icon('shield')}</span>
         <span class="row-text"><span class="row-title">Privacy</span><span class="row-sub">Where your plans are kept, and what is sent where</span></span>
@@ -2078,7 +2082,7 @@ accountForm.addEventListener('submit', async (e) => {
 });
 
 // Close buttons and tapping the dark area outside a sheet close it.
-for (const dlg of [itemDialog, tripDialog, authDialog, accountDialog, $('#about-dialog'), $('#confirm-dialog'), $('#map-dialog'), $('#info-dialog'), $('#place-dialog'), $('#ai-dialog'), $('#files-dialog'), $('#near-dialog')]) {
+for (const dlg of [itemDialog, tripDialog, authDialog, accountDialog, $('#about-dialog'), $('#vote-dialog'), $('#confirm-dialog'), $('#map-dialog'), $('#info-dialog'), $('#place-dialog'), $('#ai-dialog'), $('#files-dialog'), $('#near-dialog')]) {
   dlg.addEventListener('click', (e) => {
     if (e.target === dlg || e.target.closest('[data-close]')) dlg.close();
   });
@@ -2375,6 +2379,19 @@ document.addEventListener('click', async (e) => {
     case 'whats-new':
       openChangelog();
       break;
+    case 'feature-votes':
+      openVoting();
+      break;
+    case 'vote':
+      toggleVote(el.dataset.key);
+      break;
+    case 'vote-remove':
+      removeIdea(el.dataset.doc);
+      break;
+    case 'vote-sign-in':
+      $('#vote-dialog').close();
+      openAuthForm();
+      break;
     case 'change-password':
       openAccountForm('password');
       break;
@@ -2624,6 +2641,7 @@ function openPrivacy() {
     sync.configured && part('sync', 'In your account', [
       'If you sign in, your email address, trips, plans and checklist are also stored with Google Firebase, so that your devices share them.',
       'The person who runs this copy of the app can see them there. Your password is stored scrambled: nobody can read it.',
+      'Your votes for new features, and the suggestions you send, are stored there too. Everyone who is signed in can read the suggestions, without your name or email.',
     ]),
     part('public', 'Sent to other services', [
       'To do its job, the app asks free outside services. They get only what the question needs, never your account.',

@@ -413,6 +413,8 @@ async function deleteAccount(password) {
       refs.slice(i, i + 400).forEach(ref => batch.delete(ref));
       await batch.commit();
     }
+    // Its votes and suggestions for new features (vote.js). Not worth stopping for if that part fails.
+    await eraseVoting(user.uid).catch(err => console.warn('Votes not removed', err));
     await user.delete();
   } catch (err) {
     onUser(sync.auth.currentUser);

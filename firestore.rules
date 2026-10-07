@@ -1,10 +1,39 @@
 rules_version = '2';
 
-// Each account can read and change only its own plans.
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Each account can read and change only its own plans.
     match /users/{uid}/docs/{doc} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Voting for new features (vote.js). Everyone signed in can read the votes and the suggestions.
+
+    // One document per account: the list of what it voted for. Only that account can change it.
+    match /featureVotes/{uid} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['ids'])
+        && request.resource.data.ids is list
+        && request.resource.data.ids.size() <= 300;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Suggestions. Their names are "<account>_0" to "<account>_4": five per account at most.
+    // An account can add and remove its own, not change them, and not touch anyone else's.
+    match /featureIdeas/{idea} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && idea.matches(request.auth.uid + '_[0-4]')
+        && request.resource.data.keys().hasOnly(['title', 'text', 'uid', 'at'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 80
+        && request.resource.data.text is string
+        && request.resource.data.text.size() <= 300
+        && request.resource.data.at is number;
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
     }
   }
 }

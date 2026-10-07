@@ -259,6 +259,20 @@ function runSelfCheck() {
     return got.every(t => t.startsWith('The size of the U.S. and the distance')) || `got ${stable(got.map(t => t.slice(0, 30)))}`;
   });
 
+  /* ---------- Voting for new features ---------- */
+  group = 'Voting for new features';
+  check('Votes are counted once per person, and the most wanted comes first', () => {
+    const features = [{ key: 'a' }, { key: 'b' }, { key: 'c' }];
+    const got = tallyVotes(features, { ann: ['b', 'b', 'c', 'gone'], bob: ['b'], me: ['c', 'a'] }, 'me');
+    return same(got.map(f => [f.key, f.votes, f.voted]), [['b', 2, false], ['c', 2, true], ['a', 1, true]]);
+  });
+  check('A suggestion from someone else is checked before it is shown', () =>
+    same([tidyIdea('abc_0', { title: '  ' + 'T'.repeat(200), text: 7, uid: 'abc', at: 5 }), tidyIdea('abc_9', { title: 'x', uid: 'abc' }),
+      tidyIdea('abc_1', { title: '', uid: 'abc' }), tidyIdea('<b>_1', { title: 'x', uid: 'abc' }), tidyIdea('abc_1', null)],
+    [{ key: 'abc_0.5', doc: 'abc_0', uid: 'abc', at: 5, title: 'T'.repeat(80), text: '' }, null, null, null, null]));
+  check('The app’s own proposals each have a name, a text and an id of their own', () =>
+    (FEATURE_IDEAS.every(f => isId(f.id) && f.title && f.text) && new Set(FEATURE_IDEAS.map(f => f.id)).size === FEATURE_IDEAS.length) || 'a proposal is not filled in right');
+
   /* ---------- The list of versions ---------- */
   group = 'What’s new';
   check('Every version has a number, a real date and something to say, newest first', () => {

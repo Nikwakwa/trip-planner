@@ -27,6 +27,7 @@ const FILES = [
   'packing.js',
   'info.js',
   'assistant.js',
+  'vote.js',
   'sync.js',
   'vendor/leaflet/leaflet.js',
   'vendor/leaflet/leaflet.css',

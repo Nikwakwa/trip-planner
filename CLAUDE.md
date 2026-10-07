@@ -50,7 +50,7 @@ Asset scripts (they download from the internet and rewrite files in the repo):
 
 **Classic scripts that share one global scope.** `index.html` loads, in this order:
 `theme.js` (in the `<head>`), then at the end of the page `version.js` → `firebase-config.js` → `places.js` → `weather.js` → `hours.js` → `essentials.js` → `mapstyle.js` → `maps.js` →
-`drag.js` → `today.js` → `calendar.js` → `files.js` → `packing.js` → `info.js` → `assistant.js` → `sync.js` → `app.js`. Don't use `app.js` names (`$`, `CATEGORIES`, …) at load time
+`drag.js` → `today.js` → `calendar.js` → `files.js` → `packing.js` → `info.js` → `assistant.js` → `vote.js` → `sync.js` → `app.js`. Don't use `app.js` names (`$`, `CATEGORIES`, …) at load time
 in the earlier files, only inside functions. The files are not modules. The feature files call helpers defined in `app.js` (`$`, `esc`, `icon`,
 `save`, `render`, `snackbar`, `state`, …) at runtime, which works because `app.js` loads last and the calls
 happen after startup. Top-level names must stay unique across all files.
@@ -178,6 +178,15 @@ a confirmation email; until `sync.saved.verified` is true Settings shows "Confir
 Settings → About: the privacy note (`openPrivacy`; update it when a new outside service is called) and "Report a
 problem" (`reportProblem`: email when `window.SUPPORT_EMAIL` is set, else the Share menu). `firestore.rules` must be pasted into the
 Firebase console by hand; it isn't deployed from here.
+
+**Feature voting (`vote.js`).** Settings → About → "What should come next?" (`#vote-dialog`). The only data shared
+between accounts: `featureVotes/{uid}` (`{ ids }`, the keys that account voted for) and `featureIdeas/{uid}_{0…4}`
+(`{ title, text, uid, at }`; the document name is what caps suggestions at five per account). The app's own proposals
+are `FEATURE_IDEAS`; never reuse an id. A suggestion's vote key is `<doc>.<at>`, so a new one in the same slot starts
+at zero. Both collections are listened to only while the sheet is open. `tallyVotes` counts; the order on screen is
+fixed when the votes arrive (`voting.order`) so rows don't jump while voting. No names or emails are stored or shown.
+`deleteAccount` calls `eraseVoting`. Changing what is stored means changing `firestore.rules` too, and the owner has
+to publish them by hand.
 
 **Offline / updates (`sw.js`).** The service worker serves cached files first and refreshes them in the background (stale-while-revalidate).
 When you **add a new app file**, add it to `FILES`. When you **ship any change**, add an entry at the top of `CHANGELOG` in `version.js`

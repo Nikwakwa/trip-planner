@@ -6,6 +6,10 @@
      third number   fixes only
    Written for the people who use the app: what changed for them, in plain words. */
 const CHANGELOG = [
+  { v: '2.6.0', date: '2026-10-07', title: 'Have your say', items: [
+    '“What should come next?” in Settings: vote for the features you’d like, as many as you want',
+    'Suggest features of your own, for everyone to vote on',
+  ] },
   { v: '2.5.2', date: '2026-10-07', title: 'Cleaner guide texts', items: [
     'Fixed: Essentials listed regional languages for the United States instead of English',
     'Fixed: guide texts lost words around “U.S.” or a number like “3.5”, leaving a stray “S.”',

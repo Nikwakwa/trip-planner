@@ -53,6 +53,7 @@ the same address shows a desktop layout on a wide screen, by itself.
 | `fonts/`, `icons/sprite.svg` | Google Sans Flex and Material Symbols, stored for offline use (`tools/fetch-assets.ps1`). |
 | `manifest.webmanifest` | Tells the phone the app's name, icon and colors so it can be installed. |
 | `sw.js` | The "service worker": keeps a copy of the app so it opens offline. |
+| `vote.js` | Voting for new features, and suggesting your own (Settings → About). |
 | `version.js` | The app's version number and the list of what changed in each version ("What's new"). |
 | `selfcheck.js` | A self-check of the parts that must not break (see "Updating the app later"). |
 | `icons/` | The logo and the app icons for the home screen. |
@@ -90,6 +91,20 @@ Before sending an update out, run the **self-check**: add `?selfcheck` to the ap
 (on this computer: <http://localhost:8080/?selfcheck>). It tests dates, backups, syncing, AI answers
 and opening hours on made-up plans (yours are not touched) and shows what passed. If a line is red,
 don't ship. It is also a quick first test on a new kind of phone.
+
+## Voting for new features
+
+**Settings → About → What should come next?** shows a list of features that could be built. Everyone who is
+signed in can vote for as many as they like, and send up to five suggestions of their own. Nobody's name
+or email is shown. The app's own proposals are the list at the top of `vote.js`.
+
+**One step for you, once:** the votes are kept in your Firebase project, and its rules must allow it.
+In the [Firebase console](https://console.firebase.google.com): **Firestore Database → Rules**, replace
+everything with the contents of `firestore.rules`, and **Publish**. Until then the sheet says
+"Voting isn't switched on for this copy of the app yet".
+
+To look at the results or remove a suggestion you don't want: **Firestore Database → Data**, collections
+`featureVotes` (one entry per person) and `featureIdeas` (the suggestions; delete an entry to remove it).
 
 ## For the people you share the app with
 
