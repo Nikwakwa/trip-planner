@@ -6,6 +6,12 @@
      third number   fixes only
    Written for the people who use the app: what changed for them, in plain words. */
 const CHANGELOG = [
+  { v: '2.5.2', date: '2026-10-07', title: 'Cleaner guide texts', items: [
+    'Fixed: Essentials listed regional languages for the United States instead of English',
+    'Fixed: guide texts lost words around “U.S.” or a number like “3.5”, leaving a stray “S.”',
+    'Fixed: leftovers of the guide’s page (picture codes, “&nbsp;”, empty brackets) no longer show in texts',
+    'Saved guides and essentials refresh by themselves the next time you are online',
+  ] },
   { v: '2.5.1', date: '2026-10-07', items: [
     'On a phone, the AI Assistant moved from the trip’s card to its own button above the + button: always in reach, on Plan and on Ideas',
   ] },

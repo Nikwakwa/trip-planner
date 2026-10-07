@@ -13,6 +13,7 @@
 
 const ESSENTIALS_KEY = 'tripPlanner.essentials';
 const ESSENTIALS_MAX_AGE = 60 * 864e5;
+const ESSENTIALS_VERSION = 2;     // 2: the country's main languages, and summaries that keep their sentences whole. Older saved ones are fetched again.
 
 const ESSENTIAL_SECTIONS = [
   { key: 'around', title: 'Getting around', icon: 'directions_bus', heads: ['Get around'] },
@@ -39,7 +40,7 @@ function essentialsFor(trip) {
   if (!trip.place) return null;
   const key = placeKey(trip.place);
   const had = essentials.saved[key];
-  if (!had || Date.now() - had.t > ESSENTIALS_MAX_AGE) loadEssentials(trip.place);
+  if (!had || had.v !== ESSENTIALS_VERSION || Date.now() - had.t > ESSENTIALS_MAX_AGE) loadEssentials(trip.place);
   return had || null;
 }
 
@@ -47,10 +48,18 @@ function essentialsFor(trip) {
 
 async function countryFacts(qid) {
   // Names are in English, or in Wikidata's "mul" (same in every language, e.g. "euro").
-  const query = `SELECT ?country ?prop ?val ?label ?mul WHERE {
+  // Official languages come with "applies to part" (?part) when they are official in one region only.
+  const query = `SELECT ?country ?prop ?val ?label ?mul ?part WHERE {
     wd:${qid} wdt:P17 ?country .
-    VALUES ?prop { wdt:P2852 wdt:P37 wdt:P38 wdt:P2853 wdt:P1622 wdt:P2884 wdt:P474 }
-    ?country ?prop ?val .
+    {
+      VALUES ?prop { wdt:P2852 wdt:P38 wdt:P2853 wdt:P1622 wdt:P2884 wdt:P474 }
+      ?country ?prop ?val .
+    } UNION {
+      ?country p:P37 ?official .
+      ?official ps:P37 ?val ; a wikibase:BestRank .
+      BIND(wdt:P37 AS ?prop)
+      OPTIONAL { ?official pq:P518 ?part }
+    }
     OPTIONAL { ?val rdfs:label ?label . FILTER(LANG(?label) = "en") }
     OPTIONAL { ?val rdfs:label ?mul . FILTER(LANG(?mul) = "mul") }
   }`;
@@ -60,12 +69,26 @@ async function countryFacts(qid) {
   for (const b of data.results.bindings) {
     const id = b.country.value.split('/').pop();
     if (!byCountry.has(id)) byCountry.set(id, []);
-    byCountry.get(id).push({ prop: b.prop.value.split('/').pop(), value: (b.label || b.mul || b.val).value });
+    byCountry.get(id).push({ prop: b.prop.value.split('/').pop(), value: (b.label || b.mul || b.val).value, part: !!b.part });
   }
   const [country, rows] = [...byCountry].sort((a, b) => b[1].length - a[1].length)[0] || [];
   if (!country) return null;
-  const all = prop => [...new Set(rows.filter(r => r.prop === prop).map(r => r.value))].filter(v => !/^https?:/.test(v));
+  const named = list => [...new Set(list.map(r => r.value))].filter(v => !/^https?:/.test(v));
+  const all = prop => named(rows.filter(r => r.prop === prop));
   const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+
+  // Languages: the ones official in the whole country. Some countries have none: the United States
+  // (only regional ones: Spanish in Puerto Rico, Hawaiian in Hawaii…), Belgium (each official in its
+  // own region). Then the regional ones that are also among the main languages spoken, or else the
+  // main languages spoken themselves.
+  let languages = named(rows.filter(r => r.prop === 'P37' && !r.part));
+  if (!languages.length) {
+    const regional = all('P37');
+    const spoken = await languagesSpoken(country).catch(() => []);
+    const both = regional.filter(l => spoken.includes(l));
+    languages = both.length ? both : spoken.length && spoken.length <= 4 ? spoken : regional.length ? regional : spoken;
+  }
+
   const plugs = all('P2853').map((name) => {
     const letter = PLUG_LETTERS[name.toLowerCase()];
     return letter ? `Type ${letter} (${name})` : name;
@@ -73,13 +96,23 @@ async function countryFacts(qid) {
   return {
     country,
     emergency: all('P2852').filter(n => /^[\d\s-]{2,8}$/.test(n)).slice(0, 3),
-    languages: all('P37').map(cap).slice(0, 4),
+    languages: languages.map(cap).slice(0, 4),
     currency: all('P38').map(cap).slice(0, 2),
     plugs: plugs.slice(0, 4),
     voltage: Number(all('P2884')[0]) > 0 ? `${Math.round(Number(all('P2884')[0]))} V` : '',
     driving: all('P1622')[0] || '',
     calling: all('P474')[0] || '',
   };
+}
+
+// The main languages spoken in a country (Wikidata's "language used"), in English.
+async function languagesSpoken(country) {
+  const query = `SELECT DISTINCT ?label WHERE {
+    wd:${country} wdt:P2936 ?val .
+    ?val rdfs:label ?label . FILTER(LANG(?label) = "en")
+  } LIMIT 40`;
+  const data = await getJSON('https://query.wikidata.org/sparql', { format: 'json', query });
+  return data.results.bindings.map(b => b.label.value);
 }
 
 async function wikivoyageTitleOf(qid) {
@@ -96,14 +129,15 @@ function sectionSummary(text) {
     .replace(/^[*#:;]+\s*/gm, '')                 // list markers
     .replace(/\{\|[\s\S]*?\|\}/g, ''));           // tables
   if (clean.length < 40) return '';
-  const sentences = clean.match(/[^.!?]+[.!?]+(\s|$)/g) || [clean];
   let out = '';
-  for (const s of sentences) {
+  for (const s of sentencesOf(clean)) {
     if (out && (out + s).length > 450) break;
     out += s;
     if (out.length > 300) break;
   }
-  return out.trim().slice(0, 600);
+  out = out.trim();
+  // One very long sentence: stop at a word, and show that it goes on.
+  return out.length > 600 ? out.slice(0, 595).replace(/\s+\S*$/, '') + '…' : out;
 }
 
 const wikivoyageUrl = (title, head) =>
@@ -149,7 +183,7 @@ function loadEssentials(place) {
     }
 
     if (!facts && !sections.length && !tz) throw new Error('nothing found');
-    essentials.saved[key] = { t: Date.now(), facts, tz, sections, name: place.name };
+    essentials.saved[key] = { v: ESSENTIALS_VERSION, t: Date.now(), facts, tz, sections, name: place.name };
     const keys = Object.keys(essentials.saved).sort((a, b) => essentials.saved[b].t - essentials.saved[a].t);
     for (const old of keys.slice(10)) delete essentials.saved[old];
     try { localStorage.setItem(ESSENTIALS_KEY, JSON.stringify(essentials.saved)); } catch { /* storage full */ }

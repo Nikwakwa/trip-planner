@@ -240,6 +240,25 @@ function runSelfCheck() {
   check('Hours the app can’t read give no note, not a guess', () =>
     same([parseHours('whenever we feel like it'), parseHours(''), parseHours('Mo-Fr 9am to 5pm')], [null, null, null]));
 
+  /* ---------- Texts from the travel guide ---------- */
+  group = 'Texts from the travel guide';
+  const guideText = 'The size of the U.S. and the distance between cities make flying common. Trains are slow. Visit St. Louis, e.g. by car. Tickets cost 3.5 dollars! Really? Yes.';
+  check('Text is cut into sentences, not at "U.S.", "St." or "3.5"', () =>
+    same(sentencesOf(guideText).map(s => s.trim()), ['The size of the U.S. and the distance between cities make flying common.', 'Trains are slow.',
+      'Visit St. Louis, e.g. by car.', 'Tickets cost 3.5 dollars!', 'Really?', 'Yes.']));
+  check('Cutting into sentences loses nothing', () => same(sentencesOf(guideText).join(''), guideText));
+  check('Wiki markup is taken out, also a picture whose caption has a link', () =>
+    same(plainText("[[File:Bus.jpg|thumb|A [[Greyhound Lines|Greyhound]] bus|250x250px]]The '''size''' of the [[United States|U.S.]] matters.<ref>source</ref> {{EUR|15}} [[Image:x.png]]end [[File:broken"),
+      'The size of the U.S. matters. 15 EUR end [[File:broken'));
+  check('Leftovers of the wiki page are tidied: "&nbsp;", empty brackets', () =>
+    same(plainText('It is 300&nbsp;km wide &ndash; fly to Lisbon ({{IATA|LIS}}), Porto ({{IATA|OPO}}) &amp; Faro. Caf&#233; &bogus;'),
+      'It is 300 km wide – fly to Lisbon, Porto & Faro. Café &bogus;'));
+  check('A summary and a description start at the beginning of the text', () => {
+    const long = guideText + ' ' + 'More words follow here. '.repeat(40);
+    const got = [sectionSummary(long), shortBlurb(long), longBlurb(long)];
+    return got.every(t => t.startsWith('The size of the U.S. and the distance')) || `got ${stable(got.map(t => t.slice(0, 30)))}`;
+  });
+
   /* ---------- The list of versions ---------- */
   group = 'What’s new';
   check('Every version has a number, a real date and something to say, newest first', () => {

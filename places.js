@@ -11,7 +11,7 @@
    ========================================================= */
 
 const GUIDES_KEY = 'tripPlanner.guides';
-const GUIDE_VERSION = 5;          // 2: full descriptions ("about") and opening hours; 3: photos; 4: price, website, photos of destinations; 5: how well known ("fame"). Older saved guides are refreshed.
+const GUIDE_VERSION = 6;          // 2: full descriptions ("about") and opening hours; 3: photos; 4: price, website, photos of destinations; 5: how well known ("fame"); 6: descriptions no longer lose text at "U.S." or "3.5". Older saved guides are refreshed.
 const MAX_SAVED_GUIDES = 16;
 const WIKIVOYAGE = 'https://en.wikivoyage.org/w/api.php';
 
@@ -131,6 +131,26 @@ function templateParams(body) {
   return params;
 }
 
+// Takes out pictures: [[File:…]] and [[Image:…]], whose caption can hold links of its own.
+function dropFileLinks(t) {
+  const opener = /\[\[(?:File|Image):/gi;
+  let out = '';
+  let pos = 0;
+  let m;
+  while ((m = opener.exec(t))) {
+    let depth = 0;
+    let end = -1;
+    for (let i = m.index; i < t.length - 1; i++) {
+      if (t.startsWith('[[', i)) { depth++; i++; }
+      else if (t.startsWith(']]', i)) { depth--; i++; if (!depth) { end = i + 1; break; } }
+    }
+    if (end < 0) break;                 // never closed: leave the rest as it is
+    out += t.slice(pos, m.index);
+    pos = opener.lastIndex = end;
+  }
+  return out + t.slice(pos);
+}
+
 // Wiki markup → plain text.
 function plainText(s) {
   let t = String(s || '')
@@ -149,15 +169,44 @@ function plainText(s) {
       return '';
     });
   }
-  return t
-    .replace(/\[\[(?:File|Image):[^\]]*\]\]/gi, '')
+  return dropFileLinks(t)
     .replace(/\[\[([^\]|]*)\|([^\]]*)\]\]/g, '$2')
     .replace(/\[\[([^\]]*)\]\]/g, '$1')
     .replace(/\[https?:\/\/\S+\s([^\]]+)\]/g, '$1')
     .replace(/\[https?:\/\/[^\]]+\]/g, '')
     .replace(/'{2,}/g, '')
+    .replace(/&(#\d+|#x[0-9a-f]+|[a-z]+\d*);/gi, wikiEntity)
+    .replace(/\s*\(\s*\)/g, '')            // "Lisbon ()": what was in the brackets was a template
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+// "&nbsp;", "&ndash;", "&#39;"… as the characters they stand for (the page escapes them again when shown).
+const WIKI_ENTITIES = { nbsp: ' ', thinsp: ' ', amp: '&', quot: '"', apos: "'", lt: '<', gt: '>', ndash: '–', mdash: '—', hellip: '…', deg: '°', euro: '€', pound: '£', times: '×', frac12: '½' };
+function wikiEntity(whole, name) {
+  if (name.charAt(0) !== '#') return WIKI_ENTITIES[name.toLowerCase()] ?? whole;
+  const code = /^#x/i.test(name) ? parseInt(name.slice(2), 16) : Number(name.slice(1));
+  try { return code === 160 ? ' ' : String.fromCodePoint(code); } catch { return whole; }
+}
+
+// Splits plain text into sentences, losing nothing. A period doesn't end a sentence after an
+// abbreviation ("the U.S. and Canada", "St. Louis", "e.g.") or before a small letter.
+const ABBREVIATION = /(?:^|[\s(“"])(?:(?:[A-Za-z]\.){2,}|[A-HJ-Z]\.)$|\b(?:Mr|Mrs|Ms|Dr|St|Mt|Ft|Ave|Blvd|Rd|Jr|Sr|vs|No|approx|est|incl|ca|cf|Inc|Ltd|Co)\.$/;
+function sentencesOf(text) {
+  const out = [];
+  const ends = /[.!?]+["”’')\]]*\s+/g;
+  let start = 0;
+  let m;
+  while ((m = ends.exec(text))) {
+    const end = m.index + m[0].length;
+    if (/[a-z]/.test(text.charAt(end))) continue;
+    const mark = m[0].trim();
+    if (mark.charAt(0) === '.' && !/^\.\./.test(mark) && ABBREVIATION.test(text.slice(start, m.index + 1))) continue;
+    out.push(text.slice(start, end));
+    start = end;
+  }
+  if (start < text.length) out.push(text.slice(start));
+  return out;
 }
 
 // The first sentence or two, at most ~170 characters.
@@ -165,7 +214,7 @@ function shortBlurb(s) {
   let text = plainText(s);
   text = text.charAt(0).toUpperCase() + text.slice(1);
   if (text.length <= 170) return text;
-  const sentences = text.match(/[^.!?]+[.!?]+(\s|$)/g) || [text];
+  const sentences = sentencesOf(text);
   let out = '';
   for (const sen of sentences) {
     if ((out + sen).length > 170) break;
@@ -179,7 +228,7 @@ function longBlurb(s) {
   let text = plainText(s);
   text = text.charAt(0).toUpperCase() + text.slice(1);
   if (text.length <= 700) return text;
-  const sentences = text.match(/[^.!?]+[.!?]+(\s|$)/g) || [text];
+  const sentences = sentencesOf(text);
   let out = '';
   for (const sen of sentences) {
     if ((out + sen).length > 700) break;

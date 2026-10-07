@@ -121,6 +121,11 @@ then everything else (`byPlanOrder`).
 - Each of `weather.js` (Open-Meteo), `hours.js` (Overpass/OSM `opening_hours`, falling back to the Wikivoyage listing's
   `hours`) and `essentials.js` (Wikidata SPARQL + Wikivoyage sections) keeps a cache on the phone only
   (`tripPlanner.weather` / `.hours` / `.essentials`). These caches are never synced.
+- Guide and essentials texts go through `plainText` (wiki markup out) and `sentencesOf` (places.js). Don't split
+  sentences with a regex on periods: "U.S.", "St." and "3.5" are not sentence ends.
+- Essentials languages: Wikidata's official languages for the whole country; when there are none (United States,
+  Belgium) the regional ones that are also widely spoken, else the main spoken ones (`languagesSpoken`). Saved
+  essentials are stamped with `ESSENTIALS_VERSION`, like guides.
 - Each fetches in the background from a render path. When it finishes, it calls `renderSoon()`; after a failure it
   waits before retrying.
 - The hours parser supports a subset of OSM's format and returns `null` (no note shown) for anything it
