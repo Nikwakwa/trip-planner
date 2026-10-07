@@ -215,6 +215,8 @@ Phone styles are the default. Add desktop overrides in the media blocks at the e
   the device's Back button returns to the Plan instead of closing the app. Tapping the section already open scrolls
   to its top. The bar is 64px tall (`--nav-h`, Material 3 Expressive's shorter bar).
 - The trip card (`.hero`) is compact on purpose, so today's plans are on the first screen.
+- On a phone the AI Assistant is a small button stacked on the "New plan" FAB (`#ai-fab`), on the Plan and Ideas
+  tabs, so it stays in reach while scrolling. On a computer it is in the sidebar. It is not on the trip card.
 - Plan view (Wanderlog-like): each day has a big title, its travel total (`day-total`) and tools above the list,
   the stay as a pill at the top (`stay-pill`), white cards (`.group.plans`) with the stop's number (same as its map
   pin; plans not on the map keep their category icon) and a photo (`planPhoto` in info.js: the guide's, else the

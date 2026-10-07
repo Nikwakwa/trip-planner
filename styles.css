@@ -746,6 +746,29 @@ main { max-width: 640px; margin: 0 auto; padding: 8px 16px 0; }
 .fab.collapsed .fab-label { max-width: 0; opacity: 0; }
 body.snack-open .fab { bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 80px); }
 
+/* The AI Assistant: a smaller button stacked on the + button, on both trip sections */
+.ai-fab {
+  position: fixed;
+  z-index: 9;
+  right: calc(max(16px, 50% - 304px) + 4px);
+  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 84px);
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: var(--tertiary-container);
+  color: var(--on-tertiary-container);
+  box-shadow: var(--elev-3);
+  transition: bottom .35s var(--ease), border-radius .3s var(--ease), background-color .5s var(--ease);
+}
+.ai-fab:active { border-radius: 24px; }
+body.snack-open .ai-fab { bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 148px); }
+/* Room to scroll the last plan clear of both buttons */
+@media (max-width: 899px) {
+  body:has(.ai-fab:not([hidden])) { padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 152px); }
+}
+
 /* ---------- Navigation bar ---------- */
 .navbar {
   position: fixed;
@@ -1504,7 +1527,7 @@ html[data-theme="dark"] .item-hours.book { background: oklch(.42 .08 80); color:
   will-change: transform;
 }
 body.dragging { cursor: grabbing; }
-body.dragging .fab, body.dragging .snackbar { opacity: 0; pointer-events: none; }
+body.dragging .fab, body.dragging .ai-fab, body.dragging .snackbar { opacity: 0; pointer-events: none; }
 .group > li.drop-line {
   height: 4px;
   margin: 2px 16px;
@@ -1950,6 +1973,8 @@ dialog.ai-sheet { height: 94dvh; }
   }
   .fab.collapsed { padding: 0 22px 0 16px; gap: 12px; }
   .fab.collapsed .fab-label { max-width: 160px; opacity: 1; }
+  /* The AI Assistant is in the sidebar instead */
+  .ai-fab { display: none; }
 
   /* One column, at a comfortable reading width */
   .appbar-inner, main { max-width: var(--content-w); padding-left: 24px; padding-right: 24px; }
@@ -2035,8 +2060,7 @@ dialog.ai-sheet { height: 94dvh; }
   body.dragging, body.dragging * { cursor: grabbing !important; }
 }
 
-/* On a computer these live elsewhere: the AI Assistant in the sidebar, the trip map docked on the right */
-@media (min-width: 900px) { .hero-btn[data-action="assistant"] { display: none; } }
+/* On a wide window the trip map is docked on the right */
 @media (min-width: 1200px) { body.has-map .hero-btn[data-action="trip-map"] { display: none; } }
 
 /* Dark mode without a CARTO key: the light OpenStreetMap map, darkened (maps.js sets "inverted") */

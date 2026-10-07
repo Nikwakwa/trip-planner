@@ -165,7 +165,7 @@ All free services, no account or key needed:
 
 ## AI Assistant
 
-Tap **AI Assistant** on the trip's card and ask in your own words, e.g. "Plan Saturday around Belém,
+Tap the **AI Assistant** button (the sparkle above the **+** button on a phone, in the sidebar on a computer) and ask in your own words, e.g. "Plan Saturday around Belém,
 nothing before 10" or "Move the museum to Monday". The assistant shows the changes first; nothing
 changes until you tap **Apply** (and **Undo** puts things back).
 

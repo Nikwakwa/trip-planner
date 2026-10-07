@@ -870,7 +870,7 @@ function render() {
   $('#trip-tabs').hidden = !tripViews || !trip;
   $('#appbar-title').hidden = tripViews;
   $('#appbar-title').textContent = TITLES[ui.view];
-  $('#fab').hidden = !tripViews || !trip;
+  $('#fab').hidden = $('#ai-fab').hidden = !tripViews || !trip;
   $('#fab-label').textContent = ui.view === 'ideas' ? 'New idea' : 'New plan';
   $('#fab').setAttribute('aria-label', $('#fab-label').textContent);
   if (tripViews && !trip) renderWelcome();
@@ -1071,7 +1071,6 @@ function renderPlan(trip) {
       </div>
       <div class="hero-actions">
         ${planned.length ? `<button type="button" class="hero-btn ripple" data-action="trip-map">${icon('map')}Trip map</button>` : ''}
-        <button type="button" class="hero-btn ripple" data-action="assistant">${icon('auto_awesome')}AI Assistant</button>
         ${trip.place ? `<button type="button" class="hero-btn ripple" data-action="essentials">${icon('info')}Essentials</button>` : ''}
         <button type="button" class="hero-btn ripple" data-action="share-trip">${icon('share')}Share</button>
       </div>

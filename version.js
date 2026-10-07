@@ -6,6 +6,9 @@
      third number   fixes only
    Written for the people who use the app: what changed for them, in plain words. */
 const CHANGELOG = [
+  { v: '2.5.1', date: '2026-10-07', items: [
+    'On a phone, the AI Assistant moved from the trip’s card to its own button above the + button: always in reach, on Plan and on Ideas',
+  ] },
   { v: '2.5.0', date: '2026-10-07', title: 'Ready to share', items: [
     '“What’s new”: this list, and the version number in Settings',
     'A privacy note: where your plans are kept and what is sent where',
