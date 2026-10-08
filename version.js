@@ -6,6 +6,10 @@
      third number   fixes only
    Written for the people who use the app: what changed for them, in plain words. */
 const CHANGELOG = [
+  { v: '2.7.1', date: '2026-10-08', items: [
+    'On a phone, swipe a sheet down to close it: pull it by its top, or from anywhere once it is scrolled to the top',
+    'Fixed: the page behind an open sheet could scroll, or reload, when you swiped on the sheet',
+  ] },
   { v: '2.7.0', date: '2026-10-07', title: 'A real “Report a problem”', items: [
     '“Report a problem” is now a form: write what went wrong, and add your email if you’d like an answer',
     'You can see exactly what is sent with it: the version and the kind of device, never your plans',

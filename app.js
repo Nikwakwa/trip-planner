@@ -2088,6 +2088,64 @@ for (const dlg of [itemDialog, tripDialog, authDialog, accountDialog, $('#about-
   });
 }
 
+/* ---------- Swiping a sheet down closes it (touch screens, phone layout) ---------- */
+
+const pull = { dlg: null, x: 0, y: 0, dy: 0, lastY: 0, lastAt: 0, speed: 0, on: false };
+
+// A pull can start on the sheet's top (handle, title) at any time, and elsewhere only when everything
+// under the finger is scrolled to its top. Never on the map or in a field (that's panning or selecting text).
+function canPull(dlg, target) {
+  if (target.closest('.handle, .sheet-head')) return true;
+  if (target.closest('#map, input, textarea, select')) return false;
+  for (let el = target; el && el !== dlg.parentElement; el = el.parentElement) {
+    if (el.scrollTop > 0) return false;
+  }
+  return true;
+}
+
+document.addEventListener('touchstart', (e) => {
+  pull.dlg = null;
+  const dlg = e.target.closest('dialog.sheet');
+  if (!dlg || e.touches.length !== 1 || matchMedia('(min-width: 900px)').matches || !canPull(dlg, e.target)) return;
+  const t = e.touches[0];
+  Object.assign(pull, { dlg, x: t.clientX, y: t.clientY, dy: 0, lastY: t.clientY, lastAt: e.timeStamp, speed: 0, on: false });
+}, { passive: true });
+
+document.addEventListener('touchmove', (e) => {
+  const dlg = pull.dlg;
+  if (!dlg) return;
+  const t = e.touches[0];
+  const dy = t.clientY - pull.y;
+  if (!pull.on) {
+    // The first move decides: straight down pulls the sheet, anything else is a scroll or a sideways swipe.
+    if (dy <= 0 || Math.abs(t.clientX - pull.x) > dy || !e.cancelable) { pull.dlg = null; return; }
+    pull.on = true;
+    dlg.style.transition = 'none';
+  }
+  if (e.cancelable) e.preventDefault();
+  if (e.timeStamp > pull.lastAt) pull.speed = (t.clientY - pull.lastY) / (e.timeStamp - pull.lastAt);
+  pull.lastY = t.clientY;
+  pull.lastAt = e.timeStamp;
+  pull.dy = Math.max(0, dy);
+  dlg.style.transform = `translateY(${pull.dy}px)`;
+}, { passive: false });
+
+// Let go: far enough down (or flicked down) closes the sheet, otherwise it slides back up.
+function endPull(e) {
+  const dlg = pull.dlg;
+  pull.dlg = null;
+  if (!dlg || !pull.on) return;
+  const close = e.type === 'touchend' && (pull.dy > Math.min(140, dlg.offsetHeight / 3) || (pull.speed > 0.5 && pull.dy > 24));
+  dlg.style.transition = 'transform .2s var(--ease)';
+  dlg.style.transform = close ? 'translateY(100%)' : 'none';
+  setTimeout(() => {
+    if (close && dlg.open) dlg.close();
+    dlg.style.transition = dlg.style.transform = '';
+  }, 200);
+}
+document.addEventListener('touchend', endPull);
+document.addEventListener('touchcancel', endPull);
+
 /* ---------- Ticking things off (animated in place, then re-sorted) ---------- */
 
 let rerenderTimer;

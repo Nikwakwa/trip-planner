@@ -866,6 +866,8 @@ dialog.sheet {
   overscroll-behavior: contain;
 }
 dialog.sheet[open] { animation: sheet-in .5s var(--ease-decel); }
+/* On a phone, the page behind an open sheet stays still (no scrolling it, no pull-to-refresh) */
+@media (max-width: 899px) { html:has(dialog[open]) { overflow: hidden; overscroll-behavior: none; } }
 @keyframes sheet-in { from { transform: translateY(100%); } }
 dialog::backdrop { background: rgb(0 0 0 / .42); animation: fade-in .3s var(--ease); }
 @keyframes fade-in { from { opacity: 0; } }
