@@ -302,7 +302,10 @@ function planSuggestions(trip, guide, days) {
       const area = areaList[areaIndex++ % areaList.length];
       const inArea = guide.places.filter(p => p.area === area);
       const center = { lat: avg(inArea.map(p => p.lat)), lng: avg(inArea.map(p => p.lng)) };
-      title = (guide.dayTitles && guide.dayTitles[area]) || `Ideas for a day in ${area}`;
+      // A district named after a direction ("North") isn't a place name on its own: "the north of Lisbon".
+      title = (guide.dayTitles && guide.dayTitles[area])
+        || (/^(north|south|east|west|centre|center)$/i.test(area) ? `Ideas for the ${area.toLowerCase()} of ${guide.city}`
+          : /^central$/i.test(area) ? `Ideas for central ${guide.city}` : `Ideas for a day in ${area}`);
       ranked = pool.map(p => ({ p, d: miles(center, p) })).sort((x, y) => x.d - y.d);
     } else {
       // A small town, or a country / region's destinations: best known first.
@@ -536,8 +539,7 @@ function suggestionCard(r, day) {
   return `
     <article class="s-card" aria-label="${esc(p.name)}">
       <button type="button" class="s-body ripple" data-action="place-info" data-place="${esc(p.id)}" data-date="${day}" aria-label="More about ${esc(p.name)}">
-        ${photoImg(p, 's-photo')}
-        <span class="s-top"><span class="avatar" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}</span>${whenTag(p)}</span>
+        <span class="s-photo" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}${photoImg(p, '')}${whenTag(p)}</span>
         <span class="s-name">${esc(p.name)}</span>
         ${why ? `<span class="s-why">${why}</span>` : ''}
         <span class="s-blurb">${esc(p.blurb)}</span>
@@ -781,6 +783,7 @@ function showView(view, { top = false } = {}) {
   setView(view);
   render();
   window.scrollTo(0, top ? 0 : scrollAt[view] || 0);
+  showFabs();
 }
 
 // The Back (or Forward) button.
@@ -791,6 +794,7 @@ window.addEventListener('popstate', () => {
   ui.view = view;
   render();
   window.scrollTo(0, scrollAt[view] || 0);
+  showFabs();
 });
 
 // The trip on screen, or null before the first trip is added.
@@ -998,11 +1002,14 @@ function itemHTML(item, trip, { showDate = false, drag = false, note = null, sch
     chips = days.map(d => `<button type="button" class="assist-chip ripple" data-action="set-day" data-date="${d}">${esc(fmtDay(d, { weekday: 'short', day: 'numeric' }))}</button>`).join('')
       + `<button type="button" class="assist-chip icon-only ripple" data-action="pick-day" aria-label="Cancel">${icon('close')}</button>`;
   } else {
+    // "compact": on a phone only the icon shows, so the actions stay on one row.
+    const files = filesOf(item.id).length;
+    const filesLabel = files === 1 ? 'Ticket' : `${files} files`;
     chips = [
       schedule && days.length && `<button type="button" class="assist-chip primary ripple" data-action="pick-day">${icon('calendar_add_on')}Add to a day</button>`,
-      item.place && `<a class="assist-chip ripple" href="${esc(mapsUrl(item.place, trip))}" target="_blank" rel="noopener">${icon('location_on')}Directions</a>`,
-      link && `<a class="assist-chip ripple" href="${esc(link)}" target="_blank" rel="noopener">${icon('link')}${esc(hostLabel(link))}</a>`,
-      filesOf(item.id).length && `<button type="button" class="assist-chip ripple" data-action="files">${icon('confirmation_number')}${filesOf(item.id).length === 1 ? 'Ticket' : `${filesOf(item.id).length} files`}</button>`,
+      item.place && `<a class="assist-chip ${schedule ? 'compact ' : ''}ripple" href="${esc(mapsUrl(item.place, trip))}" target="_blank" rel="noopener" title="Directions">${icon('location_on')}<span>Directions</span></a>`,
+      link && `<a class="assist-chip compact ripple" href="${esc(link)}" target="_blank" rel="noopener" title="${esc(hostLabel(link))}" aria-label="Link: ${esc(hostLabel(link))}">${icon('link')}<span>${esc(hostLabel(link))}</span></a>`,
+      files && `<button type="button" class="assist-chip compact ripple" data-action="files" title="${filesLabel}" aria-label="${filesLabel}">${icon('confirmation_number')}<span>${filesLabel}</span></button>`,
       hasPlanInfo(item, guideFor(trip)) && `<button type="button" class="assist-chip icon-only ripple" data-action="plan-info" aria-label="About ${esc(item.title)}" title="About this place">${icon('info')}</button>`,
       item.date && !item.done && `<a class="assist-chip icon-only ripple" href="${esc(calendarUrl(item, trip))}" target="_blank" rel="noopener" aria-label="Add ${esc(item.title)} to Google Calendar" title="Add to Google Calendar">${icon('calendar_add_on')}</a>`,
     ].filter(Boolean).join('');
@@ -1152,7 +1159,7 @@ function renderPlan(trip) {
       <section class="day ${isToday ? 'is-today' : ''}" id="day-${day}" style="--day:${dayTint(days.indexOf(day))}">
         <div class="day-head">
           <div class="day-text">
-            <h2 class="day-title">${esc(fmtDay(day, { weekday: 'long', month: 'short', day: 'numeric' }))}</h2>
+            <h2 class="day-title">${esc(fmtDay(day, { weekday: 'long', month: 'short', day: 'numeric' })).replace(/ (\S+)$/, '&nbsp;$1') /* "Oct 10" stays together */}</h2>
             <div class="day-sub">${sub}</div>
           </div>
           ${weatherHTML(trip, day)}
@@ -1258,9 +1265,6 @@ function placeHTML(p, added, trip) {
       <button type="button" class="icon-btn tonal add-btn ripple ${added ? 'added' : ''}"
         data-action="${added ? 'noop' : 'add-suggestion'}" data-place="${esc(p.id)}" data-date=""
         aria-label="${added ? `${esc(p.name)} is already in your trip` : `Save ${esc(p.name)} to your ideas`}">${icon(added ? 'check' : 'add')}</button>
-      <div class="item-chips">
-        <a class="assist-chip ripple" href="${esc(mapsUrl(p.place || p.name, trip))}" target="_blank" rel="noopener">${icon('map')}Map</a>
-      </div>
     </li>`;
 }
 
@@ -1320,7 +1324,7 @@ function renderIdeas(trip) {
       <p class="supporting">${intro} Tap + to save one to your ideas.</p>
       ${trip.place && guide.source ? `
         <div class="place-row">
-          <span class="place-pin">${icon('location_on')}${esc(trip.place.label)}</span>
+          <span class="place-pin">${icon('location_on')}<span>${esc(trip.place.label)}</span></span>
           <button type="button" class="btn text ripple" data-action="near-me">${icon('my_location')}Near me</button>
           <button type="button" class="btn text ripple" data-action="edit-trip">Change</button>
         </div>` : ''}
@@ -1437,7 +1441,7 @@ function renderMore() {
           <span class="trip-avatar" style="--c:${esc(t.color)}">${esc(t.name.charAt(0).toUpperCase())}</span>
           <span class="row-text">
             <span class="row-title">${esc(t.name)}</span>
-            <span class="row-sub">${t.start && t.end ? esc(fmtDay(t.start) + ' – ' + fmtDay(t.end)) : 'No dates'} · ${plural(t.items.length, 'plan')}</span>
+            <span class="row-sub">${t.start && t.end ? esc(fmtDay(t.start, { month: 'short', day: 'numeric' }) + ' – ' + fmtDay(t.end, { month: 'short', day: 'numeric' })) : 'No dates'} · ${plural(t.items.length, 'plan')}</span>
           </span>
           <span class="row-trail">${icon('edit')}</span>
         </button></li>`).join('')}
@@ -1449,30 +1453,23 @@ function renderMore() {
 
     <h2 class="group-label">Appearance</h2>
     <ul class="group">
-      <li><div class="row">
-        <div class="segmented" role="group" aria-label="Theme">
-          ${[['auto', 'brightness_auto', 'Automatic'], ['light', 'light_mode', 'Light'], ['dark', 'dark_mode', 'Dark']].map(([value, ic, label]) => `
-            <button type="button" class="ripple" data-action="theme" data-value="${value}" aria-pressed="${state.settings.theme === value}">${icon(ic)}${label}</button>`).join('')}
-        </div>
-      </div></li>
-      <li><div class="row">
-        <div class="segmented" role="group" aria-label="Units">
-          ${[['metric', 'Metric · km, °C'], ['imperial', 'Imperial · mi, °F']].map(([value, label]) => `
-            <button type="button" class="ripple" data-action="units" data-value="${value}" aria-pressed="${imperial() === (value === 'imperial')}">${label}</button>`).join('')}
-        </div>
-      </div></li>
-      <li><div class="row">
-        <div class="segmented" role="group" aria-label="Date format">
-          ${[['dmy', '31 Oct'], ['mdy', 'Oct 31']].map(([value, label]) => `
-            <button type="button" class="ripple" data-action="date-order" data-value="${value}" aria-pressed="${state.settings.dateOrder === value}">${label}</button>`).join('')}
-        </div>
-      </div></li>
-      <li><div class="row">
-        <div class="segmented" role="group" aria-label="Time format">
-          ${[['24', '24-hour · 14:30'], ['12', '12-hour · 2:30 PM']].map(([value, label]) => `
-            <button type="button" class="ripple" data-action="clock" data-value="${value}" aria-pressed="${state.settings.clock === value}">${label}</button>`).join('')}
-        </div>
-      </div></li>
+      ${[
+        ['Theme', 'theme', [['auto', 'Auto', 'brightness_auto'], ['light', 'Light', 'light_mode'], ['dark', 'Dark', 'dark_mode']], state.settings.theme],
+        ['Units', 'units', [['metric', 'km · °C'], ['imperial', 'mi · °F']], imperial() ? 'imperial' : 'metric'],
+        ['Date', 'date-order', [['dmy', '31 Oct'], ['mdy', 'Oct 31']], state.settings.dateOrder],
+        ['Time', 'clock', [['24', '14:30'], ['12', '2:30 PM']], state.settings.clock],
+      ].map(([name, action, options, chosen]) => `
+        <li><div class="row pick">
+          <span class="pick-label">${name}</span>
+          <div class="segmented" role="group" aria-label="${name}">
+            ${options.map(([value, label, ic]) => `
+              <button type="button" class="ripple" data-action="${action}" data-value="${value}" aria-pressed="${chosen === value}">${ic ? icon(ic) : ''}${label}</button>`).join('')}
+          </div>
+        </div></li>`).join('')}
+    </ul>
+
+    <h2 class="group-label">Planning help</h2>
+    <ul class="group">
       <li><button type="button" class="row ripple" data-action="toggle-suggestions" role="switch" aria-checked="${state.settings.suggestions}">
         <span class="row-icon">${icon('auto_awesome')}</span>
         <span class="row-text"><span class="row-title">Day suggestions</span><span class="row-sub">Ideas under each day, from the city’s travel guide</span></span>
@@ -2599,12 +2596,21 @@ document.addEventListener('pointerdown', (e) => {
 /* ---------- Scrolling: tint the top bar, shrink the + button ---------- */
 
 let lastY = 0;
+// Arriving in a section: the buttons are there, wherever the page is scrolled to.
+function showFabs() {
+  document.body.classList.remove('fabs-away');
+  lastY = Infinity;
+}
 function onScroll() {
   const y = window.scrollY;
   $('#appbar').classList.toggle('scrolled', y > 4);
   $('#appbar').classList.toggle('show-title', y > 56);
   if (Math.abs(y - lastY) > 6 || y < 10) {
-    $('#fab').classList.toggle('collapsed', y > lastY && y > 120);
+    // On a phone, scrolling down moves the + and AI buttons out of the way of the plans (and their done
+    // circles); scrolling up, or reaching the end of the page, brings them back.
+    const atEnd = innerHeight + y >= document.documentElement.scrollHeight - 8;
+    document.body.classList.toggle('fabs-away', y > lastY && y > 120 && !atEnd);
+    $('#fab').classList.toggle('collapsed', y > 120);
     lastY = y;
   }
   markCurrentDay();
@@ -3007,4 +3013,7 @@ if (new URLSearchParams(location.search).has('selfcheck')) {
 
 // If the trip is happening now, jump to today's card.
 const todayCard = document.getElementById('day-' + todayISO());
-if (todayCard) todayCard.scrollIntoView({ block: 'start' });
+if (todayCard) {
+  todayCard.scrollIntoView({ block: 'start' });
+  showFabs();     // this jump isn't the user scrolling down: the + and AI buttons stay
+}

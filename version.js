@@ -6,6 +6,19 @@
      third number   fixes only
    Written for the people who use the app: what changed for them, in plain words. */
 const CHANGELOG = [
+  { v: '2.9.0', date: '2026-10-09', title: 'A tidier look', items: [
+    'Fixed: on narrow phones the plan and trip forms were wider than the screen, cutting off the Save and Close buttons',
+    'Save stays in view at the bottom of the plan and trip forms while you scroll the fields',
+    'On a phone, the + and AI buttons step aside while you scroll down, so they no longer cover a plan’s done circle; scroll up a little and they are back',
+    'A plan’s buttons stay on one row on a phone: its link and tickets show as icons',
+    'A day’s tools (Map, Optimize route…) are one row you can swipe sideways',
+    'Suggestions without a photo get a colored top, so the cards line up',
+    'The Explore list is more compact; the map link is in each place’s details',
+    'Settings: Theme, Units, Date and Time are labeled, and the suggestion and lookup switches have their own group, “Planning help”',
+    'In a place’s details, the close button sits on the photo, at the top',
+    'Fixed: the handle at the top of the AI Assistant overlapped its title',
+    'A long day title breaks before the date (“Saturday, / Oct 10”), and “a day in North” reads “the north of Lisbon”',
+  ] },
   { v: '2.8.2', date: '2026-10-09', title: 'A round of fixes', items: [
     'Fixed: after “Restore from backup” or “Erase everything”, the next start could move plans with a street address to another spot on the map',
     'Fixed: what you were typing in the Checklist could vanish when the app redrew itself in the background',

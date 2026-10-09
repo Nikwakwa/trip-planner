@@ -242,13 +242,23 @@ Phone styles are the default. Add desktop overrides in the media blocks at the e
   to its top. The bar is 64px tall (`--nav-h`, Material 3 Expressive's shorter bar).
 - The trip card (`.hero`) is compact on purpose, so today's plans are on the first screen.
 - On a phone the AI Assistant is a small button stacked on the "New plan" FAB (`#ai-fab`), on the Plan and Ideas
-  tabs, so it stays in reach while scrolling. On a computer it is in the sidebar. It is not on the trip card.
+  tabs. Both buttons slide away while scrolling down (`body.fabs-away`, set in `onScroll`), so they don't cover the
+  plans' done circles, and come back on scrolling up, at the end of the page, or on opening a section (`showFabs`).
+  On a computer it is in the sidebar. It is not on the trip card.
 - Plan view (Wanderlog-like): each day has a big title, its travel total (`day-total`) and tools above the list,
   the stay as a pill at the top (`stay-pill`), white cards (`.group.plans`) with the stop's number (same as its map
   pin; plans not on the map keep their category icon, and a stay keeps its hotel icon, as on the map) and a photo (`planPhoto` in info.js: the guide's, else the
   Wikipedia article's, looked up three at a time), and dotted lines with the travel time between stops (`legHTML`).
 - Plan cards show one row of actions, with the done circle at its end. Secondary ones are icon-only (`.assist-chip.icon-only`, with `title` and
-  `aria-label`). The address line is hidden when it repeats the title.
+  `aria-label`). The link and ticket chips are `.compact`: labeled on a wide window, icon-only under 600px, where the
+  row also starts at the card's edge. Check a card with a link at 360px before adding an action. The address line is
+  hidden when it repeats the title.
+- A day's tools (`.day-tools`) are one row on a phone, scrolled sideways. Two fields side by side go in `.row2`
+  (its columns are `minmax(0, 1fr)`, or a date pushes the form wider than the screen).
+- The plan and trip forms keep their actions (`.sheet-actions`) stuck to the bottom of the sheet.
+- Suggestion cards all start with `.s-photo`: the photo, over the type's color and icon when there is none.
+- Settings: "Appearance" is the four choices (`.row.pick`: Theme, Units, Date, Time); the switches that fetch or
+  suggest things are under "Planning help".
 - Suggestions are open only for the "focus day" (first day from today with suggestions). Other days show a one-line
   `suggest-toggle`, and `ui.suggest[day]` remembers a manual toggle.
 - Phones have a `#day-strip` under the trip tabs (`renderDayStrip`). `markCurrentDay()` highlights the day on screen

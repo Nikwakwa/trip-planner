@@ -732,8 +732,6 @@ main { max-width: 640px; margin: 0 auto; padding: 8px 16px 0; }
   font-size: 16px;
   font-weight: 650;
   box-shadow: var(--elev-3);
-  transition: padding .35s var(--ease), gap .35s var(--ease), bottom .35s var(--ease),
-    border-radius .3s var(--ease), background-color .5s var(--ease);
 }
 .fab:active { border-radius: 28px; }
 .fab-label {
@@ -760,13 +758,23 @@ body.snack-open .fab { bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) +
   background: var(--tertiary-container);
   color: var(--on-tertiary-container);
   box-shadow: var(--elev-3);
-  transition: bottom .35s var(--ease), border-radius .3s var(--ease), background-color .5s var(--ease);
 }
 .ai-fab:active { border-radius: 24px; }
 body.snack-open .ai-fab { bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 148px); }
-/* Room to scroll the last plan clear of both buttons */
+/* Scrolling down a list, both buttons step aside so they don't cover the plans (app.js, onScroll) */
+.fab, .ai-fab {
+  transition: padding .35s var(--ease), gap .35s var(--ease), bottom .35s var(--ease), border-radius .3s var(--ease),
+    background-color .5s var(--ease), transform .3s var(--ease), opacity .2s var(--ease);
+}
+body.fabs-away .fab:not(:focus-visible), body.fabs-away .ai-fab:not(:focus-visible) {
+  transform: translateY(32px) scale(.9);
+  opacity: 0;
+  pointer-events: none;
+}
+/* Room to scroll the last plan clear of both buttons; without them (Checklist, Settings) the page ends sooner */
 @media (max-width: 899px) {
   body:has(.ai-fab:not([hidden])) { padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 152px); }
+  body:has(#fab[hidden]) { padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 32px); }
 }
 
 /* ---------- Navigation bar ---------- */
@@ -927,7 +935,12 @@ dialog::backdrop { background: rgb(0 0 0 / .42); animation: fade-in .3s var(--ea
 .field textarea { resize: none; field-sizing: content; min-height: 56px; }
 .field input::placeholder, .field textarea::placeholder { color: var(--on-surface-variant); opacity: .65; }
 .field input::-webkit-calendar-picker-indicator { opacity: .6; }
-.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+/* Two fields side by side. They share the width evenly even when a date or a time would like more
+   (otherwise the form grows wider than a narrow phone). */
+.row2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.row2 .field { min-width: 0; padding-left: 12px; padding-right: 8px; }
+.row2 .field.with-btn { padding-right: 2px; gap: 0; }
+.row2 .field input { min-width: 0; }
 .hint { margin: -8px 16px 0; font-size: 12px; line-height: 16px; color: var(--on-surface-variant); }
 
 /* Category chips */
@@ -987,6 +1000,25 @@ dialog::backdrop { background: rgb(0 0 0 / .42); animation: fade-in .3s var(--ea
 
 .sheet-actions { display: flex; align-items: center; gap: 8px; padding-top: 4px; }
 .sheet-actions .btn.text { margin-left: -12px; }
+/* The long forms (a plan, a trip): Save stays in view at the bottom while the fields scroll under it */
+#item-form > .sheet-actions, #trip-form > .sheet-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  margin: -4px -20px calc(-20px - env(safe-area-inset-bottom));
+  padding: 12px 20px calc(16px + env(safe-area-inset-bottom));
+  background: var(--surface-container-low);
+}
+#item-form > .sheet-actions::before, #trip-form > .sheet-actions::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 16px;
+  background: linear-gradient(to top, var(--surface-container-low), transparent);
+  pointer-events: none;
+}
 .spacer { flex: 1; }
 
 /* ---------- Centered dialog ---------- */
@@ -1072,15 +1104,11 @@ dialog.alert[open] { animation: alert-in .4s var(--ease-decel); }
 .s-card:nth-child(2) { animation-delay: .05s; }
 .s-card:nth-child(3) { animation-delay: .1s; }
 @keyframes card-in { from { opacity: 0; transform: translateX(24px); } }
-.s-top { display: flex; align-items: center; gap: 12px; }
-.s-top .avatar { width: 36px; height: 36px; border-radius: 12px; }
-.s-top .avatar .icon { width: 20px; height: 20px; }
 .s-name { margin: 0; font-size: 16px; line-height: 21px; font-weight: 600; }
 .s-why, .s-blurb { margin: 0; font-size: 13px; line-height: 18px; color: var(--on-surface-variant); }
 .s-why { display: flex; align-items: center; gap: 4px; color: var(--primary); font-weight: 600; }
 .s-why .icon { width: 16px; height: 16px; }
 .s-why span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.s-top .tag { margin-left: auto; }
 .empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .s-blurb {
   display: -webkit-box;
@@ -1133,6 +1161,10 @@ dialog.alert[open] { animation: alert-in .4s var(--ease-decel); }
 .segmented button .icon { width: 18px; height: 18px; }
 .segmented button[aria-pressed="true"] { background: var(--secondary-container); color: var(--on-secondary-container); }
 .row .segmented { margin: 0; flex: 1; }
+/* Settings: a choice with its name in front (Theme, Units, Date, Time) */
+.row.pick { min-height: 64px; gap: 12px; }
+.pick-label { flex: none; width: 52px; font-size: 14px; line-height: 20px; font-weight: 600; color: var(--on-surface-variant); }
+.row.pick .segmented button { height: 40px; }
 
 /* ---------- Explore filter chips ---------- */
 .filter-row {
@@ -1164,7 +1196,8 @@ dialog.alert[open] { animation: alert-in .4s var(--ease-decel); }
   border-color: transparent;
   border-radius: 17px;
 }
-.place .add-btn { margin: 12px 8px 0 0; }
+.place .add-btn { margin: 16px 12px 0 0; }
+.place .item-main { padding-right: 12px; }
 .add-btn.added { background: var(--primary); color: var(--on-primary); }
 .place .tag { margin-top: 6px; justify-self: start; }
 
@@ -1419,17 +1452,20 @@ dialog.map-sheet[open] { display: flex; flex-direction: column; }
 .place-note { padding: 14px 16px; color: var(--on-surface-variant); font-size: 14px; }
 
 /* Explore: which place the guide is for */
-.place-row { display: flex; align-items: center; gap: 8px; margin: -8px 0 12px 4px; }
+.place-row { display: flex; align-items: center; gap: 2px; margin: -8px -6px 12px 4px; }
+.place-row .btn.text { padding: 0 10px; gap: 6px; }
 .place-pin {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex: 1;
   min-width: 0;
   color: var(--on-surface-variant);
   font-size: 14px;
   font-weight: 550;
 }
 .place-pin .icon { width: 18px; height: 18px; color: var(--primary); flex: none; }
+.place-pin span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .guide-note {
   display: flex;
@@ -1585,6 +1621,7 @@ body.dragging .fab, body.dragging .ai-fab, body.dragging .snackbar { opacity: 0;
 /* ---------- Essentials sheet (essentials.js) ---------- */
 dialog.info-sheet { height: 94dvh; }
 .info-inner { display: flex; flex-direction: column; height: 100%; }
+.info-inner .handle, .ai-inner .handle { flex: none; margin: 12px auto 8px; }     /* clear of the title */
 .info-inner .sheet-head { padding: 0 12px 8px 20px; margin: 0; }
 .info-body {
   flex: 1;
@@ -1878,19 +1915,38 @@ dialog.ai-sheet { height: 94dvh; }
 /* ---------- Photos of places ---------- */
 .avatar.thumb { position: relative; overflow: hidden; width: 56px; height: 56px; border-radius: 16px; }
 .avatar.thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* The top of a suggestion card: the photo, over the type's color and icon (which show when there is none) */
 .s-photo {
-  display: block;
+  position: relative;
+  display: grid;
+  place-items: center;
   width: calc(100% + 16px);
-  height: 120px;
+  height: 96px;
   margin: -8px -8px 2px;
   border-radius: 16px 16px 8px 8px;
-  object-fit: cover;
-  background: var(--surface-container-high);
+  overflow: hidden;
+  background: oklch(var(--cat-l) var(--cat-c) var(--h));
+  color: oklch(var(--cat-on-l) var(--cat-on-c) var(--h));
 }
+.s-photo > .icon { width: 32px; height: 32px; opacity: .85; }
+.s-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.s-photo .tag { position: absolute; top: 8px; right: 8px; background: var(--surface); }
 .pi-figure { margin: 4px -4px 0; }
 .pi-photo { display: block; width: 100%; max-height: 240px; border-radius: 20px; object-fit: cover; background: var(--surface-container-high); }
 .pi-figure figcaption { margin-top: 4px; font-size: 11px; line-height: 14px; color: var(--on-surface-variant); text-align: right; }
 .pi-figure:not(:has(img)) { display: none; }
+/* With a photo at the top of the sheet, the close button sits on its corner */
+.place-body { position: relative; }
+.place-body:has(.pi-figure img) .pi-head { margin-right: 0; }
+.place-body:has(.pi-figure img) .pi-head [data-close] {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  width: 40px;
+  height: 40px;
+  background: rgb(0 0 0 / .5);
+  color: #fff;
+}
 
 /* ---------- Tickets & bookings (files.js) ---------- */
 .files-field { display: grid; gap: 6px; }
@@ -2037,6 +2093,7 @@ dialog.ai-sheet { height: 94dvh; }
   }
   .fab.collapsed { padding: 0 22px 0 16px; gap: 12px; }
   .fab.collapsed .fab-label { max-width: 160px; opacity: 1; }
+  body.fabs-away .fab:not(:focus-visible) { transform: none; opacity: 1; pointer-events: auto; }
   /* The AI Assistant is in the sidebar instead */
   .ai-fab { display: none; }
 
@@ -2044,6 +2101,7 @@ dialog.ai-sheet { height: 94dvh; }
   .appbar-inner, main { max-width: var(--content-w); padding-left: 24px; padding-right: 24px; }
   .trip-tabs { flex-wrap: wrap; overflow: visible; }
   .tray-row { flex-wrap: wrap; overflow: visible; margin: 0; padding: 2px 0 4px; }
+  .idea-chip button { max-width: 360px; }
   .suggest-row { scrollbar-width: thin; margin: 2px 0 0; padding: 2px 0 8px; scroll-padding: 0; }
   .s-card { flex: 1 0 200px; width: auto; max-width: 280px; }
   .filter-row { flex-wrap: wrap; overflow: visible; }
@@ -2055,6 +2113,7 @@ dialog.ai-sheet { height: 94dvh; }
   dialog.sheet[open] { animation: alert-in .3s var(--ease-decel); }
   dialog.sheet .handle { display: none; }
   .sheet form, .place-body { padding-top: 20px; }
+  .place-body:has(.pi-figure img) .pi-head [data-close] { top: 32px; }
   .sheet .sheet-head { padding-top: 16px; }
   .sheet form .sheet-head { padding-top: 0; }
   dialog.info-sheet { max-width: 680px; height: min(88dvh, 820px); }
@@ -2182,9 +2241,6 @@ h2[tabindex="-1"]:focus-visible { outline: none; }
 .suggest-toggle .turn { transform: rotate(90deg); opacity: .7; }
 button.suggest-title { border-radius: 12px; padding: 4px 8px 4px 0; text-align: left; }
 
-/* Suggestion cards: a shorter photo, so three ideas read at a glance */
-.s-photo { height: 96px; }
-
 /* Day strip (phones): jump to a day; the one on screen is filled */
 .day-strip {
   display: flex;
@@ -2249,7 +2305,7 @@ button.suggest-title { border-radius: 12px; padding: 4px 8px 4px 0; text-align: 
 /* Day title */
 .day { margin-bottom: 36px; }
 .day-head { align-items: flex-start; gap: 10px; padding: 0 0 4px 4px; }
-.day-title { margin: 0; font-size: 26px; line-height: 32px; font-weight: 750; letter-spacing: -.01em; }
+.day-title { margin: 0; font-size: 26px; line-height: 32px; font-weight: 750; letter-spacing: -.01em; text-wrap: balance; }
 .day.is-today .day-title { color: var(--primary); }
 .day-sub { margin-top: 2px; font-size: 13px; line-height: 18px; }
 .day-head .wx { align-self: center; }
@@ -2272,6 +2328,12 @@ button.suggest-title { border-radius: 12px; padding: 4px 8px 4px 0; text-align: 
 }
 .item-chips .assist-chip:not(.primary, .selected) { background: color-mix(in oklab, var(--on-surface) 7%, transparent); }
 .day-tools .assist-chip.selected { background: var(--secondary-container); }
+/* On a phone the day's tools stay on one row, swiped sideways when there are many */
+@media (max-width: 599px) {
+  .day-tools { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 8px -16px 14px; padding: 0 16px; }
+  .day-tools::-webkit-scrollbar { display: none; }
+  .day-tools .assist-chip { flex: none; height: 36px; }
+}
 
 /* Trip card: a smaller title, so the days start sooner */
 .hero-title { font-size: 34px; line-height: 40px; }
@@ -2330,6 +2392,14 @@ button.suggest-title { border-radius: 12px; padding: 4px 8px 4px 0; text-align: 
 .plans .item-main:has(.avatar) + .item-chips { padding-left: 66px; }
 .plans .item-chips:not(:has(.check)) { padding-bottom: 14px; }
 .plans .check { width: 40px; height: 40px; margin: 0 0 0 auto; }
+.assist-chip > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* On a phone the actions start at the card's edge and the secondary ones are icons (wider, for a thumb),
+   so they all fit on one row beside the done circle. */
+@media (max-width: 599px) {
+  .plans .item-chips, .plans .item-main:has(.avatar) + .item-chips { gap: 4px; padding-left: 14px; }
+  .plans .assist-chip.compact, .plans .assist-chip.icon-only { width: 40px; padding: 0; justify-content: center; }
+  .plans .assist-chip.compact > span { display: none; }
+}
 
 /* The way between two stops: travel time, a link to directions, then a dotted line */
 .group.plans > li.leg { padding: 2px 0; }
