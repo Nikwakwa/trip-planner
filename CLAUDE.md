@@ -152,7 +152,11 @@ then everything else (`byPlanOrder`).
 **During the trip, calendar, files, packing.**
 - `today.js`: `baseFor(trip, day)` is the home base. It's the latest located `stay` plan dated on or before the day
   (else the first one; an undated stay counts for every day). Day lists, Optimize route, the day map, the route link,
-  empty-day area order and the AI context all use it. `nowCardHTML` refreshes itself every 30 s. "Near me" uses the
+  empty-day area order and the AI context all use it. Where a day starts and ends is `dayEnds(trip, day, items)`:
+  the base both ways, except on the day a stay begins (`startsStay`, its card says "Check in"): that day ends at the
+  new stay and, after a move, starts at the one before it (the "Check out" pill, `out`). A stay may have a check-out
+  day (`item.until`, optional, synced; read it with `stayUntil`): that day starts there and doesn't end there, and from
+  then on `baseFor` no longer returns it. A stay plan titled "Check out…" never begins a stay. `nowCardHTML` refreshes itself every 30 s. "Near me" uses the
   geolocation API only, on the guide already saved on the phone.
 - `calendar.js`: there's a Google Calendar template link per plan, and an `.ics` file per trip. Times are local to
   the destination via `tripTimeZone` (the Essentials time zone). Visit length comes from `planLength` (today.js).

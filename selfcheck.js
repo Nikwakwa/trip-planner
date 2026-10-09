@@ -199,6 +199,31 @@ function runSelfCheck() {
     same([{ id: 'rest' }, { id: 'noon', time: '12:30' }, { id: 'after9', slot: '09:00~01' }, { id: 'nine', time: '09:00' }, { id: 'first', slot: '00:00~01' }]
       .sort(byPlanOrder).map(i => i.id), ['first', 'nine', 'after9', 'noon', 'rest']));
 
+  check('The day you change stays starts at the one you leave and ends at the new one', () => {
+    const stay = (id, title, date, lat) => ({ id, title, category: 'stay', date, lat, lng: -71 });
+    const first = stay('a', 'B&B', '2026-10-13', 42.36), second = stay('b', 'Hotel', '2026-10-16', 40.75);
+    const out = stay('c', 'Check out: Hotel', '2026-10-24', 40.75);
+    const trip = { items: [first, second, out] };
+    const ends = (day, items, t = trip) => { const e = dayEnds(t, day, items, null); return [e.start && e.start.item.id, e.end && e.end.item.id, !!e.out]; };
+    return same([
+      ends('2026-10-13', [first]), ends('2026-10-14', []), ends('2026-10-16', [second]), ends('2026-10-17', []), ends('2026-10-24', [out]),
+      [first, second, out].map(i => startsStay(i, trip, null)),
+    ], [[null, 'a', false], ['a', 'a', false], ['a', 'b', true], ['b', 'b', false], [null, null, false], [true, true, false]]);
+  });
+  check('A stay with a check-out day is left that day, and is no longer the base afterwards', () => {
+    const stay = (id, date, until, lat) => ({ id, title: id, category: 'stay', date, until, lat, lng: -71 });
+    const first = stay('a', '2026-10-13', '2026-10-15', 42.36), second = stay('b', '2026-10-16', '2026-10-24', 40.75);
+    const trip = { items: [first, second] };
+    const open = { items: [{ ...first, until: undefined }, second] };     // the first stay has no check-out day
+    const ends = (day, items, t = trip) => { const e = dayEnds(t, day, items, null); return [e.start && e.start.item.id, e.end && e.end.item.id, !!e.out]; };
+    return same([
+      ends('2026-10-14', []), ends('2026-10-15', []), ends('2026-10-16', [second]), ends('2026-10-23', []), ends('2026-10-24', []), ends('2026-10-25', []),
+      ends('2026-10-16', [second], open), ends('2026-10-24', [], open), ends('2026-10-25', [], open),
+      stayUntil(second), stayUntil({ ...second, until: '2026-10-16' }), stayUntil({ ...second, category: 'sight' }), tidyItem({ ...second, until: 'soon' }).until,
+    ], [['a', 'a', false], ['a', null, true], [null, 'b', false], ['b', 'b', false], ['b', null, true], [null, null, false],
+      ['a', 'b', true], ['b', null, true], [null, null, false],
+      '2026-10-24', '', '', undefined]);
+  });
   check('A place picked under a plan’s name gives its own name, unless more than the place was typed', () => {
     const tj = { name: 'Trader Joe\'s', place: '22-43 Jackson Avenue, New York', sub: '22-43 Jackson Avenue, New York' };
     return same([

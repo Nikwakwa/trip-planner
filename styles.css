@@ -2378,6 +2378,7 @@ button.suggest-title { border-radius: 12px; padding: 4px 8px 4px 0; text-align: 
   color: var(--on-tertiary-container);
 }
 .stay-pill span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stay-pill b { font-weight: 700; color: var(--primary); }     /* "Check out", on the day of a move */
 
 /* Day buttons on phones: one pill per day, the day on screen filled */
 .day-strip { gap: 8px; padding: 2px 16px 6px; }

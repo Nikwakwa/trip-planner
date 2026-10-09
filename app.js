@@ -665,6 +665,7 @@ function tidyItem(i, newId = false) {
   if ('slot' in out && !/^\d{2}:\d{2}~\d{2}$/.test(out.slot)) delete out.slot;
   if ('geoMiss' in out && out.geoMiss !== true) delete out.geoMiss;
   if ('booked' in out && typeof out.booked !== 'boolean') delete out.booked;
+  if ('until' in out && !isDate(out.until)) delete out.until;
   return out;
 }
 
@@ -979,7 +980,8 @@ function itemHTML(item, trip, { showDate = false, drag = false, note = null, sch
   const over = [
     item.time && fmtTime(item.time),
     showDate && item.date && fmtDay(item.date),
-    cat.label,
+    // today.js: the day a stay begins, and for how long when its check-out day is set
+    !startsStay(item, trip) ? cat.label : stayUntil(item) ? `Check in · ${plural(daysBetween(item.date, item.until), 'night')}` : 'Check in',
   ].filter(Boolean).join(' · ');
   const days = schedule ? tripDays(trip) : [];
   let chips;
@@ -1031,7 +1033,10 @@ function tripDays(trip) {
       d.setDate(d.getDate() + 1);
     }
   }
-  for (const it of trip.items) if (it.date) days.add(it.date);
+  for (const it of trip.items) {
+    if (it.date) days.add(it.date);
+    if (stayUntil(it)) days.add(it.until);     // today.js: a stay's check-out day shows up too
+  }
   return [...days].sort();
 }
 
@@ -1134,6 +1139,7 @@ function renderPlan(trip) {
       inRange ? `Day ${daysBetween(trip.start, day) + 1}` : 'Outside trip dates',
       items.length && plural(items.length, 'plan'),
     ].filter(Boolean).join(' · ');
+    const list = dayListHTML(day, items, trip, guide);     // on a day without plans: only a stay's check-out
     html += `
       <section class="day ${isToday ? 'is-today' : ''}" id="day-${day}" style="--day:${dayTint(days.indexOf(day))}">
         <div class="day-head">
@@ -1146,9 +1152,8 @@ function renderPlan(trip) {
             aria-label="Add a plan on ${esc(fmtDay(day, { weekday: 'long', month: 'long', day: 'numeric' }))}">${icon('add')}</button>
         </div>
         ${dayToolsHTML(trip, day, items, guide)}
-        ${items.length
-          ? `<ul class="group plans">${dayListHTML(items, trip, guide)}</ul>`
-          : `<button type="button" class="empty-day ripple" data-action="add-on-day" data-date="${day}">${icon('add')}Free day — tap to add a plan</button>`}
+        ${list ? `<ul class="group plans">${list}</ul>` : ''}
+        ${items.length ? '' : `<button type="button" class="empty-day ripple" data-action="add-on-day" data-date="${day}">${icon('add')}Free day — tap to add a plan</button>`}
         ${suggestionsHTML(suggestions.get(day), day, ui.suggest[day] ?? day === focusDay)}
       </section>`;
   }
@@ -1173,17 +1178,18 @@ function legHTML(a, b, mode, label = '') {
 }
 
 // A day's plans, with the travel time between each pair of stops, and to and from the home base (today.js).
-function dayListHTML(items, trip, guide) {
-  const day = items[0].date;
+function dayListHTML(day, items, trip, guide) {
   const mode = modeFor(trip, day);
-  const base = baseFor(trip, day, guide);
   const located = items.filter(it => coordsOf(it, guide));
-  const useBase = base && located.length && !items.includes(base.item);
-  // The day starts at the hotel: its name, then the way to the first stop.
-  let html = useBase ? `
-    <li class="stay-pill"><button type="button" class="ripple" data-action="edit" data-id="${esc(base.item.id)}"
-      aria-label="Your stay: ${esc(base.item.title)}">${icon('hotel')}<span>${esc(base.item.title)}</span></button></li>` : '';
-  let prev = useBase ? base.c : null;
+  const ends = dayEnds(trip, day, items, guide);
+  // The day starts at the hotel: its name, then the way to the first stop. On the day it is left
+  // (for another stay, or on its check-out day: today.js) it says so, also on a day without plans.
+  const { start, out } = ends.out || located.length ? ends : {};
+  const end = located.length ? ends.end : null;
+  let html = start ? `
+    <li class="stay-pill"><button type="button" class="ripple" data-action="edit" data-id="${esc(start.item.id)}"
+      aria-label="${out ? 'Check out of' : 'Your stay:'} ${esc(start.item.title)}">${icon('hotel')}<span>${out ? '<b>Check out</b> · ' : ''}${esc(start.item.title)}</span></button></li>` : '';
+  let prev = start ? start.c : null;
   let num = 0;
   for (const item of items) {
     const c = coordsOf(item, guide);
@@ -1191,7 +1197,7 @@ function dayListHTML(items, trip, guide) {
     html += itemHTML(item, trip, { drag: true, note: hoursNote(item, guide), num: c ? ++num : 0, photo: planPhoto(item, guide) });
     if (c) prev = c;
   }
-  if (useBase) html += legHTML(prev, base.c, mode, 'Back to your stay');
+  if (end && prev) html += legHTML(prev, end.c, mode, 'Back to your stay');
   return html;
 }
 
@@ -1693,7 +1699,7 @@ itemForm.addEventListener('click', (e) => {
   const f = itemForm.elements;
   if (planMatch.field === 'title') f.title.value = titleAfterPick(f.title.value, m).slice(0, 120);
   f.place.value = m.place;
-  if (m.cat && !editingItemId && !planMatch.typeSet) { f.category.value = m.cat; setPlanExamples(); }
+  if (m.cat && !editingItemId && !planMatch.typeSet) { f.category.value = m.cat; setPlanExamples(); showStayFields(); }
   planMatch.chosen = m;
   showMatches('', []);
 });
@@ -1714,9 +1720,10 @@ function openItemForm(item, defaults = {}) {
   editingItemId = item ? item.id : null;
   const v = item || { title: '', category: 'sight', date: '', time: '', place: '', link: '', notes: '', ...defaults };
   $('#item-dialog-title').textContent = item ? 'Edit plan' : (v.date ? 'New plan' : 'New idea');
-  for (const f of ['title', 'category', 'date', 'time', 'place', 'link', 'notes']) {
+  for (const f of ['title', 'category', 'date', 'time', 'place', 'link', 'notes', 'until']) {
     itemForm.elements[f].value = v[f] || '';
   }
+  showStayFields();
   itemForm.elements.booked.checked = v.booked === true;
   $('#item-delete').hidden = !item;
   showTimeClear();
@@ -1738,8 +1745,21 @@ $('#time-clear').addEventListener('click', () => {
   showTimeClear();
 });
 
+// A stay has a check-in day and, if you like, a check-out day (after it).
+function showStayFields() {
+  const f = itemForm.elements;
+  const stay = f.category.value === 'stay';
+  $('#item-until').hidden = !stay;
+  f.until.disabled = !stay;        // a field that isn't shown must not stop the form from saving
+  $('#item-day-label').textContent = stay ? 'Check-in day' : 'Day';
+  const first = isDate(f.date.value) ? parseDate(f.date.value) : null;
+  if (first) first.setDate(first.getDate() + 1);
+  f.until.min = first ? toISO(first) : '';
+}
+itemForm.elements.date.addEventListener('change', showStayFields);
+
 // Another type of plan: other examples.
-$('#item-category').addEventListener('change', () => { planMatch.typeSet = true; setPlanExamples(); });
+$('#item-category').addEventListener('change', () => { planMatch.typeSet = true; setPlanExamples(); showStayFields(); });
 
 itemForm.addEventListener('submit', (e) => {
   e.preventDefault();
@@ -1755,6 +1775,8 @@ itemForm.addEventListener('submit', (e) => {
     booked: f.booked.checked,
   };
   if (!data.title) return;
+  const until = data.category === 'stay' && isDate(f.until.value) ? f.until.value : '';
+  if (until) data.until = until;
   const trip = activeTrip();
   if (!trip) { itemDialog.close(); return; }
   const found = editingItemId && findItem(editingItemId);
@@ -1775,6 +1797,7 @@ itemForm.addEventListener('submit', (e) => {
     // A new day or a set time replaces the position chosen by Optimize route.
     if (found.item.date !== data.date || data.time) delete found.item.slot;
     if (m) { delete found.item.guideId; delete found.item.geoMiss; }
+    if (!until) delete found.item.until;
     Object.assign(found.item, data, spot);
   } else {
     trip.items.push({ id: uid(), done: false, ...data, ...spot });
@@ -2654,6 +2677,7 @@ function cleanBackup(data) {
       slot: /^\d{2}:\d{2}~\d{2}$/.test(i.slot) ? i.slot : undefined,
       geoMiss: i.geoMiss === true || undefined,
       booked: i.booked === true || undefined,
+      until: date(i.until) || undefined,
     })),
   }));
   const checklist = (Array.isArray(data.checklist) ? data.checklist : [])

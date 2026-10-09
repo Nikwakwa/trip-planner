@@ -55,6 +55,10 @@ function tripContext(trip) {
   const own = Object.entries(trip.dayTravel || {}).map(([d, m]) => `${d}: ${TRAVEL_MODES[m].label}`);
   const base = baseFor(trip, null);
   if (base) lines.push(`Home base: "stay" plans with an address are where days start and end (now: ${base.item.title}, ${base.item.place}). Prefer places near it.`);
+  const stays = trip.items.filter(i => startsStay(i, trip, guide));
+  if (stays.length > 1) {
+    lines.push(`Stays: ${stays.map(i => `${i.title} from ${i.date}${stayUntil(i) ? ` to ${i.until} (check-out day)` : ''}`).join('; ')}. The day a stay begins starts at the stay before it (check out) and ends at the new one (check in).`);
+  }
   lines.push(`Getting around: ${TRAVEL_MODES[trip.travel || 'transit'].label} (short distances on foot)`
     + `${own.length ? `, except ${own.join('; ')}` : ''}. Plan travel times for that.`);
   lines.push(`Use ${imperial() ? 'miles and °F' : 'kilometres and °C'} when you mention distances or temperatures.`);
@@ -64,6 +68,7 @@ function tripContext(trip) {
     return {
       id: i.id, title: i.title, category: i.category, date: i.date, time: i.time, place: i.place,
       ...(i.notes ? { notes: i.notes.slice(0, 200) } : {}),
+      ...(stayUntil(i) ? { check_out: i.until } : {}),
       ...(i.done ? { done: true } : {}),
       ...(note ? { hours: note.text } : {}),
     };

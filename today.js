@@ -5,6 +5,7 @@
    - Home base: a "Stay" plan with an address (the hotel, apartment…) is where each
      day starts and ends, from its day on. Before the first one, the first one counts;
      a stay saved as an idea (no day) counts for the whole trip.
+   - Changing stays: the day a new stay begins starts at the one before it (check out).
    - Now & next: on a trip day, the plan going on now, the next one, and when to leave for it.
    - What's near me: guide places around the phone's location, open now first.
    Functions here use helpers from app.js, which is loaded after this file.
@@ -18,16 +19,60 @@ function baseFor(trip, day, guide = guideFor(trip)) {
     .map(i => ({ item: i, c: coordsOf(i, guide) }));
   const stays = all.filter(s => s.c);
   if (!stays.length) return null;
-  const byDate = (a, b) => (a.item.date < b.item.date ? -1 : a.item.date > b.item.date ? 1 : 0);
+  // By day; of two stays on one day, the one being left ("Check out: …") comes first.
+  const byDate = (a, b) => (a.item.date < b.item.date ? -1 : a.item.date > b.item.date ? 1 : isCheckOut(b.item) - isCheckOut(a.item));
   const dated = stays.filter(s => s.item.date).sort(byDate);
   if (!dated.length) return stays[0];
   const since = day ? dated.filter(s => s.item.date <= day) : [];
   if (!since.length) return dated[0];
-  const base = since[since.length - 1];
+  let base = since[since.length - 1];
+  // A stay with a check-out day is over from that day on: the night is spent at an earlier stay
+  // still booked for it, or nowhere known. (A stay without one ended when the next began.)
+  if (stayUntil(base.item) && stayUntil(base.item) <= day) base = since.filter(s => stayUntil(s.item) > day).pop();
+  if (!base) return null;
   // A later stay that isn't on the map (its address wasn't found): the earlier one is no longer
   // the base. Better no base than a hotel in another city.
   const moved = all.some(s => !s.c && s.item.date && s.item.date > base.item.date && s.item.date <= day);
   return moved ? null : base;
+}
+
+/* ---------- Changing stays ----------
+   On the day a new stay begins, the morning still starts at the stay before it (check out),
+   and the day ends at the new one (check in). A stay can also have a check-out day of its
+   own (optional): that day starts there, and from then on it is no longer the home base. */
+
+const isCheckOut = item => /^check(ing)?[ -]?out\b/i.test(item.title);
+// A stay's check-out day, when one is set (item.until, optional) and comes after the day it begins.
+const stayUntil = item => (item.category === 'stay' && item.date && isDate(item.until) && item.until > item.date ? item.until : '');
+const dayBefore = (day) => { const d = parseDate(day); d.setDate(d.getDate() - 1); return toISO(d); };
+
+// Does this stay plan begin a stay? (the night before was spent somewhere else, or nowhere yet)
+// Its card says "Check in".
+function startsStay(item, trip, guide = guideFor(trip)) {
+  if (item.category !== 'stay' || !item.date || isCheckOut(item)) return false;
+  const base = baseFor(trip, item.date, guide);
+  if (!base || base.item !== item) return false;
+  const before = baseFor(trip, dayBefore(item.date), guide);
+  return !before || before.item === item || miles(before.c, base.c) > 0.2;
+}
+
+// Where a day starts and where it ends, for its travel times and its route: the stay, both ways.
+// On the day a stay begins, the day ends there. "out" marks a day that starts at a stay being left:
+// for the next one, or (on its check-out day) for nowhere, and then the day doesn't end there.
+function dayEnds(trip, day, items, guide = guideFor(trip)) {
+  const to = baseFor(trip, day, guide);                    // where the night is spent
+  const from = baseFor(trip, dayBefore(day), guide);       // where the day starts
+  if (!to) return from && stayUntil(from.item) === day ? { start: from, end: null, out: true } : { start: null, end: null };
+  const here = items.includes(to.item);
+  if (here && !startsStay(to.item, trip, guide)) return { start: null, end: null };
+  const move = from && from.item !== to.item && miles(from.c, to.c) > 0.2;
+  if (!move) return here ? { start: null, end: to } : { start: to, end: to };
+  // A "Check out" plan of your own on that day already says where the day starts.
+  const listed = items.some((i) => {
+    const c = i.category === 'stay' && i !== to.item && coordsOf(i, guide);
+    return c && miles(c, from.c) <= 0.2;
+  });
+  return { start: listed ? null : from, end: to, out: true };
 }
 
 /* ---------- Now & next ---------- */
@@ -63,7 +108,7 @@ function nowNext(trip) {
   if (next) {
     // From the plan before it (or the hotel, first thing in the day) to the next plan.
     const before = items.slice(0, items.indexOf(next)).reverse().find(it => coordsOf(it, guide));
-    const from = before ? coordsOf(before, guide) : (baseFor(trip, today, guide) || {}).c;
+    const from = before ? coordsOf(before, guide) : (dayEnds(trip, today, items, guide).start || {}).c;
     const to = coordsOf(next, guide);
     if (from && to) {
       const t = travel(miles(from, to), modeFor(trip, today));

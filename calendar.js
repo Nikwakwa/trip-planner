@@ -24,7 +24,8 @@ const calDateTime = d => `${calDate(d)}T${pad2(d.getHours())}${pad2(d.getMinutes
 function eventTimes(item, guide) {
   const start = parseDate(item.date);
   if (!item.time) {
-    const end = parseDate(item.date);
+    // A stay with a check-out day (today.js) covers every day up to and including it.
+    const end = parseDate(stayUntil(item) || item.date);
     end.setDate(end.getDate() + 1);
     return { allDay: true, start, end };
   }

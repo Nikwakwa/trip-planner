@@ -6,6 +6,12 @@
      third number   fixes only
    Written for the people who use the app: what changed for them, in plain words. */
 const CHANGELOG = [
+  { v: '2.8.0', date: '2026-10-09', title: 'Changing stays', items: [
+    'The day you move to another stay now starts with “Check out” at the one you leave, with the way from there to your first plan',
+    'A stay’s card says “Check in” on the day it begins',
+    'A stay can have a check-out day (optional, in its form): that day starts with “Check out”, and its card shows the number of nights',
+    'Those days’ travel total, map and Optimize route start from the stay you leave',
+  ] },
   { v: '2.7.2', date: '2026-10-09', items: [
     'Fixed: picking a place under a plan’s name now keeps just the place’s name, also when you typed its address after it',
     'Fixed: a plan at a street address could show the photo and description of a town with the street’s name, far away',

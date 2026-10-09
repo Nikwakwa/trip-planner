@@ -177,13 +177,14 @@ function optimizeDay(trip, day) {
   if (!free.length) return { error: 'Every stop has a set time, so the order is fixed. Clear a time to let the app move that stop.' };
 
   // With a hotel (today.js), the day starts and ends there; the route counts both ways.
-  const base = baseFor(trip, day, guide);
-  const home = base && !items.includes(base.item) ? base.c : null;
-  // Distance between two stops; a missing stop (null) is the hotel, or nothing without one.
+  const ends = dayEnds(trip, day, items, guide);
+  // Distance between two stops; a missing stop (null) is the hotel the day starts from (before the
+  // first stop) or ends at (after the last one), or nothing without one.
   const dist = (a, b) => {
     if (!a && !b) return 0;
-    if (!a || !b) return home ? miles(home, pts.get(a || b)) : 0;
-    return miles(pts.get(a), pts.get(b));
+    const from = a ? pts.get(a) : ends.start && ends.start.c;
+    const to = b ? pts.get(b) : ends.end && ends.end.c;
+    return from && to ? miles(from, to) : 0;
   };
   const length = seq => seq.reduce((sum, it, k) => sum + dist(seq[k - 1] || null, it), 0) + (seq.length ? dist(seq[seq.length - 1], null) : 0);
 
@@ -332,11 +333,14 @@ function mapGroups(trip) {
   });
 }
 
-// A day's stops for the route, starting and ending at the hotel when there is one (today.js).
+// A day's stops for the route, starting and ending at the hotel when there is one (today.js);
+// on the day of a move to another stay, from the one being left to the new one.
 function withBase(trip, day, located) {
-  const base = baseFor(trip, day);
   const pts = located.map(s => s.c);
-  return base && pts.length && !located.some(s => s.it === base.item) ? [base.c, ...pts, base.c] : pts;
+  if (!pts.length) return pts;
+  const { start, end } = dayEnds(trip, day, located.map(s => s.it));
+  const back = end && miles(pts[pts.length - 1], end.c) >= 0.05;     // not when the day's last stop is the stay
+  return [...(start ? [start.c] : []), ...pts, ...(back ? [end.c] : [])];
 }
 
 function googleRouteUrl(points, mode) {
@@ -609,12 +613,14 @@ function drawMap(fit) {
     });
   }
   // The hotel on a day's map (today.js).
-  const base = mapView.day !== 'all' && baseFor(trip, mapView.day);
-  if (base && !all.some(([la, ln]) => la === base.c.lat && ln === base.c.lng)) {
+  // On the day of a move or a check-out, the stay being left.
+  const ends = mapView.day !== 'all' ? dayEnds(trip, mapView.day, dayItems(trip, mapView.day)) : {};
+  for (const [base, what] of [[ends.start, ends.out ? 'Check out' : 'Your home base'], [ends.end, 'Your home base']]) {
+    if (!base || all.some(([la, ln]) => la === base.c.lat && ln === base.c.lng)) continue;
     L.marker([base.c.lat, base.c.lng], {
       title: base.item.title,
       icon: L.divIcon({ className: 'pin', html: `<div class="pin-shape base">${icon('hotel')}</div>`, iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -30] }),
-    }).bindPopup(`<strong>${esc(base.item.title)}</strong><br>Your home base`).addTo(mapView.layer);
+    }).bindPopup(`<strong>${esc(base.item.title)}</strong><br>${what}`).addTo(mapView.layer);
     all.push([base.c.lat, base.c.lng]);
   }
   if (!fit) return;
@@ -664,7 +670,9 @@ function tripText(trip) {
   for (const day of tripDays(trip)) {
     const items = dayItems(trip, day);
     lines.push('', fmtDay(day, { weekday: 'long', month: 'short', day: 'numeric' }));
-    if (!items.length) lines.push('• Free day');
+    const leaving = trip.items.filter(i => stayUntil(i) === day);      // today.js: a stay's check-out day
+    for (const it of leaving) lines.push(`• Check out: ${it.title}`);
+    if (!items.length && !leaving.length) lines.push('• Free day');
     for (const it of items) {
       lines.push(`• ${it.time ? fmtTime(it.time) + ' ' : ''}${it.title}${it.place && it.place !== it.title ? ` (${it.place})` : ''}`);
     }
