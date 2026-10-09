@@ -147,7 +147,7 @@ function lookupMissing(trip, items) {
           item.geoMiss = true;
         }
         save();
-        render();
+        renderSoon();      // not while something is being typed in the page (the lookups can take a while)
       } catch {
         // No connection: try again next time.
       } finally {

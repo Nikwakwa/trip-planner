@@ -753,8 +753,9 @@ const guideStatus = new Map();    // place key → 'loading' | 'failed'
 
 const placeKey = place => place.osm || `${place.lat},${place.lng}`;
 
-function storeGuide(key, guide) {
-  savedGuides[key] = { ...guide, v: GUIDE_VERSION, saved: Date.now() };
+// v: 0 marks a stand-in guide, to be fetched again the next time the app starts.
+function storeGuide(key, guide, v = GUIDE_VERSION) {
+  savedGuides[key] = { ...guide, v, saved: Date.now() };
   const keys = Object.keys(savedGuides).sort((a, b) => savedGuides[b].saved - savedGuides[a].saved);
   for (const old of keys.slice(MAX_SAVED_GUIDES)) delete savedGuides[old];
   for (;;) {
@@ -794,15 +795,21 @@ function loadGuide(place, { retry = false, quiet = false } = {}) {
   guideStatus.set(key, 'loading');
   (async () => {
     try {
-      const guide = (await wikivoyageGuide(place).catch(() => null)) || (await wikipediaGuide(place));
+      // The travel guide couldn't be read (often the connection dropped halfway): Wikipedia's places
+      // stand in for now, and the travel guide is asked for again at the next start. With a travel
+      // guide already saved, that one is simply kept.
+      let hiccup = false;
+      const guide = (await wikivoyageGuide(place).catch((e) => { hiccup = true; console.warn('Travel guide not read', e); return null; }))
+        || (hiccup && savedGuides[key] && savedGuides[key].source === 'Wikivoyage' ? null : await wikipediaGuide(place));
       if (!guide) throw new Error('nothing found');
-      storeGuide(key, guide);
-      guideStatus.delete(key);
+      storeGuide(key, guide, hiccup ? 0 : GUIDE_VERSION);
+      // 'failed' keeps the stand-in from being fetched again and again during this visit.
+      if (hiccup) guideStatus.set(key, 'failed'); else guideStatus.delete(key);
       onGuideReady(place, guide, quiet);
     } catch (e) {
       console.warn('No guide for', place.label, e);
       guideStatus.set(key, 'failed');
-      if (!quiet) render();
+      if (!quiet) renderSoon();
     }
   })();
   // Called while the screen is being drawn: redraw (with "Finding ideas…") right after.

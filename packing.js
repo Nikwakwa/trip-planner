@@ -25,12 +25,12 @@ function packingIdeas(trip) {
   const out = [];
   const add = (key, item, match, why) => out.push({ key, text: item, match, why });
 
-  if (wet.length) add('rain', 'Umbrella or rain jacket', /umbrella|rain/, `Rain likely on ${plural(wet.length, 'day')}`);
+  if (wet.length) add('rain', 'Umbrella or rain jacket', /umbrella|\brain/, `Rain likely on ${plural(wet.length, 'day')}`);
   if (hiC !== null && hiC >= 27) {
     add('sun', 'Sunscreen and sunglasses', /sunscreen|sun ?cream|sunglasses/, `Up to ${temp(hiC)}`);
     add('water', 'Refillable water bottle', /water bottle|bottle/, `Up to ${temp(hiC)}`);
   }
-  if (loC !== null && loC <= 5) add('cold', 'Warm coat, hat and gloves', /coat|gloves|hat|scarf/, `Down to ${temp(loC)}`);
+  if (loC !== null && loC <= 5) add('cold', 'Warm coat, hat and gloves', /coat|gloves|\bhat\b|scarf/, `Down to ${temp(loC)}`);
   else if (loC !== null && loC <= 14) add('layers', 'A warm layer for the evenings', /jacket|sweater|layer|fleece|hoodie/, `Evenings down to ${temp(loC)}`);
   if (weather.some(w => w.icon === 'weather_snowy')) add('snow', 'Waterproof shoes', /boots|waterproof shoes/, 'Snow in the forecast');
 
@@ -47,7 +47,8 @@ function packingIdeas(trip) {
   }
   if (plans.some(i => i.category === 'stay')) add('hotel', 'Hotel booking details', /hotel|booking|reservation|airbnb/, 'You have a place to stay planned');
   if (plans.some(i => i.category === 'event')) add('tickets', 'Tickets for shows and events', /ticket/, 'Shows or events planned');
-  const beachy = /beach|praia|plage|playa|spiaggia|strand|swim|pool|piscina|thermal|spa\b|bath/;
+  // Whole words: "Liverpool" is not a pool, the Strand Book Store not a beach, the city of Bath not a bath.
+  const beachy = /\bbeach|\bpraia\b|\bplage\b|\bplaya\b|\bspiaggia\b|\bstrandbad|\bswim|\bpools?\b|\bpiscina\b|\bthermal|\bspa\b|\b(?:public|turkish|roman|hot) baths?\b|\bbathhouse|\bhammam|\bonsen\b/;
   if (beachy.test(text) || (guide && plans.some(i => matchPlaces(i, guide).some(p => beachy.test(norm(p.name)))))) {
     add('swim', 'Swimsuit and towel', /swim|bathing|towel/, 'A beach or pool is planned');
   }

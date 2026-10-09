@@ -127,6 +127,9 @@ function runSelfCheck() {
   check('A damaged trip is repaired, and fields from a newer version are kept', () =>
     same(tidyTrip({ id: 't', name: '', color: 'red', start: '2026-01-01', end: 'nope', place: { name: 'X' }, travel: 'fly', newer: [1] }),
       { id: 't', name: 'Trip', color: COLORS[0], start: '', end: '', newer: [1] }));
+  check('A trip whose last day comes before its first gets them the right way round', () =>
+    same([tidyTrip({ id: 't', name: 'A', start: '2026-05-09', end: '2026-05-02' }), cleanBackup({ trips: [{ start: '2026-05-09', end: '2026-05-02' }] }).trips[0]]
+      .map(t => [t.start, t.end]), [['2026-05-02', '2026-05-09'], ['2026-05-02', '2026-05-09']]));
   check('An empty checklist line is left out', () =>
     (tidyCheck({ id: 'c', text: '' }) === null && tidyCheck({ id: 'c', text: 'Socks', done: 1 }).done === false) || 'checklist line not handled');
   check('The saved copy is read without losing a trip', () => {
@@ -199,6 +202,16 @@ function runSelfCheck() {
     same([{ id: 'rest' }, { id: 'noon', time: '12:30' }, { id: 'after9', slot: '09:00~01' }, { id: 'nine', time: '09:00' }, { id: 'first', slot: '00:00~01' }]
       .sort(byPlanOrder).map(i => i.id), ['first', 'nine', 'after9', 'noon', 'rest']));
 
+  check('“Book ahead” is read from a guide’s words, and only from words that mean it', () =>
+    same(['Tickets sell out weeks in advance.', 'Reservations are strongly recommended and essential on weekends.', 'Reservation strongly required.',
+      'By appointment only.', 'Entry costs 12 euros, timed tickets.', 'A reservoir with a waiting room.'].map(t => BOOK_TEXT.test(t)),
+    [true, false, true, true, false, false]));
+  check('Packing ideas go by whole words: Liverpool is not a pool, the Strand Book Store not a beach', () => {
+    const swim = title => packingIdeas({ id: 't', name: 'T', start: '', end: '', items: [{ id: 'i', title, category: 'sight', date: '', place: '', notes: '' }] })
+      .some(s => s.key === 'swim');
+    return same(['Liverpool Street station', 'Strand Book Store', 'Day trip to Bath', 'Bondi Beach', 'Hotel pool', 'Thermal baths'].map(swim),
+      [false, false, false, true, true, true]);
+  });
   check('The day you change stays starts at the one you leave and ends at the new one', () => {
     const stay = (id, title, date, lat) => ({ id, title, category: 'stay', date, lat, lng: -71 });
     const first = stay('a', 'B&B', '2026-10-13', 42.36), second = stay('b', 'Hotel', '2026-10-16', 40.75);

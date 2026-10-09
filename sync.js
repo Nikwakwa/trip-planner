@@ -248,12 +248,14 @@ async function askHowToLink() {
   snackbar(`Signed in — plans sync with ${sync.saved.email}`);
 }
 
-// Redraw after changes from another phone, but not while typing in the page.
+// Redraw after changes from another phone, or once something fetched in the background has arrived.
+// Not while typing in the page, and not while a plan is being dragged (it would vanish under the finger).
 let renderQueued = false;
 function renderSoon() {
   if (renderQueued) return;
   renderQueued = true;
   const run = () => {
+    if (document.body.classList.contains('dragging')) { setTimeout(run, 300); return; }
     renderQueued = false;
     render();
     if (mapShown()) refreshMap();

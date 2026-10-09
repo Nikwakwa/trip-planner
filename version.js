@@ -6,6 +6,16 @@
      third number   fixes only
    Written for the people who use the app: what changed for them, in plain words. */
 const CHANGELOG = [
+  { v: '2.8.2', date: '2026-10-09', title: 'A round of fixes', items: [
+    'Fixed: after “Restore from backup” or “Erase everything”, the next start could move plans with a street address to another spot on the map',
+    'Fixed: what you were typing in the Checklist could vanish when the app redrew itself in the background',
+    'Fixed: a dropped connection while a travel guide was being fetched could leave the trip with a poorer guide for good; it is now fetched again the next time you open the app',
+    'Fixed: “Book ahead” missed guide texts like “reservations strongly required”',
+    'Fixed: packing suggestions took “Liverpool” for a pool and the Strand Book Store for a beach',
+    'On a phone, “Back to your stay” shows its travel time in full, on a second line',
+    'A stay dragged to another day keeps its number of nights',
+    'A plan being dragged is no longer interrupted by a background update',
+  ] },
   { v: '2.8.1', date: '2026-10-09', items: [
     'On the day you check in, your stay is the hotel pin on the map, and has the hotel icon on its card, instead of a number',
   ] },

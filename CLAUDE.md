@@ -82,7 +82,8 @@ then builds a guide from Wikivoyage listings, falling back to Wikipedia geosearc
 localStorage `tripPlanner.guides` (up to 10). `planSuggestions` in `app.js` and Explore both use this guide.
 - Places may carry `about` (the full description, shown in the details sheet `openPlaceInfo`) and `hours`.
 - Saved guides are stamped with `GUIDE_VERSION`. Bump it when the guide shape changes: older saved guides keep
-  working, and are re-fetched quietly in the background.
+  working, and are re-fetched quietly in the background. A Wikipedia guide saved because Wikivoyage couldn't be read
+  (an error, not "no page") is a stand-in stamped `v: 0`: it is fetched again at the next start.
 - Guides near the plans: a country or region trip's own guide only lists destinations. So each group of located
   plans (`planGroups`: within 6 miles, at least two plans; for a city trip only groups over 15 miles away) gets a
   `kind: 'near'` guide built from the Wikivoyage pages closest to it (`nearbyGuide`, saved as `near:lat,lng`).
@@ -127,7 +128,8 @@ then everything else (`byPlanOrder`).
   Belgium) the regional ones that are also widely spoken, else the main spoken ones (`languagesSpoken`). Saved
   essentials are stamped with `ESSENTIALS_VERSION`, like guides.
 - Each fetches in the background from a render path. When it finishes, it calls `renderSoon()`; after a failure it
-  waits before retrying.
+  waits before retrying. Anything that finishes later than the tap that started it (a fetch, a timer) redraws with
+  `renderSoon()`, never `render()`: it waits while something is typed in the page or a plan is dragged.
 - The hours parser supports a subset of OSM's format and returns `null` (no note shown) for anything it
   can't read, rather than guessing.
 - Weather is only fetched for city-sized places. Rainy days reorder `planSuggestions` toward `rainy`-tagged places.
@@ -196,7 +198,7 @@ fixed when the votes arrive (`voting.order`) so rows don't jump while voting. No
 to publish them by hand.
 
 **Offline / updates (`sw.js`).** The service worker serves cached files first and refreshes them in the background (stale-while-revalidate).
-When you **add a new app file**, add it to `FILES`. When you **ship any change**, add an entry at the top of `CHANGELOG` in `version.js`
+When you **add a new app file**, add it to `FILES` (`selfcheck.js` is there too, so the self-check matches the saved app). When you **ship any change**, add an entry at the top of `CHANGELOG` in `version.js`
 (`x.y.z`: the app looks or works differently . something new . fixes only), written for users in plain words.
 `APP_VERSION` is that first entry. `sw.js` imports it for its cache name (`trip-planner-v1.2.3`), which is how
 installed phones pick up the new version. Settings → About → "What's new" lists every entry (`openChangelog`), and
@@ -215,6 +217,9 @@ OSM tiles go in a separate cache that is kept between versions (`trip-planner-ma
 - Attachments (`files.js`) accept photos and PDFs only (`SAFE_FILE`). No SVG or HTML: opened from a `blob:` address,
   they would run with the app's own access.
 - "Erase everything" also clears what is only on the device (`eraseDeviceData`). Add any new `tripPlanner.*` key there.
+- "Erase everything" and "Restore from backup" replace `state`, settings included. What says "this device already
+  did that" (`deviceMarks`: `geoRetry`, `seenVersion`) is carried over, or the one-time repairs at startup run again.
+  Add any new marker of that kind there.
 
 **Desktop layout (`styles.css`, end of file).** There is one codebase, and the layout switches by window width.
 Phone styles are the default. Add desktop overrides in the media blocks at the end, and check phone, ~1000px and

@@ -53,7 +53,7 @@ function tripContext(trip) {
     ? `Dates: ${trip.start} to ${trip.end}. Days: ${days.map(d => `${d} (${fmtDay(d, { weekday: 'short' })})`).join(', ')}.`
     : 'The trip has no dates yet. Plans can still be saved as ideas (date "").');
   const own = Object.entries(trip.dayTravel || {}).map(([d, m]) => `${d}: ${TRAVEL_MODES[m].label}`);
-  const base = baseFor(trip, null);
+  const base = baseFor(trip, todayISO()) || baseFor(trip, null);      // during the trip: the stay of the day
   if (base) lines.push(`Home base: "stay" plans with an address are where days start and end (now: ${base.item.title}, ${base.item.place}). Prefer places near it.`);
   const stays = trip.items.filter(i => startsStay(i, trip, guide));
   if (stays.length > 1) {

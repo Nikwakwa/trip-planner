@@ -149,8 +149,9 @@ const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // Prepare each guide place once: a pattern that recognises its name in your plans.
 function prepGuide(g) {
   for (const p of g.places) {
-    const names = [p.name, ...(p.aliases || [])].map(a => escRe(norm(a))).join('|');
-    p.re = new RegExp(`(^|[^a-z0-9])(${names})($|[^a-z0-9])`);
+    // An empty name would fit every plan: it is left out (and a place without any name fits none).
+    const names = [p.name, ...(p.aliases || [])].map(a => escRe(norm(a).trim())).filter(Boolean).join('|');
+    p.re = names ? new RegExp(`(^|[^a-z0-9])(${names})($|[^a-z0-9])`) : /(?!)/;
     p.tags = p.tags || [];
     p.cat = p.cat || 'sight';
   }
@@ -447,7 +448,7 @@ function runAutoFill(day) {
 const BOOK_TEXT = new RegExp([
   'sells? out', 'sold out', 'booked (?:up|out|solid)', '(?:days|weeks|months) (?:in advance|ahead)',
   'book(?:ed|ing|ings)? (?:well|far|long) (?:in advance|ahead)',
-  'reserv(?:e|ation|ations) (?:\w+ ){0,2}(?:required|essential|a must)',
+  'reserv(?:e|ation|ations) (?:\\w+ ){0,2}(?:required|essential|a must)',
   'by (?:reservation|appointment|prior arrangement) only', 'waiting list',
 ].join('|'), 'i');
 
@@ -609,6 +610,10 @@ function defaultState() {
 function defaultSettings() {
   return { theme: 'auto', suggestions: true, lookup: true, booking: true, units: usesImperial() ? 'imperial' : 'metric', ...deviceFormats() };
 }
+// What this device has already done: the one-time repairs at startup (geoRetry) and the last "Updated to
+// version" message. Kept when the plans are erased or replaced by a backup, or the repairs would run again
+// on the next start and throw away the map positions of every plan with a street address.
+const deviceMarks = () => ({ geoRetry: state.settings.geoRetry, seenVersion: state.settings.seenVersion });
 
 /* ---------- Checking data that comes from outside the app ----------
    The saved copy, the account (sync.js) and backup files all go through these. The fields the app
@@ -617,13 +622,15 @@ function defaultSettings() {
 
 function tidyTrip(t, newId = false) {
   if (!t || typeof t !== 'object' || (!isId(t.id) && !newId)) return null;
+  // Both days or none, the first one first.
+  const dated = isDate(t.start) && isDate(t.end);
   const out = {
     ...t,
     id: isId(t.id) ? t.id : uid(),
     name: (typeof t.name === 'string' && t.name) || 'Trip',
     color: /^#[0-9a-f]{6}$/i.test(t.color) ? t.color : COLORS[0],
-    start: isDate(t.start) && isDate(t.end) ? t.start : '',
-    end: isDate(t.start) && isDate(t.end) ? t.end : '',
+    start: !dated ? '' : t.start <= t.end ? t.start : t.end,
+    end: !dated ? '' : t.start <= t.end ? t.end : t.start,
   };
   const p = t.place;
   const num = (v, max) => typeof v === 'number' && Math.abs(v) <= max;
@@ -697,6 +704,7 @@ function load() {
     if (raw) {
       const data = JSON.parse(raw);
       if (data && Array.isArray(data.trips)) return tidyState(data);
+      throw new Error('saved data has no trips');
     }
   } catch (e) {
     console.warn('Could not read saved data', e);
@@ -839,7 +847,7 @@ function ensurePlace(trip) {
     if (!place || trip.place || !state.trips.includes(trip)) return;
     trip.place = place;
     save();
-    render();
+    renderSoon();
   });
 }
 
@@ -1173,7 +1181,7 @@ function legHTML(a, b, mode, label = '') {
   if (d < 0.05) return '';
   const t = travel(d, mode);
   return `
-    <li class="leg"><a class="leg-link ripple" href="${esc(directionsUrl(a, b, t.mode))}" target="_blank" rel="noopener"
+    <li class="leg"><a class="leg-link ripple${label ? ' labelled' : ''}" href="${esc(directionsUrl(a, b, t.mode))}" target="_blank" rel="noopener"
       aria-label="Directions ${label ? esc(label.toLowerCase()) : ''} ${esc(t.text)}, ${fmtDist(d)}">${label ? `${icon('hotel')}<span class="leg-base">${esc(label)}:</span>` : ''}${icon(t.icon)}<span>${esc(t.text)} · ${fmtDist(d)}</span><span class="leg-go">Directions</span></a></li>`;
 }
 
@@ -1345,6 +1353,9 @@ function renderChecklist() {
   const list = state.checklist;
   const todo = list.filter(c => !c.done);
   const done = list.filter(c => c.done);
+  // What is being typed in "Add something…" survives a redraw (after ticking an item, or news from another device).
+  const typing = $('#view-pack [data-form="check"] input');
+  const typed = typing ? typing.value : '';
   $('#view-pack').innerHTML = `
     <h1 class="headline">Checklist</h1>
     <p class="supporting">Packing and to-dos for the whole trip.</p>
@@ -1355,7 +1366,7 @@ function renderChecklist() {
         ${progressBar(done.length / list.length, 'Checklist progress')}
       </div>` : ''}
     <form class="add-bar" data-form="check">
-      <input name="text" placeholder="Add something to pack or do" maxlength="200" autocomplete="off" aria-label="New checklist item">
+      <input name="text" value="${esc(typed)}" placeholder="Add something to pack or do" maxlength="200" autocomplete="off" aria-label="New checklist item">
       <button type="submit" class="icon-btn filled ripple" aria-label="Add">${icon('add')}</button>
     </form>
     ${todo.length ? `<ul class="group">${todo.map(taskHTML).join('')}</ul>` : ''}
@@ -2196,7 +2207,7 @@ function tick(el, done) {
   el.querySelector('.check').setAttribute('aria-checked', done);
   if (done && navigator.vibrate) navigator.vibrate(12);
   clearTimeout(rerenderTimer);
-  rerenderTimer = setTimeout(render, 550);
+  rerenderTimer = setTimeout(renderSoon, 550);     // not while typing the next checklist item
 }
 
 /* ---------- Taps anywhere in the app ---------- */
@@ -2534,7 +2545,9 @@ document.addEventListener('click', async (e) => {
         ok: 'Erase',
       });
       if (ok) {
+        const marks = deviceMarks();
         state = defaultState();
+        Object.assign(state.settings, marks);
         eraseDeviceData();
         save();
         scrollAt = {};
@@ -2554,6 +2567,7 @@ document.addEventListener('submit', (e) => {
   const text = form.elements.text.value.trim();
   if (!text) return;
   state.checklist.push({ id: uid(), text, done: false });
+  form.elements.text.value = '';
   save();
   render();
   $('[data-form="check"] input').focus();
@@ -2653,12 +2667,17 @@ function cleanBackup(data) {
   };
   if (!data || !Array.isArray(data.trips)) throw new Error('not a backup');
   const tripIds = new Map();      // the file's trip id → the id it has here
+  // A trip's days: both or none, the first one first.
+  const span = (t) => {
+    const a = date(t.start) || date(t.end), b = date(t.end) || date(t.start);
+    return a <= b ? [a, b] : [b, a];
+  };
   const trips = data.trips.filter(t => t && typeof t === 'object').map(t => ({
     id: tripIds.set(t.id, id(t.id)).get(t.id),
     name: str(t.name, 40) || 'Trip',
     color: /^#[0-9a-f]{6}$/i.test(t.color) ? t.color : COLORS[0],
-    start: date(t.start),
-    end: date(t.end),
+    start: span(t)[0],
+    end: span(t)[1],
     place: cleanPlace(t.place),
     travel: TRAVEL_MODES[t.travel] ? t.travel : 'transit',
     ...(t.dayTravel && typeof t.dayTravel === 'object' ? { dayTravel: Object.fromEntries(Object.entries(t.dayTravel).filter(([d, m]) => date(d) && TRAVEL_MODES[m])) } : {}),
@@ -2719,6 +2738,7 @@ document.addEventListener('change', async (e) => {
     ok: 'Restore',
   });
   if (!ok) return;
+  Object.assign(restored.settings, deviceMarks());
   state = restored;
   save();
   scrollAt = {};
@@ -2930,6 +2950,7 @@ function onConnectionChange() {
     placeTried.clear();
     for (const [key, status] of guideStatus) if (status === 'failed') guideStatus.delete(key);
     for (const [key, status] of essentials.status) if (status === 'failed') essentials.status.delete(key);
+    planInfo.failed.clear();
   }
   $('#ai-send').disabled = ai.busy || !aiReady() || !navigator.onLine;
   render();

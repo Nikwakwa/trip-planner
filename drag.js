@@ -168,6 +168,8 @@ function dropOn(target) {
   const item = trip && trip.items.find(i => i.id === drag.id);
   if (!item) return;
   const before = trip.items.map(i => [i, i.date, i.slot]);
+  const until = item.until;
+  const nights = stayUntil(item) ? daysBetween(item.date, item.until) : 0;      // today.js: a stay keeps its length
   let message;
 
   if (target.kind === 'ideas') {
@@ -203,6 +205,12 @@ function dropOn(target) {
   }
 
   const changed = before.some(([i, date, slot]) => i.date !== date || i.slot !== slot);
+  // A stay moved to another day checks out as many nights later as before.
+  if (nights && item.date) {
+    const out = parseDate(item.date);
+    out.setDate(out.getDate() + nights);
+    item.until = toISO(out);
+  }
   render();
   if (!changed) return;
   save();
@@ -212,6 +220,7 @@ function dropOn(target) {
       i.date = date;
       if (slot === undefined) delete i.slot; else i.slot = slot;
     }
+    if (until === undefined) delete item.until; else item.until = until;
     save();
     render();
   });

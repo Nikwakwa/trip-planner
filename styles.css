@@ -2354,6 +2354,11 @@ button.suggest-title { border-radius: 12px; padding: 4px 8px 4px 0; text-align: 
 }
 .leg-go { flex: none; color: var(--primary); font-weight: 650; }
 .plans .leg-base { font-weight: 650; color: var(--on-surface); }
+/* On a phone "Back to your stay:" and the travel time don't fit on one line: the label gets its own */
+@media (max-width: 599px) {
+  .plans .leg-link.labelled { flex-wrap: wrap; row-gap: 2px; }
+  .plans .leg-link.labelled .leg-base { flex: 1 0 calc(100% - 40px); }
+}
 
 /* The stay the day starts from */
 .group.plans > li.stay-pill { margin-bottom: 0; }

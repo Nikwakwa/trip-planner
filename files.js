@@ -54,7 +54,7 @@ async function loadFileIndex() {
       const store = await filesStore('readwrite');
       orphans.forEach(f => store.delete(f.id));
     }
-    if (tickets.index.size) render();
+    if (tickets.index.size) renderSoon();
   } catch (e) {
     console.warn('Files unavailable', e);
   }
@@ -96,7 +96,7 @@ function renderFormFiles() {
     <li class="file-row">
       ${icon(x.type === 'application/pdf' ? 'picture_as_pdf' : 'image')}
       <span class="file-name">${esc(x.name)}</span><span class="file-size">${fmtSize(x.size)}</span>
-      <button type="button" class="icon-btn ripple" data-file-remove="${x.id}" aria-label="Remove ${esc(x.name)}">${icon('close')}</button>
+      <button type="button" class="icon-btn ripple" data-file-remove="${esc(x.id)}" aria-label="Remove ${esc(x.name)}">${icon('close')}</button>
     </li>`).join('');
 }
 
