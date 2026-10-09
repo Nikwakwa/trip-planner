@@ -6,6 +6,10 @@
      third number   fixes only
    Written for the people who use the app: what changed for them, in plain words. */
 const CHANGELOG = [
+  { v: '2.7.2', date: '2026-10-09', items: [
+    'Fixed: picking a place under a plan’s name now keeps just the place’s name, also when you typed its address after it',
+    'Fixed: a plan at a street address could show the photo and description of a town with the street’s name, far away',
+  ] },
   { v: '2.7.1', date: '2026-10-08', items: [
     'On a phone, swipe a sheet down to close it: pull it by its top, or from anywhere once it is scrolled to the top',
     'Fixed: the page behind an open sheet could scroll, or reload, when you swiped on the sheet',

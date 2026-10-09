@@ -167,6 +167,7 @@ const placeLabel = trip => (trip.place ? trip.place.label : trip.name);
 
 // Which guide places does a plan refer to? (a plan named after a sight → that sight's entry)
 const matchMemo = new WeakMap();     // plan → its last answer (this is asked many times per redraw)
+const MATCH_REACH = 100;             // miles: wide enough for a plan anywhere in a big region or park
 function matchPlaces(item, guide) {
   if (!guide) return [];
   if (item.guideId) {
@@ -175,12 +176,16 @@ function matchPlaces(item, guide) {
   }
   // Of an address, only what comes before the first comma counts: "117 MacDougal St, New York, NY"
   // is not the city of New York. The longest name wins ("Boston Common" before "Boston").
+  // A street address names a street, not a place: "22-43 Jackson Avenue" is not the town of Jackson.
   const where = String(item.place || '').split(',')[0];
-  const text = norm(`${where} | ${item.title}`);
-  const key = `${guide.id}|${guide.places.length}|${text}`;
+  const text = norm(/^\s*\d/.test(where) ? item.title : `${where} | ${item.title}`);
+  const at = typeof item.lat === 'number' && typeof item.lng === 'number' ? item : null;
+  const key = `${guide.id}|${guide.places.length}|${text}|${at ? `${at.lat},${at.lng}` : ''}`;
   const had = matchMemo.get(item);
   if (had && had.key === key) return had.found;
-  const found = guide.places.filter(p => p.re.test(text)).sort((a, b) => b.name.length - a.name.length);
+  // A plan with a spot on the map is never a place with the same name far from there.
+  const found = guide.places.filter(p => p.re.test(text) && !(at && typeof p.lat === 'number' && miles(at, p) > MATCH_REACH))
+    .sort((a, b) => b.name.length - a.name.length);
   matchMemo.set(item, { key, found });
   return found;
 }
@@ -1667,13 +1672,26 @@ function onMatchInput(e) {
 itemForm.elements.title.addEventListener('input', onMatchInput);
 itemForm.elements.place.addEventListener('input', onMatchInput);
 
+// The plan's name after a place is picked under it. The place's own name, when what was typed is a part
+// of it ("brattle" → "Brattle Book Shop") or is that name followed by where it is ("Trader Joe's in Long
+// Island City, 22-43 Jackson Avenue" → "Trader Joe's"). Anything else stays as typed ("Dinner at Carbone").
+function titleAfterPick(typed, m) {
+  const text = norm(typed.trim()), name = norm(m.name);
+  if (name.includes(text)) return m.name;
+  if (!text.startsWith(name)) return typed;
+  const rest = text.slice(name.length);
+  if (/^\s*([,(–-]|(in|near|on)\s)/.test(rest)) return m.name;
+  const known = new Set(plainWords(`${m.place} ${m.sub}`));
+  const words = plainWords(rest);
+  return /^\s/.test(rest) && words.length && words.every(w => known.has(w)) ? m.name : typed;
+}
+
 itemForm.addEventListener('click', (e) => {
   const opt = e.target.closest('[data-match-index]');
   if (!opt) return;
   const m = planMatch.results[Number(opt.dataset.matchIndex)];
   const f = itemForm.elements;
-  // Picked under the name: the place's full name replaces what was typed of it ("brattle" → "Brattle Book Shop").
-  if (planMatch.field === 'title' && norm(m.name).includes(norm(f.title.value.trim()))) f.title.value = m.name.slice(0, 120);
+  if (planMatch.field === 'title') f.title.value = titleAfterPick(f.title.value, m).slice(0, 120);
   f.place.value = m.place;
   if (m.cat && !editingItemId && !planMatch.typeSet) { f.category.value = m.cat; setPlanExamples(); }
   planMatch.chosen = m;

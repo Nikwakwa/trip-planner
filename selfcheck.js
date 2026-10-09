@@ -199,6 +199,27 @@ function runSelfCheck() {
     same([{ id: 'rest' }, { id: 'noon', time: '12:30' }, { id: 'after9', slot: '09:00~01' }, { id: 'nine', time: '09:00' }, { id: 'first', slot: '00:00~01' }]
       .sort(byPlanOrder).map(i => i.id), ['first', 'nine', 'after9', 'noon', 'rest']));
 
+  check('A place picked under a plan’s name gives its own name, unless more than the place was typed', () => {
+    const tj = { name: 'Trader Joe\'s', place: '22-43 Jackson Avenue, New York', sub: '22-43 Jackson Avenue, New York' };
+    return same([
+      titleAfterPick('trader', tj),
+      titleAfterPick('Trader Joe’s in Long Island City, 22-43 Jackson Avenue', tj),
+      titleAfterPick('Trader Joe’s Jackson Avenue', tj),
+      titleAfterPick('Trader Joe’s run with Sam', tj),
+      titleAfterPick('Dinner at Carbone', { name: 'Carbone', place: '181 Thompson Street, New York', sub: '' }),
+    ], ['Trader Joe\'s', 'Trader Joe\'s', 'Trader Joe\'s', 'Trader Joe’s run with Sam', 'Dinner at Carbone']);
+  });
+  check('A street address is not taken for a town with the street’s name, nor a plan for a namesake far away', () => {
+    const guide = prepGuide({ id: 'check', places: [{ id: 'j', name: 'Jackson', lat: 43.48, lng: -110.76 }, { id: 'p', name: 'Central Park', lat: 40.78, lng: -73.97 }] });
+    const ids = item => matchPlaces(item, guide).map(p => p.id);
+    return same([
+      ids({ title: 'Trader Joe\'s', place: '22-43 Jackson Avenue, New York', lat: 40.7459, lng: -73.946 }),
+      ids({ title: 'Shopping on Jackson Avenue', place: '', lat: 40.7459, lng: -73.946 }),
+      ids({ title: 'Walk', place: 'Central Park, New York', lat: 40.77, lng: -73.97 }),
+      ids({ title: 'Arrive in Jackson', place: '' }),
+    ], [[], [], ['p'], ['j']]);
+  });
+
   /* ---------- AI answers ---------- */
   group = 'AI Assistant answers';
   check('An answer is read, also when wrapped in other text', () => {
