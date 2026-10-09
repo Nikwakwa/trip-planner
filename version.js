@@ -6,6 +6,9 @@
      third number   fixes only
    Written for the people who use the app: what changed for them, in plain words. */
 const CHANGELOG = [
+  { v: '2.8.1', date: '2026-10-09', items: [
+    'On the day you check in, your stay is the hotel pin on the map, and has the hotel icon on its card, instead of a number',
+  ] },
   { v: '2.8.0', date: '2026-10-09', title: 'Changing stays', items: [
     'The day you move to another stay now starts with “Check out” at the one you leave, with the way from there to your first plan',
     'A stay’s card says “Check in” on the day it begins',

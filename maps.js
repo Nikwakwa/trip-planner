@@ -537,10 +537,10 @@ function renderMapBody() {
             <li class="stop off"><span class="stop-num">${icon('location_off')}</span>
               <span class="stop-text"><span class="stop-title">${esc(s.it.title)}</span><span class="stop-sub">${esc(why)}</span></span></li>`;
         }
-        n++;
+        const stay = s.it.category === 'stay';
         return `
           <li><button type="button" class="stop ripple" data-action="focus-stop" data-id="${esc(s.it.id)}">
-            <span class="stop-num" style="background:${g.color}">${n}</span>
+            ${stay ? `<span class="stop-num base">${icon('hotel')}</span>` : `<span class="stop-num" style="background:${g.color}">${++n}</span>`}
             <span class="stop-text"><span class="stop-title">${esc(s.it.title)}</span>${sub ? `<span class="stop-sub">${esc(sub)}</span>` : ''}</span>
           </button></li>`;
       }).join('')}
@@ -595,12 +595,15 @@ function drawMap(fit) {
       L.polyline(line.map(c => [c.lat, c.lng]), { color: g.color, weight: 4, opacity: .85, dashArray: '1 9', lineCap: 'round' })
         .addTo(mapView.layer);
     }
-    pts.forEach((s, k) => {
+    // A stay is the hotel pin, also on the day it is a plan (check-in); the other stops are numbered.
+    let n = 0;
+    pts.forEach((s) => {
       const marker = L.marker([s.c.lat, s.c.lng], {
         title: s.it.title,
         icon: L.divIcon({
           className: 'pin',
-          html: `<div class="pin-shape" style="background:${g.color}"><b>${k + 1}</b></div>`,
+          html: s.it.category === 'stay' ? `<div class="pin-shape base">${icon('hotel')}</div>`
+            : `<div class="pin-shape" style="background:${g.color}"><b>${++n}</b></div>`,
           iconSize: [32, 32],
           iconAnchor: [16, 32],
           popupAnchor: [0, -30],

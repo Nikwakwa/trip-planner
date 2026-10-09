@@ -1329,7 +1329,8 @@ dialog.map-sheet[open] { display: flex; flex-direction: column; }
   font-weight: 700;
 }
 .stop.off .stop-num { background: var(--surface-container-highest); color: var(--on-surface-variant); }
-.stop.off .stop-num .icon { width: 18px; height: 18px; }
+.stop.off .stop-num .icon, .stop-num.base .icon { width: 18px; height: 18px; }
+.stop-num.base { background: var(--tertiary, #7d5260); }     /* a stay: the hotel pin, not a number */
 .stop-text { flex: 1; min-width: 0; display: grid; }
 .stop-title { font-size: 15px; line-height: 20px; font-weight: 600; overflow-wrap: anywhere; }
 .stop-sub { font-size: 13px; line-height: 18px; color: var(--on-surface-variant); overflow-wrap: anywhere; }

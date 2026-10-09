@@ -1194,7 +1194,8 @@ function dayListHTML(day, items, trip, guide) {
   for (const item of items) {
     const c = coordsOf(item, guide);
     if (prev && c) html += legHTML(prev, c, mode);
-    html += itemHTML(item, trip, { drag: true, note: hoursNote(item, guide), num: c ? ++num : 0, photo: planPhoto(item, guide) });
+    // Stops are numbered like their map pins; a stay keeps its hotel icon, as on the map.
+    html += itemHTML(item, trip, { drag: true, note: hoursNote(item, guide), num: c && item.category !== 'stay' ? ++num : 0, photo: planPhoto(item, guide) });
     if (c) prev = c;
   }
   if (end && prev) html += legHTML(prev, end.c, mode, 'Back to your stay');
