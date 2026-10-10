@@ -338,8 +338,8 @@ Phone styles are the default. Add desktop overrides in the media blocks at the e
   every trip, so it reads as a notice, not as part of the theme. Don't recolor whole days.
 - Ideas (Ideas tab) have "Add to a day" (`pick-day` / `set-day`) in place of the done checkbox.
 - On desktop, hovering a plan highlights its pin (`hotPin`), and the docked map opens on today's route during the trip.
-- A hidden present for a friend of the owner who drums: eight taps on the newest version's number in "What's new"
-  open a practice pad to play (`openPad` in app.js; the words on it are `PAD_NAME` / `PAD_LINE`). Keep it out of
+- A hidden present for a friend of the owner who drums: eight taps on the title of the "What's new" sheet
+  open a practice pad to play (`openPad` in app.js; the words on it are `PAD_NAME`). Keep it out of
   the changelog and the README.
 - Keyboard focus is shown with a global `:focus-visible` outline. Don't remove outlines without a replacement.
 

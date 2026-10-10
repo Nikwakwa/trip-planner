@@ -1778,12 +1778,13 @@ dialog.fit-sheet { height: fit-content; }      /* as tall as what it holds */
 }
 
 /* ---------- What's new (the list of versions) ---------- */
-.version h3 { margin-bottom: 2px; user-select: none; -webkit-user-select: none; }
+.version h3 { margin-bottom: 2px; }
 .tip p.version-when { margin-bottom: 8px; font-size: 13px; line-height: 18px; }
 .older-versions { display: flex; margin: 12px auto 4px; }
 .version ul { display: grid; gap: 4px; margin: 0; padding-left: 20px; font-size: 14px; line-height: 20px; color: var(--on-surface-variant); }
 
 /* ---------- The practice pad (hidden in "What's new") ---------- */
+#about-title { user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
 .pad-wrap { display: grid; justify-items: center; gap: 12px; padding: 12px 0; }
 .pad {
   width: min(100%, 420px);
