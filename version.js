@@ -7,6 +7,9 @@
    Written for the people who use the app, and kept short: what is new for them, one short line
    each, five at most. Fixes are not listed one by one: a single line, "Bug fixes". */
 const CHANGELOG = [
+  { v: '2.12.2', date: '2026-10-10', items: [
+    'Bug fixes',
+  ] },
   { v: '2.12.1', date: '2026-10-10', items: [
     '“What should come next?”: tap an idea to vote, and the sheet says your vote is saved',
     'Your own suggestion has a button of its own, “Suggest something else”',
