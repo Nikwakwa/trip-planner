@@ -7,6 +7,11 @@
    Written for the people who use the app, and kept short: what is new for them, one short line
    each, five at most. Fixes are not listed one by one: a single line, "Bug fixes". */
 const CHANGELOG = [
+  { v: '2.12.0', date: '2026-10-10', items: [
+    'Checklist: hold an item and drag it between the trip’s list for everyone and your own',
+    'Drag an item up or down to put a list in your order',
+    'On a trip you plan together, a suggestion can go on your own checklist or on the list for everyone',
+  ] },
   { v: '2.11.0', date: '2026-10-10', items: [
     'A trip you plan together has a list of its own in the Checklist, for everyone on the trip',
     'Your own checklist stays yours, right below it',

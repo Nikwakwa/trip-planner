@@ -218,8 +218,11 @@ and `shared/{id}/docs/…` holds the trip and its plans, in the same form as an 
   removed at the next save. Only the trip named in `shared/{id}.trip` is taken from a shared space.
 - A shared trip has a list of its own for everyone on it: `trip.todos` (`[{ id, text, done }]`), synced as `todo_…`
   documents next to the trip's plans (not `check_…`: version 2.10 would remove those). The Checklist tab shows it
-  for the trip that is open, above the personal checklist (`tripListHTML`; `listAt(el)` tells which list a row,
-  button or form belongs to). Files are never shared, by the owner's choice (2026-10-10): the app says so in the
+  for the trip that is open, above the personal checklist (`tripListHTML`; `listAt(el)` / `listNamed('trip' | 'own')`
+  tell which list a row, button or form belongs to). Rows are dragged between the two lists, or to another spot in
+  their own (`listTarget` / `dropOnList` in drag.js; the places to drop are `[data-list]`, the open items `ul.tasks`).
+  On a shared trip each packing suggestion has two buttons: "+" for the personal checklist, the people icon for
+  the trip's list. Files are never shared, by the owner's choice (2026-10-10): the app says so in the
   plan form, the Tickets sheet, the Share sheet and the privacy note.
 - An invitation is `<id>.<code>`, sent as a link `…/#join=<id>.<code>` (after the `#`, so the host never sees it;
   `checkInviteLink`, or pasted under Settings → Trips → "Join a trip"). Joining is one write that adds the account

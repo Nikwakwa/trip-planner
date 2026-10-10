@@ -73,19 +73,22 @@ function packingHTML(trip) {
   return `
     <section class="pack-ideas" aria-label="Suggestions">
       <h2 class="group-label">${icon('auto_awesome', 'sm')}Suggested for ${esc(trip.name)}</h2>
+      ${trip.shared ? `<p class="supporting">Tap one to add it to your own checklist, or ${icon('group', 'sm')} to add it for everyone on the trip.</p>` : ''}
       <ul class="group">${list.map(s => `
         <li class="pack-idea">
-          <button type="button" class="pack-add ripple" data-action="pack-add" data-key="${s.key}" aria-label="Add ${esc(s.text)}">
+          <button type="button" class="pack-add ripple" data-action="pack-add" data-key="${s.key}" aria-label="Add ${esc(s.text)}${trip.shared ? ' to your own checklist' : ''}">
             ${icon('add')}<span class="row-text"><span class="row-title">${esc(s.text)}</span><span class="row-sub">${esc(s.why)}</span></span>
           </button>
-          <button type="button" class="icon-btn ripple" data-action="pack-hide" data-key="${s.key}" aria-label="Don’t suggest ${esc(s.text)}">${icon('close')}</button>
+          ${trip.shared ? `<button type="button" class="icon-btn tonal ripple" data-action="pack-add-all" data-key="${s.key}"
+            aria-label="Add ${esc(s.text)} to the list for everyone" title="Add for everyone on the trip">${icon('group')}</button>` : ''}
+          <button type="button" class="icon-btn ripple" data-action="pack-hide" data-key="${s.key}" aria-label="Don’t suggest ${esc(s.text)}" title="Don’t suggest this">${icon('close')}</button>
         </li>`).join('')}
       </ul>
     </section>`;
 }
 
 document.addEventListener('click', (e) => {
-  const el = e.target.closest('[data-action="pack-add"], [data-action="pack-hide"]');
+  const el = e.target.closest('[data-action="pack-add"], [data-action="pack-add-all"], [data-action="pack-hide"]');
   if (!el) return;
   const trip = activeTrip();
   if (!trip) return;
@@ -94,7 +97,12 @@ document.addEventListener('click', (e) => {
   if (el.dataset.action === 'pack-add') {
     state.checklist.push({ id: uid(), text: s.text, done: false });
     save();
-    snackbar(`Added: ${s.text}`);
+    snackbar(trip.shared ? `Added to your own checklist: ${s.text}` : `Added: ${s.text}`);
+  } else if (el.dataset.action === 'pack-add-all') {
+    // On a trip planned with other people: onto the trip's own list, for everyone.
+    trip.todos = [...(trip.todos || []), { id: uid(), text: s.text, done: false }];
+    save();
+    snackbar(`Added for everyone: ${s.text}`);
   } else {
     packingHidden[trip.id] = [...new Set([...(packingHidden[trip.id] || []), s.key])];
     try { localStorage.setItem(PACKING_KEY, JSON.stringify(packingHidden)); } catch { /* storage full */ }

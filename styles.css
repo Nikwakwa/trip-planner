@@ -1741,6 +1741,11 @@ dialog.fit-sheet { height: fit-content; }      /* as tall as what it holds */
 .trip-list .label-row { margin-top: 4px; }
 .trip-list .group-label { display: flex; align-items: center; gap: 6px; }
 .trip-list .supporting { margin: 0 16px 12px; }
+.pack-ideas .supporting { margin: -4px 16px 10px; }
+.pack-ideas .supporting .icon { display: inline-block; vertical-align: -4px; }
+/* Dragging a line from one list to the other (drag.js): where it can land */
+[data-list].drop-on, [data-list] .add-bar.drop-on { outline-offset: 4px; border-radius: 28px; }
+.task[data-drag] .task-text { cursor: inherit; }
 
 /* ---------- Report a problem ---------- */
 .report-more { margin: -4px 4px 0; font-size: 13px; line-height: 18px; color: var(--on-surface-variant); }

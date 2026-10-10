@@ -13,11 +13,17 @@ const HOLD_MS = 350;
 const drag = { timer: 0, src: null, id: null, active: false, x: 0, y: 0, startX: 0, startY: 0, ghost: null, line: null, target: null, raf: 0, noClick: false };
 
 document.addEventListener('pointerdown', (e) => {
-  if (e.button !== 0 || drag.active || ui.view !== 'plan') return;
+  if (e.button !== 0 || drag.active || (ui.view !== 'plan' && ui.view !== 'pack')) return;
   const el = e.target.closest('[data-drag]');
   if (!el || e.target.closest('.check, a')) return;
+  // A line of a checklist is dragged by its text, not by its buttons.
+  drag.check = !!el.dataset.check;
+  if (drag.check && e.target.closest('button')) return;
+  // Which of the two lists it is in, and whether it is ticked: kept, in case the page is redrawn meanwhile.
+  drag.home = drag.check ? (el.closest('[data-list]') || el).dataset.list : '';
+  drag.done = el.classList.contains('done');
   drag.src = el;
-  drag.id = el.dataset.id;
+  drag.id = el.dataset.id || el.dataset.check;
   drag.x = drag.startX = e.clientX;
   drag.y = drag.startY = e.clientY;
   drag.mouse = e.pointerType === 'mouse';
@@ -108,9 +114,28 @@ function clearMarks() {
   document.querySelectorAll('.drop-on').forEach(el => el.classList.remove('drop-on'));
 }
 
+// For a line of the Checklist: a spot among the open items of the trip's own list or of the personal
+// one. A ticked line only changes list (it joins the other ticked ones there).
+function listTarget(under) {
+  const zone = under && under.closest('#view-pack [data-list]');
+  if (!zone) return null;
+  const list = zone.querySelector('ul.tasks');
+  if (drag.done) return zone.dataset.list === drag.home ? null : { kind: 'list', zone, index: -1, el: zone };
+  if (!list) return { kind: 'list', zone, index: 0, el: zone.querySelector('.add-bar') || zone };
+  const rows = [...list.querySelectorAll(':scope > .task:not(.done)')].filter(li => li.dataset.check !== drag.id);
+  let index = 0;
+  for (const li of rows) {
+    const r = li.getBoundingClientRect();
+    if (drag.y > r.top + r.height / 2) index++;
+  }
+  return { kind: 'list', zone, index, list, beforeId: rows[index] ? rows[index].dataset.check : null,
+    before: rows[index] || list.querySelector(':scope > .task.done') };
+}
+
 // What's under the finger: a spot in a day's list, an empty day, or the ideas tray.
 function findTarget() {
   const under = document.elementFromPoint(drag.x, drag.y);
+  if (drag.check) return markTarget(listTarget(under));
   const tray = under && under.closest('.idea-tray');
   const dayEl = under && under.closest('.day');
   const item = activeTrip() && activeTrip().items.find(i => i.id === drag.id);
@@ -134,7 +159,12 @@ function findTarget() {
     }
   }
 
-  const same = (a, b) => a && b && a.kind === b.kind && a.day === b.day && a.index === b.index;
+  markTarget(target);
+}
+
+// Shows where the drop would land: a line between two rows, or an outline around the place.
+function markTarget(target) {
+  const same = (a, b) => a && b && a.kind === b.kind && a.day === b.day && a.zone === b.zone && a.index === b.index;
   if (same(target, drag.target) && (!drag.line || drag.line.isConnected)) return;
   drag.target = target;
   clearMarks();
@@ -163,7 +193,40 @@ function endDrag(drop) {
   if (drop && target) dropOn(target);
 }
 
+// A line of the Checklist dropped in a list: it moves there (from the list for everyone on the trip to
+// the personal one, or back), or to another spot in its own list.
+function dropOnList(target) {
+  const there = target.zone.dataset.list;
+  const from = listNamed(drag.home), to = listNamed(there);       // app.js
+  const at = from.get().findIndex(c => c.id === drag.id);
+  if (at < 0) return;
+  const line = from.get()[at];
+  const crossing = drag.home !== there;
+  const rest = from.get().filter(c => c !== line);
+  const dest = crossing ? to.get().slice() : rest.slice();
+  const before = target.beforeId ? dest.findIndex(c => c.id === target.beforeId) : -1;
+  dest.splice(before < 0 ? dest.length : before, 0, line);
+  // Put back where it was: nothing changes.
+  if (!crossing && dest.every((c, k) => c === from.get()[k])) return;
+  if (crossing) from.set(rest);
+  to.set(dest);
+  save();
+  render();
+  if (navigator.vibrate) navigator.vibrate(10);
+  const message = !crossing ? 'Moved' : there === 'trip' ? 'Moved to the list for everyone' : 'Moved to your own list';
+  snackbar(message, 'Undo', () => {
+    // Back to its list and its spot there, whatever else changed meanwhile.
+    to.set(to.get().filter(c => c.id !== line.id));
+    const back = from.get().filter(c => c.id !== line.id);
+    back.splice(Math.min(at, back.length), 0, line);
+    from.set(back);
+    save();
+    render();
+  });
+}
+
 function dropOn(target) {
+  if (drag.check) return dropOnList(target);
   const trip = activeTrip();
   const item = trip && trip.items.find(i => i.id === drag.id);
   if (!item) return;

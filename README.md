@@ -111,7 +111,9 @@ Good to know:
 - The person who started it can **remove** someone (the link is then replaced, so the old one stops working)
   and can **delete the trip for everyone**. The others can **leave**; the trip then goes away from their devices only.
 - Shared: the trip, its plans and ideas, and **a list for everyone** on the trip. It shows in the **Checklist**
-  when that trip is open, above your own checklist: anyone adds to it and ticks things off.
+  when that trip is open, above your own checklist: anyone adds to it and ticks things off. Hold an item and
+  drag it to move it between that list and your own. A packing suggestion can go on either: **+** for yours,
+  the people button for everyone.
 - **Not** shared: your own checklist, AI Assistant chats, and your other trips.
 - **Files can't be shared in the app.** Tickets & bookings attached to a plan stay on the device they were added
   on. To pass one on, send it yourself (email, WhatsApp…).

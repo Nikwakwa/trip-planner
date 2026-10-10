@@ -1350,7 +1350,7 @@ function renderIdeas(trip) {
 
 function taskHTML(c) {
   return `
-    <li class="task ${c.done ? 'done' : ''}" data-check="${esc(c.id)}">
+    <li class="task ${c.done ? 'done' : ''}" data-check="${esc(c.id)}" data-drag>
       <button type="button" class="check ripple" data-action="toggle-check" role="checkbox"
         aria-checked="${c.done}" aria-label="Done: ${esc(c.text)}"><span class="box">${icon('check')}</span></button>
       <span class="task-text">${esc(c.text)}</span>
@@ -1370,23 +1370,25 @@ function tripListHTML(trip, typed) {
         <h2 class="group-label">${icon('group', 'sm')}${esc(trip.name)}${trip.shared ? ', together' : ''}${todos.length ? ` · ${done.length}/${todos.length}` : ''}</h2>
         ${done.length ? `<button type="button" class="btn text ripple" data-action="clear-checked">Clear done</button>` : ''}
       </div>
-      ${trip.shared ? '<p class="supporting">Everyone on this trip sees this list, adds to it and ticks things off.</p>' : ''}
+      ${trip.shared ? `<p class="supporting">Everyone on this trip sees this list, adds to it and ticks things off.
+        <span class="touch-only">Hold an item and drag it</span><span class="mouse-only">Drag an item</span> to move it between this list and yours.</p>` : ''}
       <form class="add-bar" data-form="todo">
         <input name="text" value="${esc(typed)}" placeholder="Add something for everyone" maxlength="200" autocomplete="off" aria-label="New item for everyone on the trip">
         <button type="submit" class="icon-btn filled ripple" aria-label="Add">${icon('add')}</button>
       </form>
-      ${todos.length ? `<ul class="group">${[...todos.filter(c => !c.done), ...done].map(taskHTML).join('')}</ul>` : ''}
-    </section>
-    <h2 class="group-label">Just for you</h2>`;
+      ${todos.length ? `<ul class="group tasks">${[...todos.filter(c => !c.done), ...done].map(taskHTML).join('')}</ul>` : ''}
+    </section>`;
 }
 
-// The list a checklist row, button or form belongs to: the trip's own, or the personal checklist.
-function listAt(el) {
-  const trip = el.closest('[data-list="trip"]') ? activeTrip() : null;
+// One of the Checklist's two lists: 'trip' is the open trip's own (for everyone on it), 'own' the personal one.
+function listNamed(name) {
+  const trip = name === 'trip' ? activeTrip() : null;
   return trip
     ? { get: () => trip.todos || [], set: (list) => { trip.todos = list; } }
     : { get: () => state.checklist, set: (list) => { state.checklist = list; } };
 }
+// The list a checklist row, button or form belongs to.
+const listAt = el => listNamed(el.closest('[data-list="trip"]') ? 'trip' : 'own');
 
 function renderChecklist() {
   const list = state.checklist;
@@ -1395,10 +1397,14 @@ function renderChecklist() {
   // What is being typed in "Add something…" survives a redraw (after ticking an item, or news from another device).
   const typedIn = (form) => { const el = $(`#view-pack [data-form="${form}"] input`); return el ? el.value : ''; };
   const typed = typedIn('check');
+  const together = tripListHTML(activeTrip(), typedIn('todo'));
+  // The two lists are the places a row can be dragged to (drag.js): data-list, and "tasks" for the open items.
   $('#view-pack').innerHTML = `
     <h1 class="headline">Checklist</h1>
     <p class="supporting">Packing and to-dos for the whole trip.</p>
-    ${tripListHTML(activeTrip(), typedIn('todo'))}
+    ${together}
+    <section class="own-list" data-list="own" aria-label="Your own checklist">
+    ${together ? '<h2 class="group-label">Just for you</h2>' : ''}
     ${list.length ? `
       <div class="progress-card">
         <div><span class="big">${done.length}</span><span class="of"> / ${list.length}</span></div>
@@ -1409,7 +1415,7 @@ function renderChecklist() {
       <input name="text" value="${esc(typed)}" placeholder="Add something to pack or do" maxlength="200" autocomplete="off" aria-label="New checklist item">
       <button type="submit" class="icon-btn filled ripple" aria-label="Add">${icon('add')}</button>
     </form>
-    ${todo.length ? `<ul class="group">${todo.map(taskHTML).join('')}</ul>` : ''}
+    ${todo.length ? `<ul class="group tasks">${todo.map(taskHTML).join('')}</ul>` : ''}
     ${!list.length ? emptyState('luggage', 'Nothing to pack yet', 'Add chargers, tickets, snacks — anything you don’t want to forget.') : ''}
     ${packingHTML(activeTrip())}
     ${done.length ? `
@@ -1417,7 +1423,8 @@ function renderChecklist() {
         <h2 class="group-label">Completed (${done.length})</h2>
         <button type="button" class="btn text ripple" data-action="clear-checked">Clear</button>
       </div>
-      <ul class="group">${done.map(taskHTML).join('')}</ul>` : ''}`;
+      <ul class="group">${done.map(taskHTML).join('')}</ul>` : ''}
+    </section>`;
 }
 
 function renderMore() {
