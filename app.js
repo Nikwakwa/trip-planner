@@ -2949,7 +2949,6 @@ function octagon(r) {
 
 function openPad() {
   const stick = 'M12 -2.5 L70 -6.5 L340 -6.5 L340 6.5 L70 6.5 L12 2.5 Z';
-  $('#about-title').textContent = 'Paradiddle';
   $('#about-body').innerHTML = `
     <div class="pad-wrap">
       <svg class="pad" viewBox="0 0 320 320" role="img" aria-label="A practice pad and a drumstick">
