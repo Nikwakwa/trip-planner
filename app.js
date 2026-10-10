@@ -2487,6 +2487,10 @@ document.addEventListener('click', async (e) => {
     case 'whats-new':
       openChangelog();
       break;
+    case 'older-versions':
+      for (const s of document.querySelectorAll('#about-body .version[hidden]')) s.hidden = false;
+      el.remove();
+      break;
     case 'feature-votes':
       openVoting();
       break;
@@ -2791,15 +2795,18 @@ function openPrivacy() {
   $('#about-body').scrollTop = 0;
 }
 
-// "What's new": every version since the first one (version.js), newest first.
+// "What's new": the versions (version.js), newest first. Each one the same way: its number, its date,
+// what is new. Only the latest few show at first; the rest open with "Earlier versions".
+const VERSIONS_SHOWN = 5;
 function openChangelog() {
   $('#about-title').textContent = 'What’s new';
   $('#about-body').innerHTML = CHANGELOG.map((c, i) => `
-    <section class="tip version">
-      <h3>${esc(c.title || 'Version ' + c.v)}</h3>
-      <p class="version-when">${c.title ? `Version ${esc(c.v)} · ` : ''}${esc(fmtDay(c.date, { day: 'numeric', month: 'short', year: 'numeric' }))}${i ? '' : ' · <span class="ok">on this device</span>'}</p>
+    <section class="tip version" ${i < VERSIONS_SHOWN ? '' : 'hidden'}>
+      <h3>Version ${esc(c.v)}</h3>
+      <p class="version-when">${esc(fmtDay(c.date, { day: 'numeric', month: 'short', year: 'numeric' }))}${i ? '' : ' · <span class="ok">on this device</span>'}</p>
       <ul>${c.items.map(t => `<li>${esc(t)}</li>`).join('')}</ul>
-    </section>`).join('');
+    </section>`).join('')
+    + (CHANGELOG.length > VERSIONS_SHOWN ? `<button type="button" class="btn tonal ripple older-versions" data-action="older-versions">Earlier versions</button>` : '');
   $('#about-dialog').showModal();
   $('#about-body').scrollTop = 0;
 }

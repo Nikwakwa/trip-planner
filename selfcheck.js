@@ -345,6 +345,16 @@ function runSelfCheck() {
 
   /* ---------- The list of versions ---------- */
   group = 'What’s new';
+  check('Every version says what is new in a few short lines, with no title of its own', () => {
+    for (const c of CHANGELOG) {
+      if ('title' in c) return `version ${c.v} has a title`;
+      if (c.items.length > 5) return `version ${c.v} lists ${c.items.length} things (5 at most)`;
+      const long = c.items.find(t => t.length > 110);
+      if (long) return `version ${c.v} has a long line: ${long}`;
+      if (c.items.some(t => /^fixed\b/i.test(t))) return `version ${c.v} details a fix (say "Bug fixes" once)`;
+    }
+    return true;
+  });
   check('Every version has a number, a real date and something to say, newest first', () => {
     const num = v => v.split('.').map(Number);
     const newer = (a, b) => { const x = num(a), y = num(b); for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i]; return false; };

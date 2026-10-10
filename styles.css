@@ -1729,6 +1729,7 @@ a.fact .fact-icon { background: var(--error); color: var(--error-container); }
 /* ---------- What's new (the list of versions) ---------- */
 .version h3 { margin-bottom: 2px; }
 .tip p.version-when { margin-bottom: 8px; font-size: 13px; line-height: 18px; }
+.older-versions { display: flex; margin: 12px auto 4px; }
 .version ul { display: grid; gap: 4px; margin: 0; padding-left: 20px; font-size: 14px; line-height: 20px; color: var(--on-surface-variant); }
 
 /* ---------- Self-check results (selfcheck.js) ---------- */

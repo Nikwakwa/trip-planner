@@ -199,7 +199,10 @@ to publish them by hand.
 
 **Offline / updates (`sw.js`).** The service worker serves cached files first and refreshes them in the background (stale-while-revalidate).
 When you **add a new app file**, add it to `FILES` (`selfcheck.js` is there too, so the self-check matches the saved app). When you **ship any change**, add an entry at the top of `CHANGELOG` in `version.js`
-(`x.y.z`: the app looks or works differently . something new . fixes only), written for users in plain words.
+(`x.y.z`: the app looks or works differently . something new . fixes only), written for users in plain words and
+kept short: `{ v, date, items }`, no title, what is new in five short lines at most, and all the fixes as one line,
+"Bug fixes" (the self-check enforces this). "What's new" shows each as "Version x.y.z", the date (the first one with "on this
+device"), the lines; only the latest five show until "Earlier versions" is tapped.
 `APP_VERSION` is that first entry. `sw.js` imports it for its cache name (`trip-planner-v1.2.3`), which is how
 installed phones pick up the new version. Settings → About → "What's new" lists every entry (`openChangelog`), and
 after an update a snackbar offers it once (`settings.seenVersion`). The big vendored libraries (MapLibre, Firebase) are in
