@@ -37,7 +37,8 @@ const weather = {
 const WEATHER_NEAR = 25;   // miles
 function weatherSpot(trip, day, guide = guideFor(trip)) {
   const city = trip.place && trip.place.kind === 'city' ? trip.place : null;
-  const base = baseFor(trip, day, guide);
+  // The stay of that night, or on a check-out day the one being left.
+  const base = baseFor(trip, day, guide) || baseFor(trip, dayBefore(day), guide);
   const spots = trip.items.filter(i => i.date === day).map(i => coordsOf(i, guide)).filter(Boolean);
   if (base) spots.unshift(base.c);
   if (!spots.length) return city;

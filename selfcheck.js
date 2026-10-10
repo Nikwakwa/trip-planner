@@ -373,11 +373,14 @@ function runSelfCheck() {
     ];
     const country = { place: { kind: 'country', lat: 39.8, lng: -100.4 }, items: plans };
     const city = { place: { kind: 'city', lat: 42.36, lng: -71.06 }, items: plans.slice(0, 3) };
+    const left = { place: country.place, items: [{ ...plans[4], until: '2026-10-20' }] };     // a stay with a check-out day
     const spot = (trip, day) => { const s = weatherSpot(trip, day, null); return s && [s.lat, s.lng]; };
     return same([
       spot(country, '2026-10-14'), spot(country, '2026-10-15'), spot(country, '2026-10-16'), spot(country, '2026-10-17'), spot(country, '2026-10-18'),
       spot({ place: country.place, items: [] }, '2026-10-14'), spot(city, '2026-10-15'), spot({ place: city.place, items: [] }, '2026-10-14'),
-    ], [[42.37, -71.1], [42.37, -71.1], [40.75, -73.94], [40.75, -73.94], [43.1, -79.1], null, [42.36, -71.06], [42.36, -71.06]]);
+      spot(left, '2026-10-19'), spot(left, '2026-10-20'), spot(left, '2026-10-21'),
+    ], [[42.37, -71.1], [42.37, -71.1], [40.75, -73.94], [40.75, -73.94], [43.1, -79.1], null, [42.36, -71.06], [42.36, -71.06],
+      [40.75, -73.94], [40.75, -73.94], null]);
   });
   check('Matching places are looked for around the plan being edited, else the stay of its day', () => {
     const stay = (id, date, lat) => ({ id, title: id, category: 'stay', date, lat, lng: -71 });
