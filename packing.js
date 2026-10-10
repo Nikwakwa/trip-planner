@@ -60,7 +60,8 @@ function packingIdeas(trip) {
 }
 
 function packingSuggestions(trip) {
-  const have = state.checklist.map(c => norm(c.text));
+  // Already on the checklist, or on the trip's own list: not suggested again.
+  const have = [...state.checklist, ...(trip.todos || [])].map(c => norm(c.text));
   const hidden = new Set(packingHidden[trip.id] || []);
   return packingIdeas(trip).filter(s => !hidden.has(s.key) && !have.some(t => s.match.test(t)));
 }

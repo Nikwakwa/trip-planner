@@ -482,7 +482,8 @@ function renderShare() {
   $('#share-title').textContent = `Share ${trip.name}`;
   const root = shareOf(trip);
   const note = (ic, text, more = '', bad = false) => `<p class="vote-note ${bad ? 'bad' : ''}">${icon(ic)}<span>${text}</span>${more}</p>`;
-  const intro = '<p>Invite people to this trip. They see it and change it from their own account: its days, plans and ideas. Your checklist stays yours.</p>';
+  const intro = '<p>Invite people to this trip. They see it and change it from their own account: its days, plans and ideas, and a list for everyone in the Checklist.</p>';
+  const notFiles = '<p class="share-hint">Tickets and other files you attach to a plan can’t be shared in the app: they stay on your device. Your own checklist stays yours too.</p>';
 
   let together;
   if (!sync.configured) {
@@ -497,7 +498,7 @@ function renderShare() {
   } else if (!root) {
     together = trip.shared || !sharing.ready
       ? note('sync', 'Asking your account who is on this trip…')
-      : `${intro}<button type="button" class="btn filled ripple" data-action="share-start" ${sharing.busy ? 'disabled' : ''}>
+      : `${intro}${notFiles}<button type="button" class="btn filled ripple" data-action="share-start" ${sharing.busy ? 'disabled' : ''}>
           ${icon('person_add')}${sharing.busy ? 'Getting the link…' : 'Invite people'}</button>`;
   } else {
     const mine = ownsShare(root);
@@ -520,6 +521,7 @@ function renderShare() {
           <button type="button" class="btn ${navigator.share ? 'tonal' : 'filled'} ripple" data-action="share-copy">${icon('content_copy')}Copy</button>
         </div>
         <p class="share-hint">Whoever opens this link and signs in joins the trip and can change it. They show up here${mine ? ', and you can take them off again' : ''}.</p>` : ''}
+      ${notFiles}
       ${mine ? '' : `<button type="button" class="btn text danger ripple share-leave" data-action="share-leave">${icon('logout')}Leave this trip</button>`}`;
   }
 

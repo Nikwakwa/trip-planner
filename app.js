@@ -689,6 +689,9 @@ function tidyState(data) {
   const trips = data.trips.map((t) => {
     const trip = tidyTrip(t, true);
     if (trip) trip.items = (Array.isArray(t.items) ? t.items : []).map(i => tidyItem(i, true)).filter(Boolean);
+    // The trip's own list, for everyone on the trip (only a trip planned with other people has one).
+    if (trip && Array.isArray(t.todos)) trip.todos = t.todos.map(c => tidyCheck(c, true)).filter(Boolean);
+    else if (trip) delete trip.todos;
     return trip;
   }).filter(Boolean);
   return {
@@ -1355,16 +1358,47 @@ function taskHTML(c) {
     </li>`;
 }
 
+// A trip planned with other people has a list of its own: everyone on the trip sees it, adds to it and
+// ticks things off. It is kept with the trip (trip.todos), apart from the checklist, which stays personal.
+function tripListHTML(trip, typed) {
+  if (!trip || !(trip.shared || (trip.todos && trip.todos.length))) return '';
+  const todos = trip.todos || [];
+  const done = todos.filter(c => c.done);
+  return `
+    <section class="trip-list" data-list="trip" aria-label="List for everyone on ${esc(trip.name)}">
+      <div class="label-row">
+        <h2 class="group-label">${icon('group', 'sm')}${esc(trip.name)}${trip.shared ? ', together' : ''}${todos.length ? ` · ${done.length}/${todos.length}` : ''}</h2>
+        ${done.length ? `<button type="button" class="btn text ripple" data-action="clear-checked">Clear done</button>` : ''}
+      </div>
+      ${trip.shared ? '<p class="supporting">Everyone on this trip sees this list, adds to it and ticks things off.</p>' : ''}
+      <form class="add-bar" data-form="todo">
+        <input name="text" value="${esc(typed)}" placeholder="Add something for everyone" maxlength="200" autocomplete="off" aria-label="New item for everyone on the trip">
+        <button type="submit" class="icon-btn filled ripple" aria-label="Add">${icon('add')}</button>
+      </form>
+      ${todos.length ? `<ul class="group">${[...todos.filter(c => !c.done), ...done].map(taskHTML).join('')}</ul>` : ''}
+    </section>
+    <h2 class="group-label">Just for you</h2>`;
+}
+
+// The list a checklist row, button or form belongs to: the trip's own, or the personal checklist.
+function listAt(el) {
+  const trip = el.closest('[data-list="trip"]') ? activeTrip() : null;
+  return trip
+    ? { get: () => trip.todos || [], set: (list) => { trip.todos = list; } }
+    : { get: () => state.checklist, set: (list) => { state.checklist = list; } };
+}
+
 function renderChecklist() {
   const list = state.checklist;
   const todo = list.filter(c => !c.done);
   const done = list.filter(c => c.done);
   // What is being typed in "Add something…" survives a redraw (after ticking an item, or news from another device).
-  const typing = $('#view-pack [data-form="check"] input');
-  const typed = typing ? typing.value : '';
+  const typedIn = (form) => { const el = $(`#view-pack [data-form="${form}"] input`); return el ? el.value : ''; };
+  const typed = typedIn('check');
   $('#view-pack').innerHTML = `
     <h1 class="headline">Checklist</h1>
     <p class="supporting">Packing and to-dos for the whole trip.</p>
+    ${tripListHTML(activeTrip(), typedIn('todo'))}
     ${list.length ? `
       <div class="progress-card">
         <div><span class="big">${done.length}</span><span class="of"> / ${list.length}</span></div>
@@ -2272,8 +2306,9 @@ document.addEventListener('click', async (e) => {
     case 'new-trip':
       openTripForm(null);
       break;
+    // These three work on the personal checklist, or on the trip's own list (listAt).
     case 'toggle-check': {
-      const c = state.checklist.find(x => x.id === checkEl.dataset.check);
+      const c = listAt(el).get().find(x => x.id === checkEl.dataset.check);
       if (c) {
         c.done = !c.done;
         save();
@@ -2282,25 +2317,32 @@ document.addEventListener('click', async (e) => {
       break;
     }
     case 'del-check': {
-      const index = state.checklist.findIndex(x => x.id === checkEl.dataset.check);
+      const list = listAt(el);
+      const index = list.get().findIndex(x => x.id === checkEl.dataset.check);
       if (index < 0) break;
-      const [removed] = state.checklist.splice(index, 1);
+      const [removed] = list.get().splice(index, 1);
       save();
       render();
       snackbar('Item removed', 'Undo', () => {
-        state.checklist.splice(index, 0, removed);
+        // Back where it was, unless the list changed meanwhile (someone else on the trip): then at the end.
+        const now = list.get().slice();
+        if (now.some(x => x.id === removed.id)) return;
+        now.splice(Math.min(index, now.length), 0, removed);
+        list.set(now);
         save();
         render();
       });
       break;
     }
     case 'clear-checked': {
-      const before = state.checklist;
-      state.checklist = before.filter(x => !x.done);
+      const list = listAt(el);
+      const cleared = list.get().filter(x => x.done);
+      list.set(list.get().filter(x => !x.done));
       save();
       render();
-      snackbar(`Cleared ${plural(before.length - state.checklist.length, 'item')}`, 'Undo', () => {
-        state.checklist = before;
+      snackbar(`Cleared ${plural(cleared.length, 'item')}`, 'Undo', () => {
+        const now = list.get();
+        list.set([...now, ...cleared.filter(c => !now.some(x => x.id === c.id))]);
         save();
         render();
       });
@@ -2614,16 +2656,17 @@ document.addEventListener('click', async (e) => {
 
 // Adding to the checklist.
 document.addEventListener('submit', (e) => {
-  const form = e.target.closest('[data-form="check"]');
+  const form = e.target.closest('[data-form="check"], [data-form="todo"]');
   if (!form) return;
   e.preventDefault();
   const text = form.elements.text.value.trim();
   if (!text) return;
-  state.checklist.push({ id: uid(), text, done: false });
+  const list = listAt(form);
+  list.set([...list.get(), { id: uid(), text, done: false }]);
   form.elements.text.value = '';
   save();
   render();
-  $('[data-form="check"] input').focus();
+  $(`[data-form="${form.dataset.form}"] input`).focus();
 });
 
 // The big + button.
@@ -2728,6 +2771,10 @@ function cleanBackup(data) {
     };
   };
   if (!data || !Array.isArray(data.trips)) throw new Error('not a backup');
+  // The lines of a checklist, or of a trip's own list.
+  const checks = list => (Array.isArray(list) ? list : [])
+    .filter(c => c && typeof c === 'object' && str(c.text, 200))
+    .map(c => ({ id: id(c.id), text: str(c.text, 200), done: c.done === true }));
   const tripIds = new Map();      // the file's trip id → the id it has here
   // A trip's days: both or none, the first one first.
   const span = (t) => {
@@ -2761,10 +2808,10 @@ function cleanBackup(data) {
       booked: i.booked === true || undefined,
       until: date(i.until) || undefined,
     })),
+    // The list a trip planned with other people had: kept, as this trip's own list.
+    todos: Array.isArray(t.todos) && t.todos.length ? checks(t.todos) : undefined,
   }));
-  const checklist = (Array.isArray(data.checklist) ? data.checklist : [])
-    .filter(c => c && typeof c === 'object' && str(c.text, 200))
-    .map(c => ({ id: id(c.id), text: str(c.text, 200), done: c.done === true }));
+  const checklist = checks(data.checklist);
   const activeTripId = tripIds.get(data.activeTripId) || (trips.length ? trips[0].id : null);
   const s = data.settings || {};
   const settings = {
@@ -2830,7 +2877,7 @@ function openPrivacy() {
     sync.configured && part('sync', 'In your account', [
       'If you sign in, your email address, trips, plans and checklist are also stored with Google Firebase, so that your devices share them.',
       'The person who runs this copy of the app can see them there. Your password is stored scrambled: nobody can read it.',
-      'A trip you plan with other people is stored there once, for all of you. Everyone on it sees its plans and the email addresses of the others. Your checklist, your tickets and your other trips stay yours.',
+      'A trip you plan with other people is stored there once, for all of you. Everyone on it sees its plans, the list for everyone in the Checklist, and the email addresses of the others. Your own checklist and your other trips stay yours. Tickets and other files can’t be shared: they never leave the device.',
       'Your votes for new features, and the suggestions you send, are stored there too. Everyone who is signed in can read the suggestions, without your name or email.',
     ]),
     part('public', 'Sent to other services', [

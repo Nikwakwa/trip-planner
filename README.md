@@ -110,8 +110,11 @@ Good to know:
 - The Share sheet lists **who is on the trip**, by email address. Only the people on the trip see that list.
 - The person who started it can **remove** someone (the link is then replaced, so the old one stops working)
   and can **delete the trip for everyone**. The others can **leave**; the trip then goes away from their devices only.
-- Shared: the trip, its plans and ideas. **Not** shared: the checklist, tickets & bookings, AI Assistant chats,
-  and your other trips.
+- Shared: the trip, its plans and ideas, and **a list for everyone** on the trip. It shows in the **Checklist**
+  when that trip is open, above your own checklist: anyone adds to it and ticks things off.
+- **Not** shared: your own checklist, AI Assistant chats, and your other trips.
+- **Files can't be shared in the app.** Tickets & bookings attached to a plan stay on the device they were added
+  on. To pass one on, send it yourself (email, WhatsApp…).
 - Twenty people at most on one trip.
 - Did the two of you use **one account** until now? It still works. To move to an account each: one of you signs
   out, creates their own account, and is then invited to the trips. If their phone still has a copy of a trip,

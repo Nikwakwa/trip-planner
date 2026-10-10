@@ -1737,6 +1737,10 @@ dialog.fit-sheet { height: fit-content; }      /* as tall as what it holds */
 .share-actions .btn { margin: 0; }
 .tip p.share-hint { font-size: 13px; line-height: 18px; }
 .share-leave { margin-left: -12px; }
+/* The list for everyone on the trip, above the personal checklist */
+.trip-list .label-row { margin-top: 4px; }
+.trip-list .group-label { display: flex; align-items: center; gap: 6px; }
+.trip-list .supporting { margin: 0 16px 12px; }
 
 /* ---------- Report a problem ---------- */
 .report-more { margin: -4px 4px 0; font-size: 13px; line-height: 18px; color: var(--on-surface-variant); }

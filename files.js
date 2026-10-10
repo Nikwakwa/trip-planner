@@ -175,7 +175,7 @@ async function openFiles(itemId) {
           : `<a class="file-row file-open ripple" href="${url}" target="_blank" rel="noopener">${icon('picture_as_pdf')}
               <span class="file-name">${esc(f.name)}</span><span class="file-size">${fmtSize(f.size)}</span>${icon('open_in_new')}</a>`;
       }).join('') || '<p class="supporting">No files.</p>'}
-      <p class="footnote">${icon('attach_file', 'sm')}Saved on this device only. To change them, edit the plan.</p>`;
+      <p class="footnote">${icon('attach_file', 'sm')}Saved on this device only, and not shared with anyone. To change them, edit the plan.</p>`;
   } catch {
     $('#files-body').innerHTML = '<p class="supporting">Couldn’t open the files.</p>';
   }

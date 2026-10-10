@@ -216,6 +216,11 @@ and `shared/{id}/docs/…` holds the trip and its plans, in the same form as an 
 - A trip is in the app once: when a shared trip arrives, the account's own trip with the same id (a copy from
   before it was shared, or the trip itself on the owner's other devices) becomes it, and its own documents are
   removed at the next save. Only the trip named in `shared/{id}.trip` is taken from a shared space.
+- A shared trip has a list of its own for everyone on it: `trip.todos` (`[{ id, text, done }]`), synced as `todo_…`
+  documents next to the trip's plans (not `check_…`: version 2.10 would remove those). The Checklist tab shows it
+  for the trip that is open, above the personal checklist (`tripListHTML`; `listAt(el)` tells which list a row,
+  button or form belongs to). Files are never shared, by the owner's choice (2026-10-10): the app says so in the
+  plan form, the Tickets sheet, the Share sheet and the privacy note.
 - An invitation is `<id>.<code>`, sent as a link `…/#join=<id>.<code>` (after the `#`, so the host never sees it;
   `checkInviteLink`, or pasted under Settings → Trips → "Join a trip"). Joining is one write that adds the account
   to `uids` and `members` with the code as `via`; the rules compare it with the trip's code, and the email with the

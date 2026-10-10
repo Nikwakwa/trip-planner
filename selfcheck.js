@@ -289,6 +289,29 @@ function runSelfCheck() {
   check('“Shared” is only kept when it can be an id, and never comes back from a backup file', () =>
     same([tidyTrip({ id: 't', shared: 's1' }).shared, tidyTrip({ id: 't', shared: '<b>' }).shared, cleanBackup({ trips: [{ id: 't', name: 'A', shared: 's1' }] }).trips[0].shared],
       ['s1', undefined, undefined]));
+  check('The list for everyone on a trip travels with the trip, and the checklist stays personal', () => sandbox(() => {
+    const withList = () => { const s = both(); romeOf(s).todos = [{ id: 't1', text: 'Tent', done: false }, { id: 't2', text: 'Stove', done: false }]; return s; };
+    state = withList();
+    sync.saved = { uid: 'selfcheck', email: '', linked: true, base: stateDocs(withList()), shared: { s1: { trip: 'trip2', base: stateDocs(withList(), 's1') } } };
+    sync.shared.s1 = newSpace();
+    const docs = stateDocs(state, 's1');
+    const mine = romeOf(state).todos[0];
+    romeOf(state).todos[1].done = true;                 // ticked here, not sent yet
+    const remote = withList();
+    romeOf(remote).todos[0].text = 'Big tent';          // someone else renamed one and added one
+    romeOf(remote).todos.push({ id: 't3', text: 'Map', done: false });
+    mergeRemote(stateDocs(remote, 's1'), new Set(), undefined, 's1');
+    const todos = romeOf(state).todos;
+    return same([Object.keys(docs).filter(k => k.startsWith('todo_')), 'todos' in JSON.parse(docs.trip_trip2), JSON.parse(docs.todo_t1).trip,
+      Object.keys(stateDocs(state)).some(k => k.startsWith('todo_')), todos.map(c => `${c.text}${c.done ? ' (done)' : ''}`), todos[0] === mine, state.checklist.length],
+    [['todo_t1', 'todo_t2'], false, 'trip2', false, ['Big tent', 'Stove (done)', 'Map'], true, 1]);
+  }));
+  check('A trip’s own list is checked when it is read, and comes back from a backup file', () => {
+    const s = tidyState({ trips: [{ id: 't', name: 'A', items: [], todos: [{ id: 'x', text: 'Tent', done: 1 }, { text: '' }, 7] }, { id: 'u', name: 'B', todos: 'no' }] });
+    const b = cleanBackup({ trips: [{ id: 't', name: 'A', todos: [{ id: 'x', text: 'Tent', done: true, evil: 1 }, null] }, { id: 'u', name: 'B' }] });
+    return same([s.trips[0].todos, 'todos' in s.trips[1], b.trips[0].todos, b.trips[1].todos],
+      [[{ id: 'x', text: 'Tent', done: false }], false, [{ id: 'x', text: 'Tent', done: true }], undefined]);
+  });
 
   /* ---------- Order of the plans in a day ---------- */
   group = 'Plans';

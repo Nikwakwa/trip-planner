@@ -19,7 +19,7 @@
 
 const SYNC_KEY = 'tripPlanner.sync';
 const FIREBASE_FILES = ['app', 'auth', 'firestore'].map(p => `vendor/firebase/firebase-${p}-compat.js`);
-const SYNCED_KINDS = /^(trip|item|check)_/;      // the documents this version of the app writes and removes
+const SYNCED_KINDS = /^(trip|item|check|todo)_/;      // the documents this version of the app writes and removes
 
 const sync = {
   configured: !!(window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.apiKey),
@@ -96,10 +96,13 @@ function stateDocs(s, space = '') {
   let pos = 0;
   for (const t of s.trips) {
     if ((t.shared || '') !== space) continue;
-    const { items, shared, ...trip } = t;
+    const { items, todos, shared, ...trip } = t;
     // A shared trip has no place in the list of trips: everyone on it keeps their own order.
     out[docKey('trip', t.id)] = stable({ k: 'trip', pos: space ? 0 : pos++, ...trip });
     items.forEach((it, i) => { out[docKey('item', it.id)] = stable({ k: 'item', trip: t.id, pos: i, ...it }); });
+    // The trip's own list (things to pack or do, for everyone on the trip): "todo", so that it is never
+    // taken for the account's checklist, and version 2.10 leaves it alone.
+    (todos || []).forEach((c, i) => { out[docKey('todo', c.id)] = stable({ k: 'todo', trip: t.id, pos: i, ...c }); });
   }
   if (!space) s.checklist.forEach((c, i) => { out[docKey('check', c.id)] = stable({ k: 'check', pos: i, ...c }); });
   return out;
@@ -109,7 +112,7 @@ function stateDocs(s, space = '') {
 // where possible, so an "Undo" that's still on screen keeps working.
 function applyDocs(docs, space = '') {
   // Each document is checked first (app.js): one the app can't use is left out.
-  const tidy = d => (!d ? null : d.k === 'trip' ? tidyTrip(d) : d.k === 'item' ? tidyItem(d) : d.k === 'check' ? tidyCheck(d) : null);
+  const tidy = d => (!d ? null : d.k === 'trip' ? tidyTrip(d) : d.k === 'item' ? tidyItem(d) : d.k === 'check' || d.k === 'todo' ? tidyCheck(d) : null);
   const all = Object.values(docs).map(j => tidy(JSON.parse(j))).filter(Boolean);
   const byPos = (a, b) => (a.pos - b.pos) || (a.id < b.id ? -1 : 1);
   const here = t => (t.shared || '') === space;
@@ -127,8 +130,9 @@ function applyDocs(docs, space = '') {
   const before = state.trips.filter(t => here(t) || (space && t.id === wanted));
   const oldTrips = new Map(before.map(t => [t.id, t]));
   const oldItems = new Map(before.flatMap(t => t.items).map(i => [i.id, i]));
+  const oldTodos = new Map(before.flatMap(t => t.todos || []).map(c => [c.id, c]));
 
-  const trips = tripDocs.map(({ k, pos, shared, ...t }) => {
+  const trips = tripDocs.map(({ k, pos, shared, todos, ...t }) => {
     const old = oldTrips.get(t.id);
     const items = old ? old.items : [];
     items.length = 0;
@@ -138,6 +142,10 @@ function applyDocs(docs, space = '') {
   for (const { k, trip, pos, ...it } of all.filter(d => d.k === 'item').sort(byPos)) {
     const t = tripById.get(trip);
     if (t) t.items.push(reuse(oldItems.get(it.id), it));
+  }
+  for (const { k, trip, pos, ...c } of all.filter(d => d.k === 'todo').sort(byPos)) {
+    const t = tripById.get(trip);
+    if (t) (t.todos = t.todos || []).push(reuse(oldTodos.get(c.id), c));
   }
   // The trips of the other spaces stay where they are in the list.
   const list = trips.slice();
