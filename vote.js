@@ -36,6 +36,7 @@ const voting = {
   status: 'idle',     // idle | loading | ready | error
   error: '',
   order: [],          // the order on screen: set when the sheet opens, so rows don't jump while voting
+  suggesting: false,  // the form for a suggestion of your own is open
   stop: [],           // switches the listeners off
 };
 
@@ -80,7 +81,7 @@ function stopVoting() {
 
 async function startVoting() {
   stopVoting();
-  Object.assign(voting, { uid: null, votes: {}, ideas: [], got: new Set(), order: [], error: '', status: sync.saved ? 'loading' : 'idle' });
+  Object.assign(voting, { uid: null, votes: {}, ideas: [], got: new Set(), order: [], suggesting: false, error: '', status: sync.saved ? 'loading' : 'idle' });
   renderVoting();
   if (!sync.saved) return;
   const fail = (err) => {
@@ -143,11 +144,26 @@ function voteError(text) {
   $('#vote-error').hidden = !text;
 }
 
+// Opens or closes the form for a suggestion of your own. While it is open, the sheet's "Done" is away:
+// one button to finish at a time.
+function suggesting(on) {
+  voting.suggesting = on;
+  voteError('');
+  if (!on) $('#vote-form').reset();
+  renderVoting();
+  if (!on) return;
+  $('#vote-form').elements.title.focus({ preventScroll: true });
+  $('#vote-form').scrollIntoView({ block: 'nearest' });
+}
+
 async function suggestFeature(form) {
   const title = form.elements.title.value.trim().slice(0, 80);
   const text = form.elements.text.value.trim().slice(0, 300);
   if (voting.status !== 'ready') return;
-  if (!title) return voteError('Say in a few words what you’d like.');
+  if (!title) {
+    form.elements.title.focus();
+    return voteError('Write your idea first. Your votes are saved already.');
+  }
   const mine = voting.ideas.filter(i => i.uid === voting.uid);
   if (mine.length >= VOTE_MAX_IDEAS) return voteError(`You have ${VOTE_MAX_IDEAS} suggestions in the list. Remove one to send another.`);
   if (votingFeatures().some(f => norm(f.title) === norm(title))) return voteError('That one is in the list already. Vote for it!');
@@ -165,7 +181,7 @@ async function suggestFeature(form) {
     batch.set(sync.db.collection('featureIdeas').doc(doc), { title, text, uid: voting.uid, at });
     batch.set(sync.db.collection('featureVotes').doc(voting.uid), { ids: [...(voting.votes[voting.uid] || []), `${doc}.${at}`].slice(-300) });
     await batch.commit();
-    form.reset();
+    suggesting(false);
     snackbar('Suggestion sent');
   } catch (err) {
     voteError(syncErrorText(err));
@@ -193,6 +209,12 @@ async function eraseVoting(uid) {
 
 /* ---------- The sheet ---------- */
 
+// The line at the bottom of the sheet: a vote needs no "send", so it says the votes are in.
+function voteStatus(count, online) {
+  if (!count) return 'Tap an idea to vote for it';
+  return `${plural(count, 'vote')} ${online ? 'saved' : 'kept for when you’re online'}`;
+}
+
 function renderVoting() {
   const ready = voting.status === 'ready';
   const list = tallyVotes(votingFeatures(), voting.votes, voting.uid);
@@ -209,24 +231,40 @@ function renderVoting() {
     : !navigator.onLine ? `<p class="vote-note">${icon('cloud_off')}<span>Offline — your votes are sent when you’re back online.</span></p>`
     : '';
 
+  // The list is drawn again after each vote: the button that was in use keeps the keyboard's place.
+  const held = document.activeElement && document.activeElement.closest('#vote-list .vote-btn');
+  const heldKey = held && held.dataset.key;
+
   $('#vote-note').innerHTML = note;
+  // The whole row votes, not only its button: people tap the words.
   $('#vote-list').innerHTML = list.map((f) => {
     const mine = f.uid && f.uid === voting.uid;
     return `
-      <li class="vote-item">
+      <li class="vote-item${f.voted ? ' voted' : ''}" ${ready ? `data-action="vote" data-key="${esc(f.key)}"` : ''}>
         <button type="button" class="vote-btn ripple" data-action="vote" data-key="${esc(f.key)}" aria-pressed="${f.voted}"
           aria-label="${f.voted ? 'Take back your vote for' : 'Vote for'} ${esc(f.title)}${ready ? `, ${plural(f.votes, 'vote')}` : ''}" ${ready ? '' : 'disabled'}>
-          ${icon('arrow_forward')}<span>${ready ? f.votes : '–'}</span>
+          ${icon(f.voted ? 'check' : 'arrow_forward')}<span>${ready ? f.votes : '–'}</span>
         </button>
         <div class="vote-text">
           <span class="vote-title">${esc(f.title)}</span>
           ${f.text ? `<span class="vote-sub">${esc(f.text)}</span>` : ''}
+          ${f.voted ? '<span class="vote-tag">You voted for this</span>' : ''}
           ${f.uid ? `<span class="vote-tag">${mine ? 'Your suggestion' : 'Suggested by someone using the app'}
             ${mine ? `<button type="button" class="btn text ripple" data-action="vote-remove" data-doc="${esc(f.doc)}">Remove</button>` : ''}</span>` : ''}
         </div>
       </li>`;
   }).join('');
-  $('#vote-form').hidden = !ready;
+  if (heldKey) {
+    const again = [...document.querySelectorAll('#vote-list .vote-btn')].find(b => b.dataset.key === heldKey);
+    if (again) again.focus({ preventScroll: true });
+  }
+
+  const count = list.filter(f => f.voted).length;
+  $('#vote-suggest').hidden = !ready || voting.suggesting;
+  $('#vote-form').hidden = !ready || !voting.suggesting;
+  $('#vote-foot').hidden = !ready || voting.suggesting;
+  $('#vote-status').classList.toggle('on', count > 0);
+  $('#vote-status').innerHTML = `${count ? icon('check') : ''}<span>${esc(voteStatus(count, navigator.onLine))}</span>`;
 }
 
 function openVoting() {

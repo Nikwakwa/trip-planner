@@ -1682,8 +1682,11 @@ a.fact .fact-icon { background: var(--error); color: var(--error-container); }
 .vote-note span { flex: 1; }
 .vote-note .icon { width: 20px; height: 20px; }
 .vote-note.bad { background: var(--error-container); color: var(--on-error-container); }
-.vote-list { display: grid; gap: 8px; margin: 0 0 24px; padding: 0; list-style: none; }
-.vote-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px; border-radius: 20px; background: var(--surface-container); }
+.vote-list { display: grid; gap: 8px; margin: 0 0 16px; padding: 0; list-style: none; }
+.vote-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px; border-radius: 20px; background: var(--surface-container); transition: background-color .2s var(--ease); }
+.vote-item[data-action] { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.vote-item.voted { background: var(--primary-container); color: var(--on-primary-container); }
+.vote-item.voted .vote-sub, .vote-item.voted .vote-tag { color: inherit; }
 .vote-btn {
   flex: none;
   width: 52px;
@@ -1700,7 +1703,8 @@ a.fact .fact-icon { background: var(--error); color: var(--error-container); }
   font-weight: 650;
   transition: background-color .2s var(--ease), color .2s var(--ease), border-radius .3s var(--ease);
 }
-.vote-btn .icon { width: 20px; height: 20px; transform: rotate(-90deg); }   /* the arrow, pointing up */
+.vote-btn .icon { width: 20px; height: 20px; }
+.vote-btn[aria-pressed="false"] .icon { transform: rotate(-90deg); }   /* the arrow, pointing up */
 .vote-btn[aria-pressed="true"] { background: var(--primary); border-color: transparent; color: var(--on-primary); }
 .vote-btn:active { border-radius: 22px; }
 .vote-btn:disabled { opacity: .5; pointer-events: none; }
@@ -1712,6 +1716,19 @@ a.fact .fact-icon { background: var(--error); color: var(--error-container); }
 .sheet .vote-form { padding: 0; }
 .vote-form h3 { margin: 0 4px -4px; font-size: 18px; line-height: 24px; font-weight: 650; }
 .vote-hint { margin: -6px 4px 0; font-size: 12px; line-height: 16px; color: var(--on-surface-variant); }
+.vote-suggest { display: flex; margin: 0 auto 4px; }
+/* The bottom of the sheet: what was saved, and the way out */
+.vote-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom)) 20px;
+  border-top: 1px solid var(--outline-variant);
+}
+.vote-status { flex: 1; display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; line-height: 20px; color: var(--on-surface-variant); }
+.vote-status.on { color: var(--primary); font-weight: 650; }
+.vote-status .icon { flex: none; width: 20px; height: 20px; }
 
 /* ---------- Planning a trip together (share.js) ---------- */
 dialog.fit-sheet { height: fit-content; }      /* as tall as what it holds */

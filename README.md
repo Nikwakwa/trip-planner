@@ -137,6 +137,9 @@ the accounts on the trip, and holds the trip's plans under `docs`.
 signed in can vote for as many as they like, and send up to five suggestions of their own. Nobody's name
 or email is shown. The app's own proposals are the list at the top of `vote.js`.
 
+A tap on an idea is the vote: it is saved at once, and the bottom of the sheet says so ("2 votes saved"). There is
+nothing to send. Sending a suggestion of your own is a separate step, behind "Suggest something else".
+
 **One step for you, once:** the votes are kept in your Firebase project, and its rules must allow it.
 In the [Firebase console](https://console.firebase.google.com): **Firestore Database → Rules**, replace
 everything with the contents of `firestore.rules`, and **Publish**. Until then the sheet says

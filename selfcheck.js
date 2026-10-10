@@ -446,6 +446,9 @@ function runSelfCheck() {
     same([tidyIdea('abc_0', { title: '  ' + 'T'.repeat(200), text: 7, uid: 'abc', at: 5 }), tidyIdea('abc_9', { title: 'x', uid: 'abc' }),
       tidyIdea('abc_1', { title: '', uid: 'abc' }), tidyIdea('<b>_1', { title: 'x', uid: 'abc' }), tidyIdea('abc_1', null)],
     [{ key: 'abc_0.5', doc: 'abc_0', uid: 'abc', at: 5, title: 'T'.repeat(80), text: '' }, null, null, null, null]));
+  check('The voting sheet says the votes are saved, without anything to send', () =>
+    same([voteStatus(0, true), voteStatus(1, true), voteStatus(3, true), voteStatus(2, false)],
+      ['Tap an idea to vote for it', '1 vote saved', '3 votes saved', '2 votes kept for when you’re online']));
   check('The app’s own proposals each have a name, a text and an id of their own', () =>
     (FEATURE_IDEAS.every(f => isId(f.id) && f.title && f.text) && new Set(FEATURE_IDEAS.map(f => f.id)).size === FEATURE_IDEAS.length) || 'a proposal is not filled in right');
 

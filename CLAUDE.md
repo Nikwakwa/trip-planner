@@ -240,6 +240,10 @@ trips, the only data shared between accounts: `featureVotes/{uid}` (`{ ids }`, t
 are `FEATURE_IDEAS`; never reuse an id. A suggestion's vote key is `<doc>.<at>`, so a new one in the same slot starts
 at zero. Both collections are listened to only while the sheet is open. `tallyVotes` counts; the order on screen is
 fixed when the votes arrive (`voting.order`) so rows don't jump while voting. No names or emails are stored or shown.
+A vote is saved by the tap itself, on the row or its button, and the sheet has to say so: the row lights up
+("You voted for this") and the bottom line reads "2 votes saved" next to "Done" (`voteStatus`). The form for a
+suggestion stays closed behind "Suggest something else" (`suggesting`), and "Done" is away while it is open: a tester
+took "Send suggestion", then the only button in the sheet, for "save my votes".
 `deleteAccount` calls `eraseVoting`. Changing what is stored means changing `firestore.rules` too, and the owner has
 to publish them by hand.
 

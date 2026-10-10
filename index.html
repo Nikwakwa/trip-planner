@@ -415,11 +415,15 @@
         </button>
       </div>
       <div id="vote-body" class="info-body">
-        <p class="sheet-text vote-intro">Vote for everything you’d like to see in the app. The most wanted get built first.</p>
+        <p class="sheet-text vote-intro">Tap everything you’d like to see in the app. Each vote is saved as you tap, and the most wanted get built first.</p>
         <div id="vote-note"></div>
         <ul id="vote-list" class="vote-list"></ul>
+        <!-- The form stays closed until asked for: its Send button was taken for "save my votes" -->
+        <button type="button" id="vote-suggest" class="btn tonal ripple vote-suggest" data-action="vote-suggest" hidden>
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#add"/></svg>Suggest something else
+        </button>
         <form id="vote-form" class="vote-form" novalidate hidden>
-          <h3>Something else in mind?</h3>
+          <h3>Your own idea</h3>
           <label class="field">
             <span class="field-label">Your idea</span>
             <input name="title" type="text" maxlength="80" autocomplete="off" required>
@@ -432,9 +436,14 @@
           <p id="vote-error" class="form-error" role="alert" hidden></p>
           <div class="sheet-actions">
             <span class="spacer"></span>
+            <button type="button" class="btn text ripple" data-action="vote-suggest-cancel">Cancel</button>
             <button type="submit" class="btn tonal ripple">Send suggestion</button>
           </div>
         </form>
+      </div>
+      <div id="vote-foot" class="vote-foot" hidden>
+        <p id="vote-status" class="vote-status" role="status"></p>
+        <button type="button" class="btn filled ripple" data-close>Done</button>
       </div>
     </div>
   </dialog>

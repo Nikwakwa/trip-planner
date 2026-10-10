@@ -2587,6 +2587,12 @@ document.addEventListener('click', async (e) => {
     case 'vote-remove':
       removeIdea(el.dataset.doc);
       break;
+    case 'vote-suggest':
+      suggesting(true);
+      break;
+    case 'vote-suggest-cancel':
+      suggesting(false);
+      break;
     case 'vote-sign-in':
       $('#vote-dialog').close();
       openAuthForm();
