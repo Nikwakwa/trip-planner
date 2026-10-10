@@ -1713,6 +1713,31 @@ a.fact .fact-icon { background: var(--error); color: var(--error-container); }
 .vote-form h3 { margin: 0 4px -4px; font-size: 18px; line-height: 24px; font-weight: 650; }
 .vote-hint { margin: -6px 4px 0; font-size: 12px; line-height: 16px; color: var(--on-surface-variant); }
 
+/* ---------- Planning a trip together (share.js) ---------- */
+dialog.fit-sheet { height: fit-content; }      /* as tall as what it holds */
+.trip-chip .icon { margin: 0 -4px 0 -2px; opacity: .8; }
+.welcome-join { display: flex; margin: 12px auto 0; }
+.share-together .btn { margin-top: 2px; }
+.share-people { display: grid; gap: 4px; margin: 4px 0 14px; padding: 0; list-style: none; }
+.share-people li { display: flex; align-items: center; gap: 12px; min-height: 52px; }
+.share-people .row-title { overflow-wrap: anywhere; }
+.share-people .btn { flex: none; margin: 0; }
+.tip p.share-url {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-container-highest);
+  color: var(--on-surface);
+  font-size: 13px;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+.share-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.share-actions .btn { margin: 0; }
+.tip p.share-hint { font-size: 13px; line-height: 18px; }
+.share-leave { margin-left: -12px; }
+
 /* ---------- Report a problem ---------- */
 .report-more { margin: -4px 4px 0; font-size: 13px; line-height: 18px; color: var(--on-surface-variant); }
 .report-more summary { cursor: pointer; padding: 4px 0; }
@@ -2118,6 +2143,7 @@ dialog.ai-sheet { height: 94dvh; }
   .sheet .sheet-head { padding-top: 16px; }
   .sheet form .sheet-head { padding-top: 0; }
   dialog.info-sheet { max-width: 680px; height: min(88dvh, 820px); }
+  dialog.fit-sheet { max-width: 560px; height: fit-content; }
 
   /* The map as a window (when it isn't docked): the map on the left, the stops on the right */
   dialog.map-sheet { max-width: min(1200px, 94vw); height: 88dvh; max-height: 88dvh; }

@@ -648,6 +648,7 @@ function tidyTrip(t, newId = false) {
     delete out.place;
   }
   if ('travel' in out && !TRAVEL_MODES[out.travel]) delete out.travel;
+  if ('shared' in out && !isId(out.shared)) delete out.shared;      // share.js: planned with other people
   if ('dayTravel' in out) {
     const own = out.dayTravel && typeof out.dayTravel === 'object'
       ? Object.entries(out.dayTravel).filter(([d, m]) => isDate(d) && typeof m === 'string' && TRAVEL_MODES[m]) : [];
@@ -970,7 +971,8 @@ function renderWelcome() {
     <p class="welcome-note">${ideas
       ? 'Pick a place first. Its sights, food and things to do show up here, to save for later or add to a day.'
       : `Pick a place and you’ll get ideas for things to do there, day by day.
-      Already planning on another device? Sign in under <b>Settings</b> to bring your trips here.`}</p>`;
+      Already planning on another device? Sign in under <b>Settings</b> to bring your trips here.`}</p>
+    ${!ideas && sync.configured ? `<button type="button" class="btn text ripple welcome-join" data-action="join-trip">${icon('group')}Invited to a trip? Join it</button>` : ''}`;
 }
 
 function renderTripTabs(trip) {
@@ -978,7 +980,7 @@ function renderTripTabs(trip) {
     state.trips.map(t => `
       <button type="button" class="trip-chip ripple ${t.id === trip.id ? 'active' : ''}" data-trip="${esc(t.id)}"
         style="--c:${esc(t.color)}" aria-pressed="${t.id === trip.id}">
-        <span class="dot"></span>${esc(t.name)}
+        <span class="dot"></span>${esc(t.name)}${sharedMark(t)}
       </button>`).join('') +
     `<button type="button" class="trip-chip add ripple" data-action="new-trip" aria-label="Add a trip">${icon('add', 'sm')}</button>`;
 }
@@ -1097,7 +1099,7 @@ function renderPlan(trip) {
       <div class="hero-actions">
         ${planned.length ? `<button type="button" class="hero-btn ripple" data-action="trip-map">${icon('map')}Trip map</button>` : ''}
         ${trip.place ? `<button type="button" class="hero-btn ripple" data-action="essentials">${icon('info')}Essentials</button>` : ''}
-        <button type="button" class="hero-btn ripple" data-action="share-trip">${icon('share')}Share</button>
+        ${shareButtonHTML(trip) /* share.js: with other people, or as text */}
       </div>
       <button type="button" class="icon-btn hero-edit ripple" data-action="edit-trip" aria-label="Edit trip">${icon('edit')}</button>
     </section>`;
@@ -1400,7 +1402,7 @@ function renderMore() {
       <li><button type="button" class="row accent ripple" data-action="sign-in">
         <span class="row-icon">${icon('login')}</span>
         <span class="row-text"><span class="row-title">Sign in to sync</span>
-          <span class="row-sub">Share trips and plans with another device using the same login</span></span>
+          <span class="row-sub">See your trips on all your devices, and plan them with other people</span></span>
       </button></li>`;
   } else {
     account = `
@@ -1441,7 +1443,7 @@ function renderMore() {
           <span class="trip-avatar" style="--c:${esc(t.color)}">${esc(t.name.charAt(0).toUpperCase())}</span>
           <span class="row-text">
             <span class="row-title">${esc(t.name)}</span>
-            <span class="row-sub">${t.start && t.end ? esc(fmtDay(t.start, { month: 'short', day: 'numeric' }) + ' – ' + fmtDay(t.end, { month: 'short', day: 'numeric' })) : 'No dates'} · ${plural(t.items.length, 'plan')}</span>
+            <span class="row-sub">${t.start && t.end ? esc(fmtDay(t.start, { month: 'short', day: 'numeric' }) + ' – ' + fmtDay(t.end, { month: 'short', day: 'numeric' })) : 'No dates'} · ${plural(t.items.length, 'plan')}${t.shared && signedIn ? ' · shared' : ''}</span>
           </span>
           <span class="row-trail">${icon('edit')}</span>
         </button></li>`).join('')}
@@ -1449,6 +1451,10 @@ function renderMore() {
         <span class="row-icon">${icon('add')}</span>
         <span class="row-text"><span class="row-title">Add a trip</span></span>
       </button></li>
+      ${sync.configured ? `<li><button type="button" class="row ripple" data-action="join-trip">
+        <span class="row-icon">${icon('group')}</span>
+        <span class="row-text"><span class="row-title">Join a trip</span><span class="row-sub">With the invitation link someone sent you</span></span>
+      </button></li>` : ''}
     </ul>
 
     <h2 class="group-label">Appearance</h2>
@@ -1914,6 +1920,7 @@ function openTripForm(trip) {
   showChosenPlace();
   showPlaceResults([]);
   $('#trip-delete').hidden = !trip;
+  $('#trip-delete-label').textContent = tripEndLabel(trip);     // share.js: "Leave trip" when it is someone else's
   tripDialog.showModal();
   if (!trip) f.name.focus();
 }
@@ -1974,6 +1981,11 @@ tripForm.addEventListener('submit', async (e) => {
 $('#trip-delete').addEventListener('click', async () => {
   const trip = state.trips.find(t => t.id === editingTripId);
   if (!trip) return;
+  // Planned with other people: leaving it, or deleting it for everyone, goes through the account (share.js).
+  if (trip.shared && sync.saved) {
+    if (await endSharedTrip(trip)) tripDialog.close();
+    return;
+  }
   const ok = await askConfirm({
     icon: 'delete',
     title: `Delete ${trip.name}?`,
@@ -2009,8 +2021,8 @@ function setAuthMode(create) {
   authCreate = create;
   $('#auth-title').textContent = create ? 'Create account' : 'Sign in to sync';
   $('#auth-text').textContent = create
-    ? 'Choose an email and a password. You’ll use them on every device that should share these trips.'
-    : 'Use the same email and password on every device that should share these trips.';
+    ? 'Choose an email and a password. You’ll use them on each of your devices, to see your trips there too.'
+    : 'Use the same email and password on each of your devices: they all show the same trips.';
   $('#auth-repeat-field').hidden = !create;
   authForm.elements.password.autocomplete = create ? 'new-password' : 'current-password';
   $('#auth-submit').textContent = create ? 'Create account' : 'Sign in';
@@ -2083,6 +2095,7 @@ function openAccountForm(mode) {
   $('#account-title').textContent = del ? 'Delete account?' : 'Change password';
   $('#account-text').textContent = del
     ? `This deletes the account ${sync.saved.email} and the trips stored in it, for good. Other devices signed in lose their copy. ` +
+      (Object.values(sharing.roots).some(r => ownsShare(r) && r.members.length > 1) ? 'The people you invited to a trip lose that trip too. ' : '') +
       'The trips stay on this device. Enter your password to confirm.'
     : 'Other devices signed in to this account will have to sign in again with the new password.';
   accountForm.querySelectorAll('[data-new-password]').forEach((el) => { el.hidden = del; });
@@ -2132,7 +2145,7 @@ accountForm.addEventListener('submit', async (e) => {
 });
 
 // Close buttons and tapping the dark area outside a sheet close it.
-for (const dlg of [itemDialog, tripDialog, authDialog, accountDialog, $('#about-dialog'), $('#vote-dialog'), $('#report-dialog'), $('#confirm-dialog'), $('#map-dialog'), $('#info-dialog'), $('#place-dialog'), $('#ai-dialog'), $('#files-dialog'), $('#near-dialog')]) {
+for (const dlg of [itemDialog, tripDialog, authDialog, accountDialog, $('#about-dialog'), $('#vote-dialog'), $('#report-dialog'), $('#share-dialog'), $('#join-dialog'), $('#confirm-dialog'), $('#map-dialog'), $('#info-dialog'), $('#place-dialog'), $('#ai-dialog'), $('#files-dialog'), $('#near-dialog')]) {
   dlg.addEventListener('click', (e) => {
     if (e.target === dlg || e.target.closest('[data-close]')) dlg.close();
   });
@@ -2432,7 +2445,32 @@ document.addEventListener('click', async (e) => {
       focusStop(el.dataset.id);
       break;
     case 'share-trip':
+      openShare();
+      break;
+    case 'share-text':
       shareTrip();
+      break;
+    case 'share-start':
+      inviteToTrip();
+      break;
+    case 'share-send':
+      sendInvite(false);
+      break;
+    case 'share-copy':
+      sendInvite(true);
+      break;
+    case 'share-remove':
+      removeFromTrip(el.dataset.uid);
+      break;
+    case 'share-leave':
+      if (await endSharedTrip(activeTrip())) $('#share-dialog').close();
+      break;
+    case 'share-sign-in':
+      $('#share-dialog').close();
+      openAuthForm();
+      break;
+    case 'join-trip':
+      openJoin();
       break;
     case 'essentials':
       openEssentials(activeTrip());
@@ -2537,15 +2575,29 @@ document.addEventListener('click', async (e) => {
       }
       break;
     case 'reset': {
+      // Trips planned with other people (share.js): erasing leaves them, or deletes them for everyone.
+      const shared = !!sync.saved && (state.trips.some(t => t.shared) || Object.keys(sharing.roots).length > 0);
       const ok = await askConfirm({
         icon: 'restart_alt',
         title: 'Erase everything?',
-        text: sync.saved
-          ? 'All trips, plans and checklist items will be deleted — on this device and on every device signed in to your account. Save a backup first if you might want them back.'
-          : 'All trips, plans and checklist items on this device will be deleted. Save a backup first if you might want them back.',
+        text: (sync.saved
+          ? 'All trips, plans and checklist items will be deleted — on this device and on every device signed in to your account.'
+          : 'All trips, plans and checklist items on this device will be deleted.')
+          + (shared ? ' Trips you invited people to are deleted for them too, and you leave the trips you were invited to.' : '')
+          + ' Save a backup first if you might want them back.',
         ok: 'Erase',
       });
       if (ok) {
+        if (shared) {
+          try {
+            if (!navigator.onLine) throw { code: 'auth/network-request-failed' };
+            await quitSharing(sync.saved.uid);
+          } catch (err) {
+            console.warn('Erase', err);
+            snackbar(`Nothing was erased. ${syncErrorText(err)}`);
+            break;
+          }
+        }
         const marks = deviceMarks();
         state = defaultState();
         Object.assign(state.settings, marks);
@@ -2740,15 +2792,21 @@ document.addEventListener('change', async (e) => {
     return;
   }
   const n = restored.trips.reduce((sum, t) => sum + t.items.length, 0);
+  const sharedNow = () => (sync.saved ? state.trips.filter(t => t.shared) : []);
   const ok = await askConfirm({
     icon: 'upload',
     title: 'Restore this backup?',
     text: `It has ${plural(restored.trips.length, 'trip')} and ${plural(n, 'plan')}. It will replace everything currently in the app` +
-      (sync.saved ? ' — also on the other devices signed in to your account.' : '.'),
+      (sync.saved ? ' — also on the other devices signed in to your account.' : '.') +
+      (sharedNow().length ? ' The trips you plan with other people stay as they are.' : ''),
     ok: 'Restore',
   });
   if (!ok) return;
   Object.assign(restored.settings, deviceMarks());
+  // A backup never replaces a trip planned with other people (share.js): those stay, and the file's own
+  // copy of one is left out.
+  const kept = sharedNow();
+  restored.trips = restored.trips.filter(t => !kept.some(k => k.id === t.id)).concat(kept);
   state = restored;
   save();
   scrollAt = {};
@@ -2772,6 +2830,7 @@ function openPrivacy() {
     sync.configured && part('sync', 'In your account', [
       'If you sign in, your email address, trips, plans and checklist are also stored with Google Firebase, so that your devices share them.',
       'The person who runs this copy of the app can see them there. Your password is stored scrambled: nobody can read it.',
+      'A trip you plan with other people is stored there once, for all of you. Everyone on it sees its plans and the email addresses of the others. Your checklist, your tickets and your other trips stay yours.',
       'Your votes for new features, and the suggestions you send, are stored there too. Everyone who is signed in can read the suggestions, without your name or email.',
     ]),
     part('public', 'Sent to other services', [
@@ -2841,7 +2900,8 @@ function problemDetails() {
   const plans = state.trips.reduce((n, t) => n + t.items.length, 0);
   const account = !sync.configured ? 'sync not set up'
     : !sync.saved ? 'not signed in'
-    : `signed in, sync ${sync.status}${sync.error ? ` (${sync.error})` : ''}, ${plural(waitingCount(), 'change')} waiting`;
+    : `signed in, sync ${sync.status}${sync.error ? ` (${sync.error})` : ''}, ${plural(waitingCount(), 'change')} waiting, `
+      + (sharing.off ? 'sharing not switched on' : `${plural(state.trips.filter(t => t.shared).length, 'shared trip')}`);
   return [
     `Version: ${APP_VERSION}`,
     `Device: ${navigator.userAgent}`,
@@ -2967,6 +3027,7 @@ function onConnectionChange() {
   }
   $('#ai-send').disabled = ai.busy || !aiReady() || !navigator.onLine;
   render();
+  renderShare();      // share.js: inviting people needs a connection
 }
 window.addEventListener('online', onConnectionChange);
 window.addEventListener('offline', onConnectionChange);
@@ -3004,6 +3065,7 @@ ui.view = pageView();
 render();
 startSync();
 loadFileIndex();   // files.js: which plans have tickets attached
+checkInviteLink(); // share.js: opened from an invitation to a trip
 
 // After an update: say so once, with a way to see what changed. (Not on the very first visit.)
 if (state.settings.seenVersion !== APP_VERSION) {

@@ -30,18 +30,18 @@ function runSelfCheck() {
   // Everything inside is done in one go (no waiting), so nothing else runs in between.
   const sandbox = (fn) => {
     const real = {
-      state, saved: sync.saved, col: sync.col, known: sync.known, inflight: sync.inflight, status: sync.status, error: sync.error,
+      state, saved: sync.saved, own: sync.own, shared: sync.shared, db: sync.db, status: sync.status, error: sync.error,
       saveLocal, writeSyncInfo, renderSoon, pushChanges, render, setSyncStatus, guideFor,
     };
     try {
       saveLocal = writeSyncInfo = renderSoon = pushChanges = render = setSyncStatus = () => {};
       guideFor = () => null;
-      sync.col = null;
-      sync.inflight = new Map();
+      sync.own = newSpace();
+      sync.shared = {};
       return fn();
     } finally {
       state = real.state;
-      Object.assign(sync, { saved: real.saved, col: real.col, known: real.known, inflight: real.inflight, status: real.status, error: real.error });
+      Object.assign(sync, { saved: real.saved, own: real.own, shared: real.shared, db: real.db, status: real.status, error: real.error });
       saveLocal = real.saveLocal; writeSyncInfo = real.writeSyncInfo; renderSoon = real.renderSoon;
       pushChanges = real.pushChanges; render = real.render; setSyncStatus = real.setSyncStatus; guideFor = real.guideFor;
     }
@@ -71,7 +71,7 @@ function runSelfCheck() {
     const remote = sample();
     changeRemote(remote);
     state = local;
-    sync.saved = { uid: 'selfcheck', email: '', linked: true, base: { ...base } };
+    sync.saved = { uid: 'selfcheck', email: '', linked: true, base: { ...base }, shared: {} };
     const waiting = waitingCount();
     mergeRemote(stateDocs(remote), new Set());
     return { titles: titles(), checklist: state.checklist.length, waiting };
@@ -191,10 +191,104 @@ function runSelfCheck() {
     same(merge((l) => { item(l, 'a').title = 'Mine'; }, (r) => { item(r, 'a').title = 'Theirs'; }).titles, 'Lunch, Mine, Tram 28'));
   check('An answer from the offline copy never wipes the plans', () => sandbox(() => {
     state = sample();
-    sync.saved = { uid: 'selfcheck', email: '', linked: true, base: stateDocs(sample()) };
+    sync.saved = { uid: 'selfcheck', email: '', linked: true, base: stateDocs(sample()), shared: {} };
     onAccountSnapshot({ metadata: { fromCache: true }, forEach() {} });
     return same(titles(), 'Castle, Lunch, Tram 28');
   }));
+
+  /* ---------- A trip planned by several accounts ---------- */
+  group = 'Planning a trip together';
+  // The sample, plus a trip to Rome that is shared ("s1"), as the account and the device both have them.
+  const rome = () => ({
+    id: 'trip2', shared: 's1', name: 'Rome', color: '#1565c0', start: '', end: '',
+    items: [
+      { id: 'x', title: 'Forum', category: 'sight', date: '', time: '', place: '', link: '', notes: '', done: false },
+      { id: 'y', title: 'Gelato', category: 'food', date: '', time: '', place: '', link: '', notes: '', done: false },
+    ],
+  });
+  const both = () => { const s = sample(); s.trips.push(rome()); return s; };
+  const romeTitles = () => { const t = state.trips.find(x => x.id === 'trip2'); return t ? t.items.map(i => i.title).sort().join(', ') : 'no Rome'; };
+  // Like merge() above, for the shared trip: what `remote` says its space holds is merged in.
+  const mergeShared = (changeLocal, changeRemote, keep) => sandbox(() => {
+    const local = both();
+    changeLocal(local);
+    const remote = both();
+    changeRemote(remote);
+    state = local;
+    sync.saved = { uid: 'selfcheck', email: '', linked: true, base: stateDocs(both()), shared: { s1: { trip: 'trip2', base: stateDocs(both(), 's1') } } };
+    sync.shared.s1 = newSpace();
+    mergeRemote(stateDocs(remote, 's1'), new Set(), keep, 's1');
+    return { rome: romeTitles(), lisbon: titles(), trips: state.trips.map(t => `${t.id}${t.shared ? ':' + t.shared : ''}`).join(' '), own: Object.keys(stateDocs(state)).length };
+  });
+  const romeOf = s => s.trips.find(t => t.id === 'trip2');
+
+  check('A shared trip’s plans are kept apart from the account’s own', () => {
+    const s = both();
+    s.trips.push({ ...sample().trips[0], id: 'trip3', items: [] });
+    const own = stateDocs(s), theirs = stateDocs(s, 's1');
+    const doc = JSON.parse(theirs.trip_trip2);
+    return same([Object.keys(own).sort(), Object.keys(theirs).sort(), 'shared' in doc, doc.pos, JSON.parse(own.trip_trip3).pos],
+      [['check_k1', 'item_a', 'item_b', 'item_c', 'trip_trip1', 'trip_trip3'], ['item_x', 'item_y', 'trip_trip2'], false, 0, 1]);
+  });
+  check('A change someone else made to a shared trip arrives, and the account’s own trips don’t move', () =>
+    same(mergeShared(() => {}, (r) => { romeOf(r).items[0].title = 'Forum at 9'; romeOf(r).items.pop(); }),
+      { rome: 'Forum at 9', lisbon: 'Castle, Lunch, Tram 28', trips: 'trip1 trip2:s1', own: 5 }));
+  check('A change made here to a shared trip is kept, next to the others’', () =>
+    same(mergeShared((l) => { romeOf(l).items[1].title = 'Gelato twice'; }, (r) => { romeOf(r).items[0].title = 'Forum at 9'; }).rome, 'Forum at 9, Gelato twice'));
+  check('The first time a shared trip arrives, it replaces this device’s own copy of it', () => sandbox(() => {
+    // The device has Rome as a trip of its own (no "shared"), with a plan the shared one doesn't have.
+    state = both();
+    delete romeOf(state).shared;
+    romeOf(state).items.push({ ...rome().items[0], id: 'z', title: 'Only in my copy' });
+    const mine = romeOf(state);
+    const remote = both();
+    romeOf(remote).items[0].title = 'Forum at 9';
+    sync.saved = { uid: 'selfcheck', email: '', linked: true, base: stateDocs(state), shared: { s1: { trip: 'trip2', base: {}, fresh: true } } };
+    sync.shared.s1 = newSpace();
+    mergeRemote(stateDocs(remote, 's1'), new Set(), new Set(), 's1');
+    return same([romeTitles(), state.trips.map(t => t.id), romeOf(state) === mine, mine.shared, Object.keys(stateDocs(state)).filter(k => /trip2|_[xyz]$/.test(k))],
+      ['Forum at 9, Gelato', ['trip1', 'trip2'], true, 's1', []]);
+  }));
+  check('Only the trip a share was made for is taken from it, never another trip', () =>
+    same(mergeShared(() => {}, (r) => {
+      // Someone on the trip slipped in a trip with the id of one of this account's own, and one more.
+      r.trips.push({ ...sample().trips[0], shared: 's1', name: 'Not Lisbon', items: [] }, { ...rome(), id: 'evil', name: 'Evil', items: [] });
+    }), { rome: 'Forum, Gelato', lisbon: 'Castle, Lunch, Tram 28', trips: 'trip1 trip2:s1', own: 5 }));
+  check('A shared trip that is gone from this device is brought back, not deleted for the others', () => sandbox(() => {
+    state = sample();      // as after "Restore from backup": Rome is not here any more
+    const docs = stateDocs(both(), 's1');
+    sync.saved = { uid: 'selfcheck', email: '', linked: true, base: stateDocs(sample()), shared: { s1: { trip: 'trip2', base: { ...docs } } } };
+    let sent = 0;
+    sync.db = { batch: () => ({ set() { sent++; }, delete() { sent++; }, commit: () => new Promise(() => {}) }) };
+    sync.shared.s1 = { ...newSpace(), col: { doc: k => k }, known: { ...docs } };
+    pushSpace('s1');
+    const nothingSent = sent;
+    // What share.js does with the next answer about a trip that isn't here: take what the account has.
+    mergeRemote(docs, new Set(), new Set(), 's1');
+    state.trips[1].items.pop();
+    pushSpace('s1');
+    return same([nothingSent, romeTitles(), sent], [0, 'Forum', 1]);
+  }));
+  check('An invitation is read from a link, from a message around it, or from the code alone', () => {
+    const invite = { id: 'abcdefghijkmnpqrstuv', code: '23456789abcd' };
+    const link = inviteLink(invite);
+    return same([readInvite(link), readInvite(`Join my trip: ${link} — see you there!`), readInvite('abcdefghijkmnpqrstuv.23456789abcd'),
+      readInvite('https://example.com/trip-planner/'), readInvite('abcdefghijkmnpqrstuv.2345'), readInvite(null), link.includes('#join=')],
+    [invite, invite, invite, null, null, null, true]);
+  });
+  check('The codes of invitations are long, readable and never the same twice', () => {
+    const a = randomCode(20), b = randomCode(20);
+    return (/^[a-km-np-z2-9]{20}$/.test(a) && a !== b && randomCode(12).length === 12) || `got ${a} and ${b}`;
+  });
+  check('The list of people on a trip is checked before it is shown', () =>
+    same([
+      tidyRoot('s1', { owner: 'bob', trip: 'trip2', code: '23456789abcd', uids: ['ann', 'bob', 7], members: { ann: { email: 'ann@x.org', at: 5 }, bob: { email: 9, at: 1 }, eve: { email: 'eve@x.org' } } }),
+      tidyRoot('s1', { owner: 'bob', trip: '<b>', uids: ['bob'] }), tidyRoot('<b>', { owner: 'bob', trip: 'trip2', uids: ['bob'] }),
+      tidyRoot('s1', { owner: 'bob', trip: 'trip2', uids: 'bob' }), tidyRoot('s1', null),
+    ], [{ id: 's1', owner: 'bob', trip: 'trip2', code: '23456789abcd', members: [{ uid: 'bob', email: '', at: 1 }, { uid: 'ann', email: 'ann@x.org', at: 5 }] }, null, null, null, null]));
+  check('“Shared” is only kept when it can be an id, and never comes back from a backup file', () =>
+    same([tidyTrip({ id: 't', shared: 's1' }).shared, tidyTrip({ id: 't', shared: '<b>' }).shared, cleanBackup({ trips: [{ id: 't', name: 'A', shared: 's1' }] }).trips[0].shared],
+      ['s1', undefined, undefined]));
 
   /* ---------- Order of the plans in a day ---------- */
   group = 'Plans';

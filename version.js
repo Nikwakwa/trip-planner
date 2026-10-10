@@ -7,6 +7,11 @@
    Written for the people who use the app, and kept short: what is new for them, one short line
    each, five at most. Fixes are not listed one by one: a single line, "Bug fixes". */
 const CHANGELOG = [
+  { v: '2.10.0', date: '2026-10-10', items: [
+    'Plan a trip together: a trip’s Share button invites people with a link',
+    'Everyone on the trip changes it from their own account, and sees who else is on it',
+    'Join a trip from an invitation link, or under Settings → Trips',
+  ] },
   { v: '2.9.1', date: '2026-10-10', items: [
     'A shorter “What’s new”: the latest versions first, earlier ones a tap away',
   ] },

@@ -10,33 +10,55 @@
    ("trip_…", "item_…", "check_…"). After every change the app compares its
    plans with what the account has and sends only the differences. When
    another phone changes something, the account tells this phone right away.
+
+   A trip planned with other people (share.js) works the same way, but its
+   documents are kept apart from the account's own, in a "space" of their own
+   that everyone on the trip reads and writes.
    Functions here use helpers from app.js, which is loaded after this file.
    ========================================================= */
 
 const SYNC_KEY = 'tripPlanner.sync';
 const FIREBASE_FILES = ['app', 'auth', 'firestore'].map(p => `vendor/firebase/firebase-${p}-compat.js`);
+const SYNCED_KINDS = /^(trip|item|check)_/;      // the documents this version of the app writes and removes
 
 const sync = {
   configured: !!(window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.apiKey),
   auth: null,
   db: null,
-  col: null,          // this account's documents
-  unsubscribe: null,
+  own: newSpace(),    // this account's own documents
+  shared: {},         // the trips planned with other accounts: id → their documents (share.js)
   // Saved on the phone: who is signed in, and the last copy of the account's
   // documents this phone knows about ("base"), to spot changes made offline.
+  // "shared" holds the same for each shared trip: id → { trip, base }.
   saved: readSyncInfo(),
-  known: null,        // what the account has now, including our writes on the way
-  inflight: new Map(),// document → number of writes not confirmed yet
   firstSnap: null,    // first answer after signing in, waiting for the merge question
   asking: false,
   status: 'off',      // off | connecting | synced | sending | error
   error: '',
 };
 
+// One place in the database that holds documents: the account's own, or one shared trip.
+function newSpace() {
+  return {
+    col: null,            // its documents in the database
+    known: null,          // what the database has now, including our writes on the way
+    inflight: new Map(),  // document → number of writes not confirmed yet
+    stop: null,           // switches the listening off
+  };
+}
+// '' is the account's own space; anything else is the id of a shared trip.
+const spaceOf = id => (id ? sync.shared[id] : sync.own);
+function baseOf(id) {
+  if (!sync.saved) return null;
+  if (!id) return sync.saved.base;
+  return sync.saved.shared[id] ? sync.saved.shared[id].base : null;
+}
+const sendingNow = () => [sync.own, ...Object.values(sync.shared)].some(sp => sp.inflight.size);
+
 function readSyncInfo() {
   try {
     const s = JSON.parse(localStorage.getItem(SYNC_KEY));
-    if (s && s.uid) return { base: {}, linked: false, ...s };
+    if (s && s.uid) return { base: {}, linked: false, ...s, shared: s.shared && typeof s.shared === 'object' ? s.shared : {} };
   } catch { /* fall through */ }
   return null;
 }
@@ -68,123 +90,162 @@ function stable(v) {
 
 const docKey = (kind, id) => `${kind}_${encodeURIComponent(id)}`;
 
-function stateDocs(s) {
+// The documents of one space: the account's own trips and checklist, or one shared trip.
+function stateDocs(s, space = '') {
   const out = {};
-  s.trips.forEach((t, pos) => {
-    const { items, ...trip } = t;
-    out[docKey('trip', t.id)] = stable({ k: 'trip', pos, ...trip });
+  let pos = 0;
+  for (const t of s.trips) {
+    if ((t.shared || '') !== space) continue;
+    const { items, shared, ...trip } = t;
+    // A shared trip has no place in the list of trips: everyone on it keeps their own order.
+    out[docKey('trip', t.id)] = stable({ k: 'trip', pos: space ? 0 : pos++, ...trip });
     items.forEach((it, i) => { out[docKey('item', it.id)] = stable({ k: 'item', trip: t.id, pos: i, ...it }); });
-  });
-  s.checklist.forEach((c, pos) => { out[docKey('check', c.id)] = stable({ k: 'check', pos, ...c }); });
+  }
+  if (!space) s.checklist.forEach((c, i) => { out[docKey('check', c.id)] = stable({ k: 'check', pos: i, ...c }); });
   return out;
 }
 
-// Rebuilds the plans from the account's documents. Keeps the same objects
+// Rebuilds a space's plans from its documents. Keeps the same objects
 // where possible, so an "Undo" that's still on screen keeps working.
-function applyDocs(docs) {
+function applyDocs(docs, space = '') {
   // Each document is checked first (app.js): one the app can't use is left out.
   const tidy = d => (!d ? null : d.k === 'trip' ? tidyTrip(d) : d.k === 'item' ? tidyItem(d) : d.k === 'check' ? tidyCheck(d) : null);
   const all = Object.values(docs).map(j => tidy(JSON.parse(j))).filter(Boolean);
   const byPos = (a, b) => (a.pos - b.pos) || (a.id < b.id ? -1 : 1);
-  const tripDocs = all.filter(d => d.k === 'trip').sort(byPos);
+  const here = t => (t.shared || '') === space;
+  // A shared trip's space holds that trip and nothing else. And a trip can't be twice in the app:
+  // a shared trip stands, and the account's own copy of it gives way (it leaves the account at the next save).
+  const wanted = space ? (sync.saved.shared[space] || {}).trip : null;
+  const taken = new Set(state.trips.filter(t => t.shared && !here(t)).map(t => t.id));
+  const tripDocs = all.filter(d => d.k === 'trip' && !taken.has(d.id) && (!space || d.id === wanted)).sort(byPos);
 
   const reuse = (old, data) => {
     if (!old) return data;
     for (const k of Object.keys(old)) if (!(k in data)) delete old[k];
     return Object.assign(old, data);
   };
-  const oldTrips = new Map(state.trips.map(t => [t.id, t]));
-  const oldItems = new Map(state.trips.flatMap(t => t.items).map(i => [i.id, i]));
-  const oldChecks = new Map(state.checklist.map(c => [c.id, c]));
+  const before = state.trips.filter(t => here(t) || (space && t.id === wanted));
+  const oldTrips = new Map(before.map(t => [t.id, t]));
+  const oldItems = new Map(before.flatMap(t => t.items).map(i => [i.id, i]));
 
-  const trips = tripDocs.map(({ k, pos, ...t }) => {
+  const trips = tripDocs.map(({ k, pos, shared, ...t }) => {
     const old = oldTrips.get(t.id);
     const items = old ? old.items : [];
     items.length = 0;
-    return reuse(old, { ...t, items });
+    return reuse(old, space ? { ...t, shared: space, items } : { ...t, items });
   });
   const tripById = new Map(trips.map(t => [t.id, t]));
   for (const { k, trip, pos, ...it } of all.filter(d => d.k === 'item').sort(byPos)) {
     const t = tripById.get(trip);
     if (t) t.items.push(reuse(oldItems.get(it.id), it));
   }
-  state.trips = trips;
-  state.checklist = all.filter(d => d.k === 'check').sort(byPos).map(({ k, pos, ...c }) => reuse(oldChecks.get(c.id), c));
-  if (!trips.some(t => t.id === state.activeTripId)) state.activeTripId = trips.length ? trips[0].id : null;
+  // The trips of the other spaces stay where they are in the list.
+  const list = trips.slice();
+  state.trips.forEach((t, i) => {
+    if (!here(t) && !tripById.has(t.id)) list.splice(Math.min(i, list.length), 0, t);
+  });
+  state.trips = list;
+  if (!space) {
+    const oldChecks = new Map(state.checklist.map(c => [c.id, c]));
+    state.checklist = all.filter(d => d.k === 'check').sort(byPos).map(({ k, pos, ...c }) => reuse(oldChecks.get(c.id), c));
+  }
+  if (!list.some(t => t.id === state.activeTripId)) state.activeTripId = list.length ? list[0].id : null;
   return true;
 }
 
 /* ---------- Sending changes ---------- */
 
-// Called after every save(): sends whatever differs from the account.
+// Called after every save(): sends whatever differs from the account, and from each shared trip.
 function pushChanges() {
-  if (!sync.col || !sync.known) return;
-  const local = stateDocs(state);
+  pushSpace('');
+  for (const id of Object.keys(sync.shared)) pushSpace(id);
+}
+
+function pushSpace(id) {
+  const sp = spaceOf(id);
+  if (!sp || !sp.col || !sp.known) return;
+  const local = stateDocs(state, id);
+  // A shared trip is never emptied from here: leaving it or deleting it is done on purpose (share.js).
+  if (id && !Object.keys(local).length) return;
   const writes = [];
-  for (const k in local) if (local[k] !== sync.known[k]) writes.push([k, local[k]]);
-  for (const k in sync.known) if (!(k in local)) writes.push([k, null]);
+  for (const k in local) if (local[k] !== sp.known[k]) writes.push([k, local[k]]);
+  // Only what this version knows is removed: a newer version may keep other documents there.
+  for (const k in sp.known) if (!(k in local) && SYNCED_KINDS.test(k)) writes.push([k, null]);
   if (!writes.length) return;
 
   for (const [k, v] of writes) {
-    if (v === null) delete sync.known[k]; else sync.known[k] = v;
-    sync.inflight.set(k, (sync.inflight.get(k) || 0) + 1);
+    if (v === null) delete sp.known[k]; else sp.known[k] = v;
+    sp.inflight.set(k, (sp.inflight.get(k) || 0) + 1);
   }
   setSyncStatus('sending');
-  // Firestore takes at most 500 changes at once.
-  for (let i = 0; i < writes.length; i += 400) {
-    const chunk = writes.slice(i, i + 400);
+  // Firestore takes at most 500 changes at once, and far fewer for a shared trip (see SHARED_BATCH).
+  const size = id ? SHARED_BATCH : 400;
+  for (let i = 0; i < writes.length; i += size) {
+    const chunk = writes.slice(i, i + size);
     const batch = sync.db.batch();
     for (const [k, v] of chunk) {
-      if (v === null) batch.delete(sync.col.doc(k));
-      else batch.set(sync.col.doc(k), JSON.parse(v));
+      if (v === null) batch.delete(sp.col.doc(k));
+      else batch.set(sp.col.doc(k), JSON.parse(v));
     }
     // Resolves once the account has the changes (stays waiting while offline).
     batch.commit().then(() => {
+      // Signed out or off the trip meanwhile: there is nothing left to keep up to date.
+      const base = spaceOf(id) === sp ? baseOf(id) : null;
       for (const [k, v] of chunk) {
-        const left = sync.inflight.get(k) - 1;
-        if (left > 0) { sync.inflight.set(k, left); continue; }
-        sync.inflight.delete(k);
-        if (v === null) delete sync.saved.base[k]; else sync.saved.base[k] = v;
+        const left = sp.inflight.get(k) - 1;
+        if (left > 0) { sp.inflight.set(k, left); continue; }
+        sp.inflight.delete(k);
+        if (!base) continue;
+        if (v === null) delete base[k]; else base[k] = v;
       }
+      if (!base) return;
       sync.saved.at = Date.now();
       writeSyncInfo();
-      if (!sync.inflight.size) setSyncStatus('synced');
+      if (!sendingNow()) setSyncStatus('synced');
     }, (err) => {
       for (const [k] of chunk) {
-        const left = sync.inflight.get(k) - 1;
-        if (left > 0) sync.inflight.set(k, left); else sync.inflight.delete(k);
+        const left = sp.inflight.get(k) - 1;
+        if (left > 0) sp.inflight.set(k, left); else sp.inflight.delete(k);
       }
       console.warn('Sync failed', err);
-      setSyncStatus('error', syncErrorText(err));
+      if (spaceOf(id) === sp) setSyncStatus('error', syncErrorText(err));
     });
   }
 }
 
 /* ---------- Receiving changes ---------- */
 
-function onAccountSnapshot(snap) {
+// What the database says a space holds, and which of it are our own writes still on the way.
+function readSnapshot(snap) {
   // Only trust answers from the server: an empty offline cache must never wipe the plans.
-  if (snap.metadata.fromCache) return;
+  if (snap.metadata.fromCache) return null;
   const remote = {};
   const pending = new Set();
   snap.forEach((d) => {
     remote[d.id] = stable(d.data());
     if (d.metadata.hasPendingWrites) pending.add(d.id);
   });
+  return { remote, pending };
+}
 
+function onAccountSnapshot(snap) {
+  const got = readSnapshot(snap);
+  if (!got || !sync.saved) return;      // an answer that arrives while signing out
   if (!sync.saved.linked) {
-    sync.firstSnap = { remote, pending };
+    sync.firstSnap = got;
     askHowToLink();
     return;
   }
-  mergeRemote(remote, pending);
+  mergeRemote(got.remote, got.pending);
 }
 
 // Combines the account's copy with changes made on this phone that the
 // account hasn't confirmed yet (for example, made while offline).
-function mergeRemote(remote, pending, keepLocal) {
-  const base = sync.saved.base;
-  const local = stateDocs(state);
+// id: the shared trip the documents belong to ('' for the account's own).
+function mergeRemote(remote, pending, keepLocal, id = '') {
+  const sp = spaceOf(id);
+  const base = baseOf(id);
+  const local = stateDocs(state, id);
   const changedHere = keepLocal || new Set(
     [...new Set([...Object.keys(local), ...Object.keys(base)])].filter(k => local[k] !== base[k]));
 
@@ -194,7 +255,7 @@ function mergeRemote(remote, pending, keepLocal) {
   }
   // What the account has confirmed becomes the new base (except our writes still on the way).
   for (const k of new Set([...Object.keys(remote), ...Object.keys(base)])) {
-    if (sync.inflight.has(k) || pending.has(k)) continue;
+    if (sp.inflight.has(k) || pending.has(k)) continue;
     if (k in remote) base[k] = remote[k]; else delete base[k];
   }
   sync.saved.at = Date.now();   // when this phone last heard from the account
@@ -202,12 +263,13 @@ function mergeRemote(remote, pending, keepLocal) {
 
   const differs = Object.keys(merged).length !== Object.keys(local).length ||
     Object.keys(merged).some(k => merged[k] !== local[k]);
-  if (differs && applyDocs(merged)) {
+  if (differs && applyDocs(merged, id)) {
     saveLocal();
     renderSoon();
   }
-  sync.known = { ...remote };
-  if (!sync.inflight.size) setSyncStatus('synced');
+  sp.known = { ...remote };
+  // "All changes saved" is said once the account's own plans have arrived, not just a shared trip's.
+  if (!sendingNow() && sync.own.known) setSyncStatus('synced');
   pushChanges();
 }
 
@@ -246,6 +308,7 @@ async function askHowToLink() {
   sync.firstSnap = null;
   mergeRemote(latest, pending, keep);
   snackbar(`Signed in — plans sync with ${sync.saved.email}`);
+  resumeInvite();     // share.js: an invitation that was waiting for the sign-in
 }
 
 // Redraw after changes from another phone, or once something fetched in the background has arrived.
@@ -304,27 +367,27 @@ function startSync() {
 }
 
 function onUser(user) {
-  if (sync.unsubscribe) { sync.unsubscribe(); sync.unsubscribe = null; }
-  sync.col = null;
-  sync.known = null;
-  sync.inflight.clear();
+  if (sync.own.stop) sync.own.stop();
+  sync.own = newSpace();
+  stopSharing();      // share.js
   if (!user) {
     if (sync.saved) { sync.saved = null; writeSyncInfo(); }
     setSyncStatus('off');
     return;
   }
   if (!sync.saved || sync.saved.uid !== user.uid) {
-    sync.saved = { uid: user.uid, email: user.email, base: {}, linked: false };
+    sync.saved = { uid: user.uid, email: user.email, base: {}, linked: false, shared: {} };
     writeSyncInfo();
   }
   setVerified(user.emailVerified);
   recheckVerified();
   setSyncStatus('connecting');
-  sync.col = sync.db.collection('users').doc(user.uid).collection('docs');
-  sync.unsubscribe = sync.col.onSnapshot(onAccountSnapshot, (err) => {
+  sync.own.col = sync.db.collection('users').doc(user.uid).collection('docs');
+  sync.own.stop = sync.own.col.onSnapshot(onAccountSnapshot, (err) => {
     console.warn('Sync stopped', err);
     setSyncStatus('error', syncErrorText(err));
   });
+  startSharing(user);   // share.js: the trips planned with other accounts
 }
 
 async function signIn(email, password, create) {
@@ -400,14 +463,15 @@ async function deleteAccount(password) {
   const user = await confirmUser(password);
   const col = sync.db.collection('users').doc(user.uid).collection('docs');
   // Stop listening first: the emptied account would empty this phone too.
-  if (sync.unsubscribe) { sync.unsubscribe(); sync.unsubscribe = null; }
-  sync.col = null;
-  sync.known = null;
-  sync.inflight.clear();
+  if (sync.own.stop) sync.own.stop();
+  sync.own = newSpace();
+  stopSharing();
   // If it fails halfway, the phone connects again like a new one and puts its plans back.
   if (sync.saved) { sync.saved.linked = false; sync.saved.base = {}; writeSyncInfo(); }
   try {
     await sync.db.waitForPendingWrites();   // or a change still on its way would come back afterwards
+    // The trips planned with other people (share.js): this phone keeps them as trips of its own.
+    await quitSharing(user.uid, true);
     const snap = await col.get({ source: 'server' });
     const refs = snap.docs.map(d => d.ref);
     for (let i = 0; i < refs.length; i += 400) {
@@ -464,11 +528,15 @@ function syncErrorText(err) {
 // How many changes made on this phone the account hasn't confirmed yet (counted per trip, plan or checklist item).
 function waitingCount() {
   if (!sync.saved || !sync.saved.linked) return 0;
-  const local = stateDocs(state);
-  const base = sync.saved.base;
   let n = 0;
-  for (const k in local) if (local[k] !== base[k]) n++;
-  for (const k in base) if (!(k in local)) n++;
+  for (const id of ['', ...Object.keys(sync.saved.shared)]) {
+    const local = stateDocs(state, id);
+    // A shared trip that hasn't arrived on this phone yet has nothing to send.
+    if (id && (sync.saved.shared[id].fresh || !Object.keys(local).length)) continue;
+    const base = baseOf(id);
+    for (const k in local) if (local[k] !== base[k]) n++;
+    for (const k in base) if (!(k in local)) n++;
+  }
   return n;
 }
 

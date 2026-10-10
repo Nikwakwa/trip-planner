@@ -23,7 +23,8 @@ $outline = 'calendar_month','lightbulb','checklist','settings','add','edit','loc
   'sunny','partly_cloudy_day','cloud','foggy','rainy','weather_snowy','thunderstorm','water_drop',
   'info','emergency','call','translate','payments','power','handshake','directions_bus','health_and_safety','wifi',
   'event_busy','drag_indicator','send','content_copy','undo',
-  'hotel','my_location','mic','attach_file','confirmation_number','picture_as_pdf','image','navigation'
+  'hotel','my_location','mic','attach_file','confirmation_number','picture_as_pdf','image','navigation',
+  'group','person_add'
 $filled = 'calendar_month','lightbulb','checklist','settings',
   'museum','restaurant','local_activity','shopping_bag','train','hotel','push_pin','location_on','luggage'
 

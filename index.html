@@ -191,7 +191,7 @@
       </fieldset>
       <div class="sheet-actions">
         <button type="button" class="btn text danger ripple" id="trip-delete">
-          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#delete"/></svg>Delete trip
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#delete"/></svg><span id="trip-delete-label">Delete trip</span>
         </button>
         <span class="spacer"></span>
         <button type="submit" class="btn filled lg ripple">Save</button>
@@ -439,6 +439,43 @@
     </div>
   </dialog>
 
+  <!-- Sheet: plan a trip with other people, or send it as text (share.js) -->
+  <dialog id="share-dialog" class="sheet info-sheet fit-sheet">
+    <div class="info-inner">
+      <div class="handle" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 id="share-title" tabindex="-1" autofocus>Share</h2>
+        <button type="button" class="icon-btn ripple" data-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#close"/></svg>
+        </button>
+      </div>
+      <div id="share-body" class="info-body"></div>
+    </div>
+  </dialog>
+
+  <!-- Bottom sheet: join a trip with the invitation link someone sent (share.js) -->
+  <dialog id="join-dialog" class="sheet">
+    <form id="join-form" method="dialog" novalidate>
+      <div class="handle" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 tabindex="-1" autofocus>Join a trip</h2>
+        <button type="button" class="icon-btn ripple" data-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#close"/></svg>
+        </button>
+      </div>
+      <p class="sheet-text">Paste the invitation link you were sent. You’ll plan the trip together, each from your own account.</p>
+      <label class="field">
+        <span class="field-label">Invitation link</span>
+        <input name="link" maxlength="500" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="url">
+      </label>
+      <p id="join-error" class="form-error" role="alert" hidden></p>
+      <div class="sheet-actions">
+        <span class="spacer"></span>
+        <button type="submit" class="btn filled lg ripple">Join</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- Centered dialog for big decisions -->
   <dialog id="confirm-dialog" class="alert">
     <form method="dialog">
@@ -469,6 +506,7 @@
   <script src="info.js"></script>
   <script src="assistant.js"></script>
   <script src="vote.js"></script>
+  <script src="share.js"></script>
   <script src="sync.js"></script>
   <script src="app.js"></script>
 </body>

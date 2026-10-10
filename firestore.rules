@@ -7,6 +7,82 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
 
+    // Trips planned by several accounts together (share.js).
+    // This document says who is on the trip:
+    //   owner    the account that started it
+    //   trip     the trip's id
+    //   code     what an invitation link carries: joining needs it
+    //   uids     the accounts on the trip (20 at most)
+    //   members  the same accounts, each with { email, at, via }
+    match /shared/{share} {
+      function me() { return request.auth.uid; }
+      function existing() { return resource.data; }
+      function incoming() { return request.resource.data; }
+      function membersDiff() { return incoming().members.diff(existing().members); }
+
+      // The two lists always name the same accounts, and the owner is one of them.
+      function sound() {
+        return incoming().keys().hasOnly(['owner', 'trip', 'code', 'uids', 'members'])
+          && incoming().keys().hasAll(['owner', 'trip', 'code', 'uids', 'members'])
+          && incoming().owner is string
+          && incoming().trip is string && incoming().trip.size() > 0 && incoming().trip.size() <= 100
+          && incoming().code is string && incoming().code.size() >= 12 && incoming().code.size() <= 40
+          && incoming().uids is list && incoming().uids.size() >= 1 && incoming().uids.size() <= 20
+          && incoming().members is map && incoming().members.size() == incoming().uids.size()
+          && incoming().members.keys().toSet() == incoming().uids.toSet()
+          && incoming().owner in incoming().uids;
+      }
+      // What an account writes about itself: its real email address, and the code it came in with.
+      function myEntry() {
+        let m = incoming().members[me()];
+        return m.keys().hasOnly(['email', 'at', 'via'])
+          && m.email == request.auth.token.email
+          && m.at is number
+          && m.via is string && m.via.size() <= 40;
+      }
+
+      // Only the accounts on the trip see who else is on it.
+      allow read: if request.auth != null && me() in existing().uids;
+
+      // Starting a shared trip: its owner is the only one on it.
+      allow create: if request.auth != null && sound()
+        && incoming().owner == me()
+        && incoming().uids == [me()]
+        && myEntry();
+
+      allow update: if request.auth != null && sound()
+        && incoming().owner == existing().owner
+        && incoming().trip == existing().trip
+        && (
+          // Joining: an account adds itself, with the trip's code, and changes nothing else.
+          (!(me() in existing().uids)
+            && incoming().code == existing().code
+            && incoming().uids.toSet() == existing().uids.toSet().union([me()].toSet())
+            && membersDiff().affectedKeys().hasOnly([me()])
+            && myEntry()
+            && incoming().members[me()].via == existing().code)
+          // Leaving: an account takes itself off (the owner can't).
+          || (me() in existing().uids && me() != existing().owner
+            && incoming().code == existing().code
+            && incoming().uids.toSet() == existing().uids.toSet().difference([me()].toSet())
+            && membersDiff().affectedKeys().hasOnly([me()]))
+          // The owner takes people off, and may change the code. Nobody is added or rewritten this way.
+          || (me() == existing().owner
+            && existing().uids.toSet().hasAll(incoming().uids)
+            && membersDiff().addedKeys().size() == 0
+            && membersDiff().changedKeys().size() == 0)
+        );
+
+      // Only the owner deletes a shared trip.
+      allow delete: if request.auth != null && existing().owner == me();
+
+      // The trip and its plans: for the accounts on the trip, and nobody else.
+      match /docs/{doc} {
+        allow read, write: if request.auth != null
+          && request.auth.uid in get(/databases/$(database)/documents/shared/$(share)).data.uids;
+      }
+    }
+
     // Voting for new features (vote.js). Everyone signed in can read the votes and the suggestions.
 
     // One document per account: the list of what it voted for. Only that account can change it.

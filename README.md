@@ -5,7 +5,8 @@ the same address shows a desktop layout on a wide screen, by itself.
 
 - Plain HTML, CSS and JavaScript — no frameworks, no server of your own.
 - Everything you type is saved on the phone itself (browser storage).
-- Optional: sign in to share trips between devices (e.g. yours and your partner's).
+- Optional: sign in to see your trips on all your devices, and to **plan a trip together** with other
+  people, each from their own account (see "Planning a trip together").
 - Type a city or country for a new trip: the app finds the real place and suggests
   things to do there (from the Wikivoyage travel guide).
 - Each trip day shows the weather forecast; on rainy days the suggestions favor indoor places.
@@ -33,8 +34,9 @@ the same address shows a desktop layout on a wide screen, by itself.
 | `app.js` | The behavior: adding plans, saving, switching trips. |
 | `places.js` | Finds a trip's place (OpenStreetMap) and builds a guide for it (Wikivoyage, Wikipedia). |
 | `sync.js` | Sign-in and syncing plans between devices (Firebase). |
+| `share.js` | Planning a trip together: invitations, who is on a trip, the Share sheet. |
 | `firebase-config.js` | Your Firebase project's settings (see below). |
-| `firestore.rules` | Database rules: each account only sees its own plans. |
+| `firestore.rules` | Database rules: each account only sees its own plans, and the trips it was invited to. |
 | `vendor/firebase/` | Firebase library, stored in the app. |
 | `maps.js` | Day and trip maps, Optimize route, address lookup, sharing. |
 | `mapstyle.js` | The look of the map: landmark labels and the dark (night) version. |
@@ -59,6 +61,7 @@ the same address shows a desktop layout on a wide screen, by itself.
 | `icons/` | The logo and the app icons for the home screen. |
 | `serve.ps1` | A tiny local web server for testing on this computer. |
 | `tools/make-icons.ps1` | Draws the logo (`icons/logo.svg`) and the app icons from it (needs Microsoft Edge). |
+| `tools/fake-firebase.js` | A pretend Firebase, to test sign-in, sync and shared trips on this computer without real accounts. The app never loads it. |
 
 ## Try it on this computer
 
@@ -92,6 +95,37 @@ Before sending an update out, run the **self-check**: add `?selfcheck` to the ap
 and opening hours on made-up plans (yours are not touched) and shows what passed. If a line is red,
 don't ship. It is also a quick first test on a new kind of phone.
 
+## Planning a trip together
+
+Each person has **their own account**, and a trip can be on several accounts at once.
+
+1. Open the trip, tap **Share** on its card, then **Invite people**. The trip gets an **invitation link**.
+2. Send the link (WhatsApp, email…). Whoever opens it, and signs in or creates an account, **joins the trip**.
+   They can also paste it under **Settings → Trips → Join a trip** (the way to go on an iPhone when the
+   app is on the home screen, because a tapped link opens in Safari instead).
+3. From then on everyone sees the same days, plans and ideas, and anyone can change them. A change
+   shows up on the others' phones within a second or two.
+
+Good to know:
+- The Share sheet lists **who is on the trip**, by email address. Only the people on the trip see that list.
+- The person who started it can **remove** someone (the link is then replaced, so the old one stops working)
+  and can **delete the trip for everyone**. The others can **leave**; the trip then goes away from their devices only.
+- Shared: the trip, its plans and ideas. **Not** shared: the checklist, tickets & bookings, AI Assistant chats,
+  and your other trips.
+- Twenty people at most on one trip.
+- Did the two of you use **one account** until now? It still works. To move to an account each: one of you signs
+  out, creates their own account, and is then invited to the trips. If their phone still has a copy of a trip,
+  the app asks before replacing it with the shared one.
+- **Share → Send as text** still sends the plan as plain text, to read in any app.
+
+**One step for you, once:** shared trips are kept in your Firebase project, and its rules must allow it.
+In the [Firebase console](https://console.firebase.google.com): **Firestore Database → Rules**, replace
+everything with the contents of `firestore.rules`, and **Publish**. Until then the Share sheet says
+"Planning together isn't switched on for this copy of the app yet". Everything else works as before.
+
+To see the shared trips in the console: **Firestore Database → Data**, collection `shared`. Each entry lists
+the accounts on the trip, and holds the trip's plans under `docs`.
+
 ## Voting for new features
 
 **Settings → About → What should come next?** shows a list of features that could be built. Everyone who is
@@ -123,6 +157,7 @@ phone's Share menu instead, so it can still reach you by any messaging app.
 
 ## For the people you share the app with
 
+- To plan a trip with someone, they need the app and an account of their own: see "Planning a trip together".
 - **Settings → About → Privacy** explains where plans are kept and what is sent to which service.
 - **Settings → About → Report a problem** is a form: they write what went wrong and can add their
   email for an answer. The version, the kind of device and the app's last errors go with it, never
@@ -136,15 +171,18 @@ Plans are stored in the app on your phone (and, when signed in, in your Firebase
 and **Restore from backup file** to bring plans back or move them to another phone.
 
 **Settings → Erase everything** removes the trips, plans and checklist, and also what is kept on that device only:
-tickets and bookings, AI Assistant chats, and the saved guides and forecasts.
+tickets and bookings, AI Assistant chats, and the saved guides and forecasts. Trips you invited people to are
+deleted for them too, and you leave the trips you were invited to (the app says so before erasing).
+**Restore from backup** never touches a trip you plan with other people.
 
 Safety: the app only runs its own code. Text that comes from outside (travel guides, a backup file, the AI Assistant,
 another device) is always shown as plain text, and tickets can only be photos or PDFs.
 
 ## Sync between devices
 
-Both phones sign in with the **same email and password**; then a plan added on one phone
+Your phones sign in with the **same email and password**; then a plan added on one phone
 appears on the other within a second or two (or as soon as it is back online).
+(Two people with an account each share single trips instead: see "Planning a trip together".)
 This uses a free Firebase project (Google). One-time setup, about 5 minutes:
 
 1. Go to <https://console.firebase.google.com> → **Create a project** (any name; Analytics not needed).
@@ -168,7 +206,8 @@ Notes:
 - Under **Settings → Account** you can see whether everything is saved (and how many changes are
   still waiting while offline), **change the password** (the other phones then have to sign in
   again) and **delete the account**. Deleting removes the login and the plans stored in it; the
-  phone you delete it from keeps its copy of the plans.
+  phone you delete it from keeps its copy of the plans. Trips that account invited people to are
+  deleted for them too.
 
 ## Suggestions for any city or country
 

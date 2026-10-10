@@ -18,7 +18,7 @@ written for a non-developer owner, so keep its explanations plain-language when 
 There is no build, lint or test command. Check changes by loading the app in a browser at phone size.
 
 **Self-check before every push:** open `http://localhost:8080/?selfcheck`. It loads `selfcheck.js` (only then) and
-shows pass/fail for dates, the `tidy…` checks, backups, sync merging, AI answers and opening hours. From the console:
+shows pass/fail for dates, the `tidy…` checks, backups, sync merging, shared trips, AI answers and opening hours. From the console:
 `runSelfCheck().filter(r => !r.ok)`. It swaps `state` and `sync.saved` for made-up plans inside `sandbox()`, with
 saving and drawing switched off, all in one go (no `await`). When you change one of those parts, add a check.
 
@@ -30,13 +30,22 @@ Testing notes (this machine has no Node or Python; use PowerShell or Git Bash):
   rendering stall). Measure the DOM instead, or render a page to PNG with Edge headless (see `tools/make-icons.ps1`).
   Also while hidden: the window height is 0 (set a size with `resize_window` before testing drag or `elementFromPoint`),
   `loading="lazy"` photos never load, and a dialog's `close` event doesn't fire, so `askConfirm` never answers
-  (stand in for it: `askConfirm = async () => true`).
+  (stand in for it: `askConfirm = async () => true`). `renderSoon` waits for a frame that never comes
+  (`renderSoon = () => render()`).
 - A test that swaps `state` and calls `render()` can still save (address lookups call `save()` when they finish).
   Copy the `tripPlanner.*` localStorage keys first and put them back afterwards.
 - The AI Assistant (App Check) only works on the live site, https://nikwakwa.github.io/trip-planner/. After a push,
   wait until `version.js` there shows the new version, then open the site with a `?fresh=N` query to dodge caches.
 - Nothing here can run Safari. iPhone behavior is only reviewed in the code, never tested: say so, and ask the owner
   to check on an iPhone (the self-check page runs there too).
+- Real accounts can't be created or signed in to from here. For sync and shared trips, use the pretend Firebase,
+  on a copy of the app that is not signed in (clear `tripPlanner.sync` and reload first, or the real one loads):
+  `await loadScript('tools/fake-firebase.js'); await fakeFirebase.signIn('ann@test.org')`. `fakeFirebase.as(email)`
+  is the database as another account's device sees it, `fakeFirebase.options.oldRules = true` is a project whose
+  rules don't know shared trips. It repeats `firestore.rules` in JavaScript: change both together. The real rules
+  are only ever tested by the owner, with two accounts.
+- If another session holds port 8080, `preview_start` name `trip-planner-8081` serves the same folder (its saved
+  data is separate: another address).
 
 Asset scripts (they download from the internet and rewrite files in the repo):
 - `tools/fetch-assets.ps1`: re-downloads the font, **regenerates `icons/sprite.svg`** from the icon
@@ -50,7 +59,7 @@ Asset scripts (they download from the internet and rewrite files in the repo):
 
 **Classic scripts that share one global scope.** `index.html` loads, in this order:
 `theme.js` (in the `<head>`), then at the end of the page `version.js` → `firebase-config.js` → `places.js` → `weather.js` → `hours.js` → `essentials.js` → `mapstyle.js` → `maps.js` →
-`drag.js` → `today.js` → `calendar.js` → `files.js` → `packing.js` → `info.js` → `assistant.js` → `vote.js` → `sync.js` → `app.js`. Don't use `app.js` names (`$`, `CATEGORIES`, …) at load time
+`drag.js` → `today.js` → `calendar.js` → `files.js` → `packing.js` → `info.js` → `assistant.js` → `vote.js` → `share.js` → `sync.js` → `app.js`. Don't use `app.js` names (`$`, `CATEGORIES`, …) at load time
 in the earlier files, only inside functions. The files are not modules. The feature files call helpers defined in `app.js` (`$`, `esc`, `icon`,
 `save`, `render`, `snackbar`, `state`, …) at runtime, which works because `app.js` loads last and the calls
 happen after startup. Top-level names must stay unique across all files.
@@ -175,7 +184,8 @@ then everything else (`byPlanOrder`).
 **Sync (`sync.js`).** This is optional and switched on only when `firebase-config.js` sets `window.FIREBASE_CONFIG`.
 Firebase compat SDKs are vendored and loaded lazily. The state is split into Firestore documents
 `users/{uid}/docs/{trip_…|item_…|check_…}`. After each save, the local state is compared with the last known remote copy (kept in
-localStorage `tripPlanner.sync`), and only the differences are sent. Remote snapshots are merged into
+localStorage `tripPlanner.sync`), and only the differences are sent. Only documents of those three kinds are ever
+removed (`SYNCED_KINDS`), so a newer version can keep other kinds next to them. Remote snapshots are merged into
 `state`. `settings` stay on each phone and are never synced. Account actions (Settings → Account): the sign-in sheet
 has two modes (`setAuthMode`); change password and delete account share `#account-dialog` and both ask for the current
 password first (`confirmUser`). `deleteAccount` stops listening before it empties the account, so this device keeps
@@ -188,8 +198,36 @@ With `window.REPORT_KEY` (a Web3Forms access key, public by design) it is POSTed
 without it, or when that fails, `shareReport` uses the Share menu or the clipboard. `firestore.rules` must be pasted into the
 Firebase console by hand; it isn't deployed from here.
 
-**Feature voting (`vote.js`).** Settings → About → "What should come next?" (`#vote-dialog`). The only data shared
-between accounts: `featureVotes/{uid}` (`{ ids }`, the keys that account voted for) and `featureIdeas/{uid}_{0…4}`
+**Shared trips (`share.js`, with `sync.js`).** A trip planned by several accounts is marked `trip.shared = <id>` and
+kept outside the accounts: `shared/{id}` says who is on it (`{ owner, trip, code, uids[], members{uid: {email, at, via}} }`)
+and `shared/{id}/docs/…` holds the trip and its plans, in the same form as an account's own documents.
+- sync.js works per "space": `''` is the account's own (`sync.own`, base in `sync.saved.base`), each shared trip has
+  one (`sync.shared[id]`, record in `sync.saved.shared[id]`: `{ trip, base, fresh, seen, at }`). `stateDocs`, `applyDocs`,
+  `mergeRemote` and `pushSpace` take the space. A shared trip's `pos` is always 0 (everyone keeps their own order), and
+  writes to a shared space go in batches of `SHARED_BATCH` (10): the rules look up `shared/{id}` for each write, and
+  Firestore allows about 20 such look-ups per batch.
+- The account's list of shared trips is one query (`uids array-contains me`, `onRoots`). It decides everything: a
+  trip on the list is followed (`attachShare`), a trip no longer on it goes away from the device (`dropShare`).
+  There are no pointers in the account's own documents (an older version of the app would delete them).
+- A shared trip is never removed by leaving it out of `state`: `pushSpace` sends nothing for a shared space with no
+  trip, and the next answer brings the trip back. Leaving (`leaveRemote`), removing someone (`removeRemote`, which
+  changes the code) and deleting for everyone (`deleteSharedRemote`, owner only) are done on purpose, online only.
+  "Erase everything" and deleting the account call `quitSharing` first; "Restore from backup" keeps shared trips.
+- A trip is in the app once: when a shared trip arrives, the account's own trip with the same id (a copy from
+  before it was shared, or the trip itself on the owner's other devices) becomes it, and its own documents are
+  removed at the next save. Only the trip named in `shared/{id}.trip` is taken from a shared space.
+- An invitation is `<id>.<code>`, sent as a link `…/#join=<id>.<code>` (after the `#`, so the host never sees it;
+  `checkInviteLink`, or pasted under Settings → Trips → "Join a trip"). Joining is one write that adds the account
+  to `uids` and `members` with the code as `via`; the rules compare it with the trip's code, and the email with the
+  account's own. Members' email addresses are shown to the others on the trip, nowhere else.
+- First attach on a device (`fresh`) takes what the database has, never the device's copy. Signed out, a shared
+  trip stays on the device with its mark and follows the account again after signing in.
+- Changing what `shared/…` holds means changing `firestore.rules` (and `tools/fake-firebase.js`), and the owner has
+  to publish the rules by hand. With old rules the list fails with permission-denied: `sharing.off`, and the Share
+  sheet says planning together isn't switched on. Nothing else is affected.
+
+**Feature voting (`vote.js`).** Settings → About → "What should come next?" (`#vote-dialog`). Apart from shared
+trips, the only data shared between accounts: `featureVotes/{uid}` (`{ ids }`, the keys that account voted for) and `featureIdeas/{uid}_{0…4}`
 (`{ title, text, uid, at }`; the document name is what caps suggestions at five per account). The app's own proposals
 are `FEATURE_IDEAS`; never reuse an id. A suggestion's vote key is `<doc>.<at>`, so a new one in the same slot starts
 at zero. Both collections are listened to only while the sheet is open. `tallyVotes` counts; the order on screen is
@@ -244,6 +282,9 @@ Phone styles are the default. Add desktop overrides in the media blocks at the e
   the device's Back button returns to the Plan instead of closing the app. Tapping the section already open scrolls
   to its top. The bar is 64px tall (`--nav-h`, Material 3 Expressive's shorter bar).
 - The trip card (`.hero`) is compact on purpose, so today's plans are on the first screen.
+- The trip card's Share button opens `#share-dialog` (`openShare` in share.js): "Plan it together" (invite people,
+  who is on the trip, the link) and "Just show the plan" (the itinerary as text, `shareTrip` in maps.js). Once
+  someone else is on the trip the button reads "2 people", and the trip's tab shows a small people icon.
 - On a phone the AI Assistant is a small button stacked on the "New plan" FAB (`#ai-fab`), on the Plan and Ideas
   tabs. Both buttons slide away while scrolling down (`body.fabs-away`, set in `onScroll`), so they don't cover the
   plans' done circles, and come back on scrolling up, at the end of the page, or on opening a section (`showFabs`).

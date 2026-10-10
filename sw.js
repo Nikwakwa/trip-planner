@@ -28,6 +28,7 @@ const FILES = [
   'info.js',
   'assistant.js',
   'vote.js',
+  'share.js',
   'sync.js',
   'selfcheck.js',                           // only loaded with "?selfcheck", but it has to match the saved app
   'vendor/leaflet/leaflet.js',

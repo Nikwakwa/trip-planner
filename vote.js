@@ -13,8 +13,8 @@
    ========================================================= */
 
 // The app's own proposals. Keep an id for good once it has shipped: votes are kept by id.
+// Built since, so off the list (don't use these ids again): share-trip.
 const FEATURE_IDEAS = [
-  { id: 'share-trip', title: 'Plan a trip together', text: 'Invite someone to a trip. They see it and change it from their own account.' },
   { id: 'offline-maps', title: 'Maps without a connection', text: 'Download a trip’s map before leaving, for when there is no signal.' },
   { id: 'meals', title: 'Lunch and dinner ideas', text: 'Places to eat near each day’s plans, from the travel guide.' },
   { id: 'budget', title: 'Trip budget', text: 'Note what each plan costs, and see the total for a day and for the whole trip.' },
