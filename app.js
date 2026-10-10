@@ -1652,7 +1652,7 @@ function nearTrip(trip, guide) {
 /* Matching places: as you type a plan's name or its address, real places near the trip appear
    below (from the guide, then OpenStreetMap). Picking one fills in the address and pins the
    plan on the map at that exact spot. */
-const planMatch = { chosen: null, results: [], field: '', timer: 0, ctl: null, typeSet: false };
+const planMatch = { chosen: null, results: [], field: '', timer: 0, ctl: null, typeSet: false, press: false, late: false };
 const NUMBER_FIRST = new Set(['US', 'CA', 'GB', 'IE', 'AU', 'NZ', 'FR']);   // "9 West Street", not "West Street 9"
 const OSM_CATEGORY = {
   shop: 'shopping',
@@ -1680,15 +1680,23 @@ function matchFromPhoton(f) {
   };
 }
 
-async function findMatches(trip, q, signal) {
+// Where to look first: around the plan being edited, else the stay of its day (a trip can cover
+// several cities), else the trip's first plan on the map, its city, or its guide.
+function matchCenter(trip, guide, item, day) {
+  const spot = p => p && typeof p.lat === 'number' && typeof p.lng === 'number' ? p : null;
+  const base = isDate(day) ? baseFor(trip, day, guide) : null;
+  return spot(item) || (base && base.c) || (isDate(day) && trip.items.find(i => i.date === day && spot(i)))
+    || trip.items.find(spot) || spot(trip.place) || (guide && guide.places[0]) || null;
+}
+
+async function findMatches(trip, q, signal, by) {
   const guide = guideFor(trip);
   const fromGuide = guide ? guide.places.filter(p => norm(p.name).includes(norm(q))).slice(0, 3).map(p => ({
     name: p.name, place: p.place || p.name, sub: p.area || guide.city || '', cat: p.cat, lat: p.lat, lng: p.lng, guideId: p.id,
   })) : [];
   if (!navigator.onLine) return fromGuide;
   const params = new URLSearchParams({ q, limit: '8', lang: 'en' });
-  // Results close to the trip come first: around its plans, else its city.
-  const by = trip.items.find(i => typeof i.lat === 'number') || trip.place || (guide && guide.places[0]);
+  // Results close to the plan come first.
   if (by) { params.set('lat', by.lat); params.set('lon', by.lng); }
   const res = await fetch('https://photon.komoot.io/api/?' + params, { signal });
   if (!res.ok) return fromGuide;
@@ -1725,7 +1733,9 @@ function onMatchInput(e) {
   planMatch.timer = setTimeout(async () => {
     const ctl = planMatch.ctl = new AbortController();
     try {
-      showMatches(field, await findMatches(trip, q, ctl.signal));
+      const editing = editingItemId && trip.items.find(i => i.id === editingItemId);
+      const by = matchCenter(trip, guideFor(trip), editing, itemForm.elements.date.value);
+      showMatches(field, await findMatches(trip, q, ctl.signal, by));
     } catch (err) {
       if (err.name !== 'AbortError') showMatches(field, []);
     }
@@ -1760,18 +1770,30 @@ itemForm.addEventListener('click', (e) => {
   showMatches('', []);
 });
 
-// Moving on to another field puts the list away.
+function closeMatches() {
+  clearTimeout(planMatch.timer);
+  if (planMatch.ctl) planMatch.ctl.abort();
+  showMatches('', []);
+}
+
+// Moving on to another field puts the list away. In the middle of a click or a tap, only once it is
+// over: without the list the form gets shorter, and a button that moves away from under the pointer
+// (Save, in the form's window on a computer) never gets its click.
 itemForm.addEventListener('focusin', (e) => {
-  if (planMatch.field && e.target.name !== planMatch.field && !e.target.closest('[data-match]')) {
-    clearTimeout(planMatch.timer);
-    if (planMatch.ctl) planMatch.ctl.abort();
-    showMatches('', []);
-  }
+  if (!planMatch.field || e.target.name === planMatch.field || e.target.closest('[data-match]')) return;
+  if (planMatch.press) planMatch.late = true;
+  else closeMatches();
 });
+itemDialog.addEventListener('mousedown', () => { planMatch.press = true; }, true);
+addEventListener('mouseup', () => {
+  if (planMatch.late) setTimeout(closeMatches);   // after the click, which comes right behind
+  planMatch.press = planMatch.late = false;
+}, true);
 
 function openItemForm(item, defaults = {}) {
   planMatch.chosen = null;
   planMatch.typeSet = false;
+  planMatch.press = planMatch.late = false;
   showMatches('', []);
   editingItemId = item ? item.id : null;
   const v = item || { title: '', category: 'sight', date: '', time: '', place: '', link: '', notes: '', ...defaults };

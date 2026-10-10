@@ -364,6 +364,24 @@ function runSelfCheck() {
       titleAfterPick('Dinner at Carbone', { name: 'Carbone', place: '181 Thompson Street, New York', sub: '' }),
     ], ['Trader Joe\'s', 'Trader Joe\'s', 'Trader Joe\'s', 'Trader Joe’s run with Sam', 'Dinner at Carbone']);
   });
+  check('Matching places are looked for around the plan being edited, else the stay of its day', () => {
+    const stay = (id, date, lat) => ({ id, title: id, category: 'stay', date, lat, lng: -71 });
+    const plan = { id: 'p', title: 'Shop', category: 'shopping', date: '2026-10-16', lat: 40.74, lng: -73.94 };
+    const trip = { items: [{ id: 'air', title: 'Airport', category: 'transport', date: '2026-10-13', lat: 42.3, lng: -71 }, stay('a', '2026-10-13', 42.36), stay('b', '2026-10-16', 40.75), plan] };
+    const lat = (item, day) => matchCenter(trip, null, item, day).lat;
+    return same([lat(plan, '2026-10-16'), lat(null, '2026-10-14'), lat(null, '2026-10-20'), lat(null, ''), matchCenter({ items: [] }, null, null, '')],
+      [40.74, 42.36, 40.75, 42.3, null]);
+  });
+  check('The list of matching places stays until a click on Save is over, so Save doesn’t move away under it', () => {
+    const list = itemForm.querySelector('[data-match="title"]'), btn = itemForm.querySelector('[type="submit"]');
+    showMatches('title', [{ name: 'Target', place: '1 Main Street', sub: '', cat: 'shopping', lat: 1, lng: 1 }]);
+    btn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    btn.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    const during = list.hidden;
+    planMatch.press = planMatch.late = false;
+    btn.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));      // with the keyboard: right away
+    return same([during, list.hidden, planMatch.field], [false, true, '']);
+  });
   check('A street address is not taken for a town with the street’s name, nor a plan for a namesake far away', () => {
     const guide = prepGuide({ id: 'check', places: [{ id: 'j', name: 'Jackson', lat: 43.48, lng: -110.76 }, { id: 'p', name: 'Central Park', lat: 40.78, lng: -73.97 }] });
     const ids = item => matchPlaces(item, guide).map(p => p.id);
