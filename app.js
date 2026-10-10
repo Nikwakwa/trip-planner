@@ -2918,7 +2918,7 @@ function openPrivacy() {
     part('public', 'Sent to other services', [
       'To do its job, the app asks free outside services. They get only what the question needs, never your account.',
       '<b>OpenStreetMap services</b> (Photon, Nominatim, Overpass): the places you search for, and the names and addresses of your plans, to put them on the map and find opening hours. “Find addresses and opening hours” in Settings switches the automatic lookups off.',
-      '<b>Wikivoyage, Wikipedia and Wikidata</b>: your destination and the area around your plans, for guides, photos and essentials. <b>Open-Meteo</b>: your destination, for the weather.',
+      '<b>Wikivoyage, Wikipedia and Wikidata</b>: your destination and the area around your plans, for guides, photos and essentials. <b>Open-Meteo</b>: your destination, or the area of a day’s stay and plans, for the weather.',
       '<b>The map</b> (OpenFreeMap, CARTO or OpenStreetMap): the part of the map you look at.',
       aiReady() && '<b>Google Gemini</b>: when you send a message to the AI Assistant, the message and that trip’s plans. “Flag plans that sell out” in Settings sends the names of your plans. Google’s reCAPTCHA checks that these requests really come from the app.',
       window.REPORT_KEY && '<b>Web3Forms</b> (an email service): when you send “Report a problem”, what you wrote, your email if you gave it, the app’s version and the kind of device. It reaches the person who runs this copy of the app.',

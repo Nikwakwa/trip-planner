@@ -234,6 +234,9 @@ best match is used). The app then fetches that place's
 All free services, no account or key needed:
 
 - **Weather** (Open-Meteo) shows up to about 16 days ahead. Days already fetched stay visible offline.
+  On a trip to a city it is the city's forecast. On a trip to a country or a region, each day has the
+  forecast for where you are that day: around the place you stay, or around that day's plans. A day
+  with no stay and no plan on the map has no forecast.
   Temperatures follow **Settings → Appearance → Units** (°C or °F).
 - **Essentials** (the button on the trip's card) are fetched once while online and kept on the phone.
 - **Opening hours** come from OpenStreetMap, or the travel guide. They're hints: always check before

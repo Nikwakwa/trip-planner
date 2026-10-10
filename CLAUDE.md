@@ -141,7 +141,10 @@ then everything else (`byPlanOrder`).
   `renderSoon()`, never `render()`: it waits while something is typed in the page or a plan is dragged.
 - The hours parser supports a subset of OSM's format and returns `null` (no note shown) for anything it
   can't read, rather than guessing.
-- Weather is only fetched for city-sized places. Rainy days reorder `planSuggestions` toward `rainy`-tagged places.
+- Weather is per day and per spot (`weatherSpot(trip, day)`): the trip's city, else (a country or region trip, or
+  a city's day trip over 25 miles away) where the day is spent, from `baseFor` and the day's located plans. Days near
+  one stay use that stay's spot, so they share one saved forecast; a day with nothing on the map has none.
+  Rainy days reorder `planSuggestions` toward `rainy`-tagged places.
 - `drag.js` uses a long-press, then pointer events plus a non-passive `touchmove` to stop the page scrolling. Elements
   marked `data-drag` (plan cards in the Plan view, `.idea-chip`s in the ideas tray) can be dragged. A drop rewrites
   `date` and renumbers the untimed plans' `slot`s for that day. A plan with a time can be dropped anywhere that keeps

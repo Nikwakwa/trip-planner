@@ -364,6 +364,21 @@ function runSelfCheck() {
       titleAfterPick('Dinner at Carbone', { name: 'Carbone', place: '181 Thompson Street, New York', sub: '' }),
     ], ['Trader Joe\'s', 'Trader Joe\'s', 'Trader Joe\'s', 'Trader Joe’s run with Sam', 'Dinner at Carbone']);
   });
+  check('The forecast is for where each day is spent: the city, else the day’s stay or its plans', () => {
+    const at = (id, category, date, lat, lng) => ({ id, title: id, category, date, lat, lng });
+    const plans = [
+      at('air', 'transport', '2026-10-13', 42.36, -71.01), at('a', 'stay', '2026-10-13', 42.37, -71.1), at('salem', 'sight', '2026-10-15', 42.52, -70.89),
+      at('train', 'transport', '2026-10-16', 42.35, -71.05), at('b', 'stay', '2026-10-16', 40.75, -73.94), at('shop', 'shopping', '2026-10-16', 40.75, -73.95),
+      at('falls1', 'sight', '2026-10-18', 43.08, -79.07), at('falls2', 'sight', '2026-10-18', 43.09, -79.06),
+    ];
+    const country = { place: { kind: 'country', lat: 39.8, lng: -100.4 }, items: plans };
+    const city = { place: { kind: 'city', lat: 42.36, lng: -71.06 }, items: plans.slice(0, 3) };
+    const spot = (trip, day) => { const s = weatherSpot(trip, day, null); return s && [s.lat, s.lng]; };
+    return same([
+      spot(country, '2026-10-14'), spot(country, '2026-10-15'), spot(country, '2026-10-16'), spot(country, '2026-10-17'), spot(country, '2026-10-18'),
+      spot({ place: country.place, items: [] }, '2026-10-14'), spot(city, '2026-10-15'), spot({ place: city.place, items: [] }, '2026-10-14'),
+    ], [[42.37, -71.1], [42.37, -71.1], [40.75, -73.94], [40.75, -73.94], [43.1, -79.1], null, [42.36, -71.06], [42.36, -71.06]]);
+  });
   check('Matching places are looked for around the plan being edited, else the stay of its day', () => {
     const stay = (id, date, lat) => ({ id, title: id, category: 'stay', date, lat, lng: -71 });
     const plan = { id: 'p', title: 'Shop', category: 'shopping', date: '2026-10-16', lat: 40.74, lng: -73.94 };

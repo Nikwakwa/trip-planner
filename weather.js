@@ -30,18 +30,31 @@ const weather = {
   retryAt: new Map(),   // place → time a failed fetch may be tried again
 };
 
-// Where to ask about: the trip's city. Countries and regions are too big for one forecast.
-function weatherSpot(trip) {
-  return trip.place && trip.place.kind === 'city' ? trip.place : null;
+// Where to ask about for a day: the trip's city. A country or a region is too big for one forecast,
+// and a city's day trip can be far away: then it is where that day is spent, taken from the day's
+// plans and its stay (the one with the others closest around it; the stay when it's a tie).
+// Days spent near one stay share its spot, so they share one forecast.
+const WEATHER_NEAR = 25;   // miles
+function weatherSpot(trip, day, guide = guideFor(trip)) {
+  const city = trip.place && trip.place.kind === 'city' ? trip.place : null;
+  const base = baseFor(trip, day, guide);
+  const spots = trip.items.filter(i => i.date === day).map(i => coordsOf(i, guide)).filter(Boolean);
+  if (base) spots.unshift(base.c);
+  if (!spots.length) return city;
+  const spread = p => spots.reduce((sum, q) => sum + miles(p, q), 0);
+  const mid = spots.reduce((best, p) => (spread(p) < spread(best) ? p : best));
+  const stays = trip.items.filter(i => i.category === 'stay').map(i => coordsOf(i, guide)).filter(Boolean);
+  return [city, ...stays].find(a => a && miles(a, mid) < WEATHER_NEAR)
+    || { lat: Math.round(mid.lat * 10) / 10, lng: Math.round(mid.lng * 10) / 10 };
 }
 const spotKey = s => `${s.lat.toFixed(2)},${s.lng.toFixed(2)}`;
 
 // The forecast for one day of a trip, or null. Starts a fresh fetch when needed.
 function dayWeather(trip, day) {
-  const spot = weatherSpot(trip);
+  const spot = weatherSpot(trip, day);
   if (!spot) return null;
   const entry = weather.saved[spotKey(spot)];
-  refreshWeather(trip, spot, entry);
+  refreshWeather(day, spot, entry);
   const d = entry && entry.days[day];
   return d ? { ...d, ...weatherLook(d.code) } : null;
 }
@@ -52,14 +65,12 @@ function isWetDay(trip, day) {
   return !!w && (w.wet || w.rain >= 60);
 }
 
-function refreshWeather(trip, spot, entry) {
+function refreshWeather(day, spot, entry) {
   const key = spotKey(spot);
   if (!navigator.onLine || weather.loading.has(key) || Date.now() < (weather.retryAt.get(key) || 0)) return;
   if (entry && Date.now() - entry.fetched < WEATHER_MAX_AGE) return;
-  // Only when some day of the trip is within the forecast's reach.
-  const today = todayISO();
-  const last = toISO(new Date(Date.now() + (FORECAST_DAYS - 1) * 864e5));
-  if (!tripDays(trip).some(d => d >= today && d <= last)) return;
+  // Only for a day within the forecast's reach.
+  if (day < todayISO() || day > toISO(new Date(Date.now() + (FORECAST_DAYS - 1) * 864e5))) return;
 
   weather.loading.add(key);
   const params = new URLSearchParams({
@@ -84,9 +95,9 @@ function refreshWeather(trip, spot, entry) {
         };
       });
       weather.saved[key] = { fetched: Date.now(), days };
-      // Only the 8 most recently used places are kept.
+      // Only the 24 most recently used places are kept (a trip on the road has one a day, 16 days ahead).
       const keys = Object.keys(weather.saved).sort((a, b) => weather.saved[b].fetched - weather.saved[a].fetched);
-      for (const old of keys.slice(8)) delete weather.saved[old];
+      for (const old of keys.slice(24)) delete weather.saved[old];
       try { localStorage.setItem(WEATHER_KEY, JSON.stringify(weather.saved)); } catch { /* storage full: keep in memory */ }
       renderSoon();
     })
