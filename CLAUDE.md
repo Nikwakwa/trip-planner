@@ -75,6 +75,14 @@ happen after startup. Top-level names must stay unique across all files.
 - After any change, call `save()` then `render()`. `save()` writes localStorage *and* calls `pushChanges()`
   (sync.js). `render()` rebuilds the current view's HTML from scratch using template strings. Put all
   user text through `esc()`, and all user URLs through `safeUrl()`.
+- Two safety nets, for when nobody can fix the app: a section that throws while drawing shows "This screen can’t be
+  shown" (`renderFailed`; the other sections and Settings keep working, and the error goes with "Report a problem"),
+  and when the storage is full `saveLocal` drops what can be fetched again (info, hours, forecasts, then guides) to
+  save the plans.
+- A phone keeps the app open for days. Back on screen after 5 minutes, or on a new day, `catchUp()` (end of app.js)
+  redraws; on a new day the Plan jumps to today's card (not with a sheet open).
+- The trip form: a new trip's place is looked up from its name. A trip being edited keeps its place whatever it is
+  renamed to; only picking a place from the list changes it (`onTripNameInput`, the hint in `showChosenPlace`).
 - `theme.js` (loaded in `index.html`'s `<head>`) reads `tripPlanner.v1.settings.theme` to avoid a light/dark flash.
   Keep it in sync if the settings shape changes.
 - Data from outside goes through checks before it is used: the saved copy (`tidyState` in `load()`), the account's
@@ -98,6 +106,8 @@ localStorage `tripPlanner.guides` (up to 10). `planSuggestions` in `app.js` and 
   `kind: 'near'` guide built from the Wikivoyage pages closest to it (`nearbyGuide`, saved as `near:lat,lng`).
   `guideFor(trip)` returns the trip's guide with those places added (`withNearby`, `guide.joined`; their places have
   `local: true`). "Nearby ideas" then only use local places, and never anything over 25 miles away.
+  On a country or region trip, a plan's link to Google Maps adds the town of the nearest of these guides
+  (`townNear`, in `mapsUrl`): "Museum of Fine Arts, United States" could be Houston's.
 - Places may also carry `price`, `tip` (how to get there) and `url` (`GUIDE_VERSION` 4). Destinations without a photo
   get the picture of the Wikipedia article with the same name (`fillPhotosByName`).
 - Places carry `fame` (`GUIDE_VERSION` 5): the number of Wikipedia languages with an article about them, from Wikidata
@@ -144,7 +154,11 @@ then everything else (`byPlanOrder`).
 - Weather is per day and per spot (`weatherSpot(trip, day)`): the trip's city, else (a country or region trip, or
   a city's day trip over 25 miles away) where the day is spent, from `baseFor` and the day's located plans. Days near
   one stay use that stay's spot, so they share one saved forecast; a day with nothing on the map has none.
-  Rainy days reorder `planSuggestions` toward `rainy`-tagged places.
+  Rainy days reorder `planSuggestions` toward `rainy`-tagged places. A day's weather code is its worst moment:
+  rain only shows from a 30% chance (`weatherLook(code, rain)`), and "Rain likely" needs `rainLikely` (40% with a
+  wet code, or 60%).
+- Each spot's forecast also brings its time zone (`weather.saved[key].tz`). A spot beyond the forecast's reach is
+  asked about once per visit, for that alone (`weather.asked`).
 - `drag.js` uses a long-press, then pointer events plus a non-passive `touchmove` to stop the page scrolling. Elements
   marked `data-drag` (plan cards in the Plan view, `.idea-chip`s in the ideas tray) can be dragged. A drop rewrites
   `date` and renumbers the untimed plans' `slot`s for that day. A plan with a time can be dropped anywhere that keeps
@@ -173,12 +187,16 @@ then everything else (`byPlanOrder`).
   then on `baseFor` no longer returns it. A stay plan titled "Check out…" never begins a stay. `nowCardHTML` refreshes itself every 30 s. "Near me" uses the
   geolocation API only, on the guide already saved on the phone.
 - `calendar.js`: there's a Google Calendar template link per plan, and an `.ics` file per trip. Times are local to
-  the destination via `tripTimeZone` (the Essentials time zone). Visit length comes from `planLength` (today.js).
+  where that day is spent: `tripTimeZone(trip, day)` is the zone of the day's weather spot (a country has several,
+  and its middle is not where the plans are), else of the nearest day that has one, else the Essentials one, else ''.
+  The Essentials "Local time" uses it too. Visit length comes from `planLength` (today.js).
 - `files.js`: attachments go in IndexedDB `tripPlannerFiles` (per phone, never synced or backed up). `tickets.index`
   maps plan id → file list. The plan form stages changes in `tickets.form`, and they're written on save.
 - `info.js`: the "i" button on a plan's card opens "About this place" (`openPlanInfo`, in the `#place-dialog` sheet):
   the guide entry, the opening hours for the day, and the start of the Wikipedia article found by name among the
-  articles within 1.5 km of the plan (`wikiAbout`, saved per device in `tripPlanner.info`).
+  articles within 1.5 km of the plan (`wikiAbout`, saved per device in `tripPlanner.info`). The article with the
+  plan's exact name wins, and a station named after a sight is skipped (`TRANSIT_ARTICLE`). Saved answers are
+  stamped with `INFO_VERSION`: bump it when the matching changes, and older ones are asked again.
 - `packing.js`: suggestions are rules over the forecast, plans, travel mode and Essentials. Hidden ones are kept
   per phone (`tripPlanner.packing`).
 - Guide places may carry `photo` (a Commons `Special:FilePath` or Wikipedia thumbnail URL; `GUIDE_VERSION` 3). Photos
@@ -189,7 +207,8 @@ Firebase compat SDKs are vendored and loaded lazily. The state is split into Fir
 `users/{uid}/docs/{trip_…|item_…|check_…}`. After each save, the local state is compared with the last known remote copy (kept in
 localStorage `tripPlanner.sync`), and only the differences are sent. Only documents of those three kinds are ever
 removed (`SYNCED_KINDS`), so a newer version can keep other kinds next to them. Remote snapshots are merged into
-`state`. `settings` stay on each phone and are never synced. Account actions (Settings → Account): the sign-in sheet
+`state`. A plan changed both here (not sent yet) and elsewhere is merged field by field (`mergeDoc`: theirs, with
+the fields changed here on top), because deleting a plan changes the `pos` of every plan after it. `settings` stay on each phone and are never synced. Account actions (Settings → Account): the sign-in sheet
 has two modes (`setAuthMode`); change password and delete account share `#account-dialog` and both ask for the current
 password first (`confirmUser`). `deleteAccount` stops listening before it empties the account, so this device keeps
 its plans. The status line counts unconfirmed documents (`waitingCount`) and shows `sync.saved.at`. A new account gets
@@ -261,6 +280,8 @@ installed phones pick up the new version. Settings → About → "What's new" li
 after an update a snackbar offers it once (`settings.seenVersion`). The big vendored libraries (MapLibre, Firebase) are in
 `LIBS`: saved at install too, but the install doesn't fail without them. Files are saved without their `?query`.
 OSM tiles go in a separate cache that is kept between versions (`trip-planner-map-tiles`, capped at 900 tiles).
+The map's style and index are asked fresh, but a saved copy only waits `FRESH_WAIT` for the internet (`mapTile`),
+and `loadMapStyle` gives up after 8 seconds: a weak connection must not leave the map empty.
 
 **Security.**
 - `index.html` has a Content-Security-Policy `<meta>`: scripts run only from the app's own files and Google's

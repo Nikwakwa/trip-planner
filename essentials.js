@@ -239,7 +239,10 @@ function renderEssentials() {
   }
 
   const f = e.facts || {};
-  const t = e.tz && localTime(e.tz);
+  // The clock of where the trip is today, or where it starts (calendar.js: a country has several).
+  const today = todayISO();
+  const zone = tripTimeZone(trip, trip.start && today >= trip.start && today <= trip.end ? today : trip.start || today);
+  const t = zone && localTime(zone);
   const emergency = (f.emergency || [])[0];
   const tiles = [
     factTile('emergency', 'Emergency', (f.emergency || []).join(' · '), emergency && `tel:${emergency.replace(/\D/g, '')}`),

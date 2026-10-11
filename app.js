@@ -97,9 +97,13 @@ function hostLabel(url) {
   return h.length > 22 ? h.slice(0, 21) + '…' : h;
 }
 
-function mapsUrl(place, trip) {
+// at: where the plan is on the map, when known.
+function mapsUrl(place, trip, at) {
   const where = trip.place ? trip.place.label : trip.name;
-  const q = place.toLowerCase().includes((trip.place ? trip.place.name : trip.name).toLowerCase()) ? place : `${place}, ${where}`;
+  // A country or a region doesn't say which "Museum of Fine Arts": the town of the guide nearest the plan does.
+  const town = at && trip.place && trip.place.kind !== 'city' && !place.includes(',') ? townNear(at) : '';
+  const q = town && !norm(place).includes(norm(town)) ? `${place}, ${town}, ${where}`
+    : place.toLowerCase().includes((trip.place ? trip.place.name : trip.name).toLowerCase()) ? place : `${place}, ${where}`;
   return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
 }
 
@@ -508,7 +512,7 @@ function openPlaceInfo(id, day) {
     ${p.hours ? `<p class="pi-hours">${icon('schedule')}<span>${esc(p.hours)}</span></p>` : ''}
     ${factsHTML([['Price', p.price], ['Getting there', p.tip]])}
     <div class="pi-links">
-      <a class="assist-chip ripple" href="${esc(mapsUrl(p.place || p.name, trip))}" target="_blank" rel="noopener">${icon('map')}Map</a>
+      <a class="assist-chip ripple" href="${esc(mapsUrl(p.place || p.name, trip, p))}" target="_blank" rel="noopener">${icon('map')}Map</a>
       ${safeUrl(p.url) ? `<a class="assist-chip ripple" href="${esc(safeUrl(p.url))}" target="_blank" rel="noopener">${icon('link')}${esc(hostLabel(safeUrl(p.url)))}</a>` : ''}
       ${guide.sourceUrl && !p.local ? `<a class="assist-chip ripple" href="${esc(guide.sourceUrl)}" target="_blank" rel="noopener">${icon('open_in_new')}${esc(guide.source)}</a>` : ''}
     </div>
@@ -721,11 +725,17 @@ function load() {
 }
 
 function saveLocal() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch (e) {
-    snackbar('Could not save — device storage may be full');
+  const text = JSON.stringify(state);
+  // When the storage is full, what can be fetched again makes room for the plans: what was read about
+  // places, opening hours, forecasts, then the saved guides (they stay in use until the app is closed).
+  for (const makeRoom of [null, INFO_KEY, HOURS_KEY, WEATHER_KEY, GUIDES_KEY]) {
+    try {
+      if (makeRoom) localStorage.removeItem(makeRoom);
+      localStorage.setItem(STORAGE_KEY, text);
+      return;
+    } catch (e) { /* full: free the next one */ }
   }
+  snackbar('Could not save — device storage may be full');
 }
 
 // Saves on the phone, and sends the change to the account when signed in (sync.js).
@@ -895,17 +905,37 @@ function render() {
   $('#fab').hidden = $('#ai-fab').hidden = !tripViews || !trip;
   $('#fab-label').textContent = ui.view === 'ideas' ? 'New idea' : 'New plan';
   $('#fab').setAttribute('aria-label', $('#fab-label').textContent);
-  if (tripViews && !trip) renderWelcome();
-  else if (tripViews) renderTripTabs(trip);
+  try {
+    if (tripViews && !trip) renderWelcome();
+    else if (tripViews) renderTripTabs(trip);
 
-  if (trip && ui.view === 'plan') renderPlan(trip);
-  if (trip && ui.view === 'ideas') renderIdeas(trip);
-  if (ui.view === 'pack') renderChecklist();
-  if (ui.view === 'more') renderMore();
-  renderSidebar(trip);
-  renderDayStrip(trip);
-  syncMapDock();      // maps.js: on a wide window the map stays beside the plan
+    if (trip && ui.view === 'plan') renderPlan(trip);
+    if (trip && ui.view === 'ideas') renderIdeas(trip);
+    if (ui.view === 'pack') renderChecklist();
+    if (ui.view === 'more') renderMore();
+  } catch (e) {
+    renderFailed(e);
+  }
+  try {
+    renderSidebar(trip);
+    renderDayStrip(trip);
+    syncMapDock();      // maps.js: on a wide window the map stays beside the plan
+  } catch (e) {
+    console.error(e);
+    noteError(`Drawing around "${ui.view}": ${(e && e.message) || e}`);
+  }
   onScroll();
+}
+
+// A section that can't be drawn (a fault in the app, or in what a guide sent): it says so instead of
+// staying empty, and the other sections keep working. Settings has the backup and "Report a problem",
+// which carries what went wrong.
+function renderFailed(e) {
+  console.error(e);
+  noteError(`Drawing "${ui.view}": ${(e && e.message) || e}`);
+  $('#view-' + ui.view).innerHTML = emptyState('error', 'This screen can’t be shown',
+    'Your plans are safe on this device. Close the app and open it again. If this stays, save a backup file in Settings, and tell us there with “Report a problem”.',
+    ui.view === 'more' ? '' : `<div class="empty-actions"><button type="button" class="btn tonal ripple" data-go="more">${icon('settings')}Settings</button></div>`);
 }
 
 // On a phone, the Plan tab has the trip's days under the top bar, to jump to one.
@@ -1012,7 +1042,7 @@ function itemHTML(item, trip, { showDate = false, drag = false, note = null, sch
     const filesLabel = files === 1 ? 'Ticket' : `${files} files`;
     chips = [
       schedule && days.length && `<button type="button" class="assist-chip primary ripple" data-action="pick-day">${icon('calendar_add_on')}Add to a day</button>`,
-      item.place && `<a class="assist-chip ${schedule ? 'compact ' : ''}ripple" href="${esc(mapsUrl(item.place, trip))}" target="_blank" rel="noopener" title="Directions">${icon('location_on')}<span>Directions</span></a>`,
+      item.place && `<a class="assist-chip ${schedule ? 'compact ' : ''}ripple" href="${esc(mapsUrl(item.place, trip, coordsOf(item, guideFor(trip))))}" target="_blank" rel="noopener" title="Directions">${icon('location_on')}<span>Directions</span></a>`,
       link && `<a class="assist-chip compact ripple" href="${esc(link)}" target="_blank" rel="noopener" title="${esc(hostLabel(link))}" aria-label="Link: ${esc(hostLabel(link))}">${icon('link')}<span>${esc(hostLabel(link))}</span></a>`,
       files && `<button type="button" class="assist-chip compact ripple" data-action="files" title="${filesLabel}" aria-label="${filesLabel}">${icon('confirmation_number')}<span>${filesLabel}</span></button>`,
       hasPlanInfo(item, guideFor(trip)) && `<button type="button" class="assist-chip icon-only ripple" data-action="plan-info" aria-label="About ${esc(item.title)}" title="About this place">${icon('info')}</button>`,
@@ -1924,7 +1954,11 @@ const placeSearch = { chosen: null, results: [], timer: 0, ctl: null };
 function showChosenPlace() {
   const p = placeSearch.chosen;
   $('#place-chosen').hidden = !p;
-  if (p) $('#place-chosen').innerHTML = `${icon('location_on')}<span>${esc(p.label)}</span><span class="kind">${KIND_LABEL[p.kind]}</span>`;
+  if (!p) return;
+  // A trip keeps its place under another name ("USA with Sam"): the form says so.
+  const kept = !norm(tripForm.elements.name.value).includes(norm(p.name));
+  const how = navigator.onLine ? 'To change it, pick another from the list.' : 'Go online to pick another.';
+  $('#place-chosen').innerHTML = `${icon('location_on')}<span>${esc(p.label)}${kept ? `<small>Still the trip’s place. ${how}</small>` : ''}</span><span class="kind">${KIND_LABEL[p.kind]}</span>`;
 }
 
 function showPlaceResults(results, note = '') {
@@ -1940,11 +1974,11 @@ function showPlaceResults(results, note = '') {
 
 function onTripNameInput() {
   const q = tripForm.elements.name.value.trim();
-  // Typed something else than the chosen place: it will be looked up again.
-  if (placeSearch.chosen && !norm(q).includes(norm(placeSearch.chosen.name))) {
-    placeSearch.chosen = null;
-    showChosenPlace();
-  }
+  // Typed something else than the chosen place: a new trip's place is then looked up from its name.
+  // A trip being edited keeps its place: a new name alone never moves the trip, nor loses its guide
+  // while offline. Only picking a place from the list changes it.
+  if (!editingTripId && placeSearch.chosen && !norm(q).includes(norm(placeSearch.chosen.name))) placeSearch.chosen = null;
+  showChosenPlace();
   clearTimeout(placeSearch.timer);
   if (placeSearch.ctl) placeSearch.ctl.abort();
   if (q.length < 2 || !navigator.onLine) return showPlaceResults([]);
@@ -2764,6 +2798,7 @@ function eraseDeviceData() {
   readyGuides.clear();
   guideStatus.clear();
   weather.saved = {};
+  weather.asked.clear();
   hours.saved = {};
   essentials.saved = {};
   planInfo.saved = {};
@@ -3276,8 +3311,34 @@ if (new URLSearchParams(location.search).has('selfcheck')) {
 }
 
 // If the trip is happening now, jump to today's card.
-const todayCard = document.getElementById('day-' + todayISO());
-if (todayCard) {
-  todayCard.scrollIntoView({ block: 'start' });
+function jumpToToday() {
+  const card = document.getElementById('day-' + todayISO());
+  if (!card) return;
+  card.scrollIntoView({ block: 'start' });
   showFabs();     // this jump isn't the user scrolling down: the + and AI buttons stay
 }
+jumpToToday();
+
+// A phone keeps the app open for days. Back on screen it is drawn again: "today", "now and next" and
+// the forecast move on. On a new day the plan opens on that day, like at a fresh start.
+let shownDay = todayISO();
+let hiddenAt = Date.now();
+function catchUp() {
+  const day = todayISO();
+  const newDay = day !== shownDay;
+  if (!newDay && Date.now() - hiddenAt < 5 * 60e3) return;      // a quick look at another app
+  shownDay = day;
+  const busy = document.querySelector('dialog[open]') || document.body.classList.contains('dragging')
+    || /^(INPUT|TEXTAREA)$/.test((document.activeElement || {}).tagName);
+  if (!newDay || busy || ui.view !== 'plan') { renderSoon(); return; }
+  render();
+  jumpToToday();
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') catchUp();
+  else hiddenAt = Date.now();
+});
+// Left open on screen past midnight.
+setInterval(() => {
+  if (document.visibilityState === 'visible' && todayISO() !== shownDay) catchUp();
+}, 60000);

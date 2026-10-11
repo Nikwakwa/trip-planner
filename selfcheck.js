@@ -189,6 +189,28 @@ function runSelfCheck() {
     same(merge(() => {}, (r) => { drop(r, 'b'); r.checklist = []; }), { titles: 'Castle, Tram 28', checklist: 0, waiting: 0 }));
   check('When both devices changed the same plan, this device’s unsent change wins', () =>
     same(merge((l) => { item(l, 'a').title = 'Mine'; }, (r) => { item(r, 'a').title = 'Theirs'; }).titles, 'Lunch, Mine, Tram 28'));
+  check('When two devices changed different things about the same plan, both changes are kept', () => sandbox(() => {
+    const base = stateDocs(sample());
+    state = sample();
+    item(state, 'a').time = '11:30';
+    const remote = sample();
+    item(remote, 'a').title = 'Castle with Ana';
+    item(remote, 'a').notes = 'Bring water';
+    sync.saved = { uid: 'selfcheck', email: '', linked: true, base: { ...base }, shared: {} };
+    mergeRemote(stateDocs(remote), new Set());
+    const a = item(state, 'a');
+    return same([a.title, a.time, a.notes], ['Castle with Ana', '11:30', 'Bring water']);
+  }));
+  check('A plan deleted here doesn’t undo what another device changed in the plans after it', () => sandbox(() => {
+    const base = stateDocs(sample());
+    state = sample();
+    drop(state, 'a');                                   // "Lunch" and "Tram 28" each move up one place
+    const remote = sample();
+    item(remote, 'b').title = 'Dinner';
+    sync.saved = { uid: 'selfcheck', email: '', linked: true, base: { ...base }, shared: {} };
+    mergeRemote(stateDocs(remote), new Set());
+    return same([titles(), JSON.parse(stateDocs(state).item_b).pos], ['Dinner, Tram 28', 0]);
+  }));
   check('An answer from the offline copy never wipes the plans', () => sandbox(() => {
     state = sample();
     sync.saved = { uid: 'selfcheck', email: '', linked: true, base: stateDocs(sample()), shared: {} };
@@ -381,6 +403,73 @@ function runSelfCheck() {
       spot(left, '2026-10-19'), spot(left, '2026-10-20'), spot(left, '2026-10-21'),
     ], [[42.37, -71.1], [42.37, -71.1], [40.75, -73.94], [40.75, -73.94], [43.1, -79.1], null, [42.36, -71.06], [42.36, -71.06],
       [40.75, -73.94], [40.75, -73.94], null]);
+  });
+  check('A small chance of drizzle is not a rainy day', () => {
+    const look = (code, rain) => { const w = { rain, ...weatherLook(code, rain) }; return [w.icon, !!w.wet, !!rainLikely(w)]; };
+    return same([look(51, 11), look(61, 33), look(53, 41), look(63, 90), look(3, 65), look(95, 10), weatherLook(61).wet],
+      [['cloud', false, false], ['rainy', true, false], ['rainy', true, true], ['rainy', true, true], ['cloud', false, true], ['thunderstorm', true, false], true]);
+  });
+  check('Calendar times use the time zone of where the day is spent, not of the middle of the country', () => sandbox(() => {
+    const real = { weather: weather.saved, essentials: essentials.saved };
+    const stay = (id, date, lat, lng) => ({ id, title: id, category: 'stay', date, lat, lng });
+    const trip = { id: 't', start: '2026-10-13', end: '2026-10-20', place: { kind: 'country', lat: 39.8, lng: -100.4, osm: 'R1' },
+      items: [stay('a', '2026-10-13', 42.37, -71.1), stay('b', '2026-10-16', 40.75, -73.94), stay('c', '2026-10-19', 34.05, -118.24)] };
+    const zone = (t, day) => { zoneMemo.clear(); return tripTimeZone(t, day); };
+    try {
+      essentials.saved = { R1: { tz: 'America/Chicago' } };
+      weather.saved = { '42.37,-71.10': { fetched: 1, days: {}, tz: 'America/New_York' }, '34.05,-118.24': { fetched: 1, days: {}, tz: 'America/Los_Angeles' } };
+      const got = [zone(trip, '2026-10-14'), zone(trip, '2026-10-17'), zone(trip, '2026-10-20'), zone({ ...trip, items: [] }, '2026-10-14')];
+      weather.saved = {};
+      return same([...got, zone(trip, '2026-10-14'), zone({ id: 'u', items: [] }, '2026-10-14')],
+        ['America/New_York', 'America/New_York', 'America/Los_Angeles', 'America/Chicago', 'America/Chicago', '']);
+    } finally {
+      weather.saved = real.weather;
+      essentials.saved = real.essentials;
+      zoneMemo.clear();
+    }
+  }));
+  check('On a trip to a country, a plan’s link to the map names the town it is in', () => {
+    const trip = { name: 'USA', place: { kind: 'country', name: 'United States', label: 'United States', lat: 39.8, lng: -100.4 } };
+    const city = { name: 'Boston', place: { kind: 'city', name: 'Boston', label: 'Boston, Massachusetts, United States', lat: 42.36, lng: -71.06 } };
+    const query = (...args) => new URL(mapsUrl(...args)).searchParams.get('query');
+    const at = { lat: 42.339, lng: -71.094 };
+    // The guides saved on this device are set aside: one made-up guide, around Boston.
+    const real = { ...savedGuides };
+    const empty = () => { for (const k of Object.keys(savedGuides)) delete savedGuides[k]; };
+    try {
+      empty();
+      savedGuides['near:selfcheck'] = { kind: 'near', city: 'Boston', center: { lat: 42.36, lng: -71.06 }, places: [] };
+      return same([query('Museum of Fine Arts', trip, at), query('Museum of Fine Arts', trip), query('465 Huntington Ave, Boston', trip, at),
+        query('Boston Common', trip, at), query('Space Needle', trip, { lat: 47.62, lng: -122.35 }), query('Museum of Fine Arts', city, at)],
+      ['Museum of Fine Arts, Boston, United States', 'Museum of Fine Arts, United States', '465 Huntington Ave, Boston, United States',
+        'Boston Common, United States', 'Space Needle, United States', 'Museum of Fine Arts, Boston, Massachusetts, United States']);
+    } finally {
+      empty();
+      Object.assign(savedGuides, real);
+    }
+  });
+  check('A sight is not taken for the station named after it', () =>
+    same(['Museum of Fine Arts station', 'Brooklyn Bridge–City Hall/Chambers Street station', 'Harvard station', 'Museum of Fine Arts, Boston', 'Fenway Park', 'Grand Central Terminal']
+      .map(t => TRANSIT_ARTICLE.test(t)), [true, true, true, false, false, false]));
+  check('A trip being edited keeps its place under a new name, and a new trip is looked up again', () => {
+    const real = { id: editingTripId, chosen: placeSearch.chosen, name: tripForm.elements.name.value };
+    const place = { name: 'United States', label: 'United States', kind: 'country', lat: 39.8, lng: -100.4 };
+    const rename = (editing) => {
+      editingTripId = editing;
+      placeSearch.chosen = place;
+      tripForm.elements.name.value = 'USA with Sam';
+      onTripNameInput();
+      clearTimeout(placeSearch.timer);        // no search: this only checks what happens to the place
+      return placeSearch.chosen;
+    };
+    try {
+      return same([rename('trip1'), rename(null)], [place, null]);
+    } finally {
+      editingTripId = real.id;
+      placeSearch.chosen = real.chosen;
+      tripForm.elements.name.value = real.name;
+      showChosenPlace();
+    }
   });
   check('Matching places are looked for around the plan being edited, else the stay of its day', () => {
     const stay = (id, date, lat) => ({ id, title: id, category: 'stay', date, lat, lng: -71 });

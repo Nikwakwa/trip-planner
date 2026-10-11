@@ -99,11 +99,20 @@ function tuneMapStyle(style, theme) {
   return out;
 }
 
-// Fetched once, then kept (the service worker also keeps a copy for offline use).
+// Fetched once, then kept (the service worker also keeps a copy for offline use). It gives up after
+// a few seconds: on a connection that hardly moves, the picture map is shown rather than nothing.
 let mapStyleLoading = null;
 function loadMapStyle() {
-  mapStyleLoading = mapStyleLoading || fetch(MAP_STYLE_URL)
-    .then(res => (res.ok ? res.json() : Promise.reject(new Error('map style ' + res.status))))
-    .catch((e) => { mapStyleLoading = null; throw e; });
+  mapStyleLoading = mapStyleLoading || (async () => {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 8000);
+    try {
+      const res = await fetch(MAP_STYLE_URL, { signal: ctl.signal });
+      if (!res.ok) throw new Error('map style ' + res.status);
+      return await res.json();
+    } finally {
+      clearTimeout(timer);
+    }
+  })().catch((e) => { mapStyleLoading = null; throw e; });
   return mapStyleLoading;
 }

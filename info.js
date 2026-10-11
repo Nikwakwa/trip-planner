@@ -14,6 +14,9 @@
 const INFO_KEY = 'tripPlanner.info';
 const INFO_MAX_AGE = 60 * 864e5;
 const INFO_KINDS = ['sight', 'event', 'shopping', 'other'];     // a lunch or a train isn't looked up
+const INFO_VERSION = 2;           // 2: a sight is no longer taken for the station named after it. Older answers are asked again.
+// "Museum of Fine Arts station" is the tram stop, not the museum.
+const TRANSIT_ARTICLE = /\b(station|subway|metro|light rail|railway|tram stop|bus stop)\b/i;
 
 const planInfo = {
   saved: (() => { try { return JSON.parse(localStorage.getItem(INFO_KEY)) || {}; } catch { return {}; } })(),
@@ -29,7 +32,7 @@ const infoKey = (item, c) => `${c.lat.toFixed(3)},${c.lng.toFixed(3)}|${norm(ite
 function wikiAbout(item, c, p) {
   const key = infoKey(item, c);
   const had = planInfo.saved[key];
-  if (had && Date.now() - had.t < INFO_MAX_AGE) return had;
+  if (had && had.v === INFO_VERSION && Date.now() - had.t < INFO_MAX_AGE) return had;
   if (!navigator.onLine || planInfo.loading.has(key) || planInfo.failed.has(key)) return had || null;
   planInfo.loading.add(key);
   (async () => {
@@ -41,20 +44,24 @@ function wikiAbout(item, c, p) {
     const named = { title: `${item.title} ${p ? p.name : ''}`, place: '' };
     const placed = { title: '', place: item.place };
     let best = null;
+    // The article with the plan's very name comes first: "Statue of Liberty", not "Statue of Liberty Museum".
+    const bare = s => norm(s).replace(/^the\s+/, '').trim();
+    const names = [item.title, p && p.name].filter(Boolean).map(bare);
     for (const page of near.query ? near.query.geosearch : []) {
+      if (TRANSIT_ARTICLE.test(page.title) && !TRANSIT_ARTICLE.test(item.title)) continue;
       const tags = { name: page.title.replace(/\s*\([^)]*\)$/, '') };
       const byName = nameScore(named, tags), byPlace = nameScore(placed, tags);
-      const score = byName >= 0.6 ? 2 + byName : byPlace >= 0.6 ? byPlace : 0;
+      const score = names.includes(bare(tags.name)) ? 4 : byName >= 0.6 ? 2 + byName : byPlace >= 0.6 ? byPlace : 0;
       if (score && (!best || score > best.score || (score === best.score && page.title.length > best.page.title.length))) best = { score, page };
     }
-    let entry = { t: Date.now() };
+    let entry = { t: Date.now(), v: INFO_VERSION };
     if (best) {
       const data = await getJSON('https://en.wikipedia.org/w/api.php', wm({
         action: 'query', pageids: best.page.pageid, prop: 'extracts|pageimages|info', exintro: '1', explaintext: '1', exsentences: '5',
         piprop: 'thumbnail', pithumbsize: '640', inprop: 'url',
       }));
       const page = data.query.pages[0];
-      if (page && page.extract) entry = { t: Date.now(), title: page.title, text: page.extract.slice(0, 900), img: page.thumbnail ? page.thumbnail.source : '', url: page.fullurl || '' };
+      if (page && page.extract) entry = { t: Date.now(), v: INFO_VERSION, title: page.title, text: page.extract.slice(0, 900), img: page.thumbnail ? page.thumbnail.source : '', url: page.fullurl || '' };
     }
     planInfo.saved[key] = entry;
     const keys = Object.keys(planInfo.saved).sort((a, b) => planInfo.saved[b].t - planInfo.saved[a].t);
@@ -78,9 +85,9 @@ function planPhoto(item, guide) {
   const c = INFO_KINDS.includes(item.category) && coordsOf(item, guide);
   if (!c) return '';
   const had = planInfo.saved[infoKey(item, c)];
-  if (had) return had.img || '';
-  if (planInfo.loading.size < 3) wikiAbout(item, c, p || null);
-  return '';
+  // An answer from an older version still shows (offline it is all there is), and is asked again.
+  if ((!had || had.v !== INFO_VERSION) && planInfo.loading.size < 3) wikiAbout(item, c, p || null);
+  return had ? had.img || '' : '';
 }
 
 // Does a plan have something to tell? (decides whether its card gets the "i" button)
@@ -152,7 +159,7 @@ function renderPlanInfo() {
       ? 'Nothing found about this place. A fuller name or address on the plan can help.'
       : 'You’re offline. Open this once while online, and it is saved for later.'}</p>` : ''}
     <div class="pi-links">
-      ${item.place ? `<a class="assist-chip ripple" href="${esc(mapsUrl(item.place, trip))}" target="_blank" rel="noopener">${icon('location_on')}Directions</a>` : ''}
+      ${item.place ? `<a class="assist-chip ripple" href="${esc(mapsUrl(item.place, trip, c))}" target="_blank" rel="noopener">${icon('location_on')}Directions</a>` : ''}
       ${site ? `<a class="assist-chip ripple" href="${esc(site)}" target="_blank" rel="noopener">${icon('link')}${esc(hostLabel(site))}</a>` : ''}
     </div>
     <div class="sheet-actions">

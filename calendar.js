@@ -10,10 +10,31 @@
    Functions here use helpers from app.js, which is loaded after this file.
    ========================================================= */
 
-// The destination's time zone (saved with the trip's Essentials), or the phone's own.
-function tripTimeZone(trip) {
+// The time zone where a day of the trip is spent. It comes with the forecast for that day's spot
+// (weather.js): a country can have several, and its middle isn't where the plans are. Failing that,
+// the trip's place (saved with its Essentials). '' when not known: the calendar then uses its own.
+function findTimeZone(trip, day) {
+  const zoneOn = (d) => {
+    const spot = d && weatherSpot(trip, d);
+    const w = spot && weather.saved[spotKey(spot)];
+    return (w && w.tz) || '';
+  };
+  let tz = zoneOn(day);
+  // A day whose spot isn't known (yet), away from a single city: the zone of the nearest day that has one.
+  if (!tz && day && !(trip.place && trip.place.kind === 'city')) {
+    const days = tripDays(trip).sort((a, b) => Math.abs(daysBetween(day, a)) - Math.abs(daysBetween(day, b)));
+    for (const d of days) if ((tz = zoneOn(d))) break;
+  }
   const e = trip.place && essentials.saved[placeKey(trip.place)];
-  return (e && e.tz) || Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+  return tz || (e && e.tz) || '';
+}
+// Asked for every plan of a day while the screen is drawn: worked out once per day, until the next redraw.
+const zoneMemo = new Map();
+function tripTimeZone(trip, day) {
+  const key = `${trip.id}|${day}`;
+  if (!zoneMemo.size) setTimeout(() => zoneMemo.clear(), 0);
+  if (!zoneMemo.has(key)) zoneMemo.set(key, findTimeZone(trip, day));
+  return zoneMemo.get(key);
 }
 
 const pad2 = n => String(n).padStart(2, '0');
@@ -48,8 +69,8 @@ function calendarUrl(item, trip) {
     details: eventDetails(item, trip),
     location: item.place ? `${item.place}, ${placeLabel(trip)}` : placeLabel(trip),
   });
-  const tz = tripTimeZone(trip);
-  if (tz && !t.allDay) params.set('ctz', tz);
+  const tz = t.allDay ? '' : tripTimeZone(trip, item.date);
+  if (tz) params.set('ctz', tz);
   return 'https://calendar.google.com/calendar/render?' + params;
 }
 
@@ -69,13 +90,13 @@ function icsLine(line) {
 
 function downloadTripCalendar(trip) {
   const guide = guideFor(trip);
-  const tz = tripTimeZone(trip);
   const plans = trip.items.filter(i => i.date);
   if (!plans.length) { snackbar('No plans with a day yet'); return; }
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
   const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Dotted Line//EN', 'CALSCALE:GREGORIAN', `X-WR-CALNAME:${icsText(trip.name)}`];
   for (const item of plans) {
     const t = eventTimes(item, guide);
+    const tz = t.allDay ? '' : tripTimeZone(trip, item.date);
     lines.push('BEGIN:VEVENT', `UID:${item.id}@trip-planner`, `DTSTAMP:${stamp}`,
       t.allDay ? `DTSTART;VALUE=DATE:${calDate(t.start)}` : `DTSTART${tz ? `;TZID=${tz}` : ''}:${calDateTime(t.start)}`,
       t.allDay ? `DTEND;VALUE=DATE:${calDate(t.end)}` : `DTEND${tz ? `;TZID=${tz}` : ''}:${calDateTime(t.end)}`,

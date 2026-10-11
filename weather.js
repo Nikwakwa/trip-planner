@@ -11,8 +11,10 @@ const WEATHER_KEY = 'tripPlanner.weather';
 const WEATHER_MAX_AGE = 3 * 3600e3;     // fetch a fresh forecast every 3 hours
 const FORECAST_DAYS = 16;
 
-// Open-Meteo's weather codes (WMO), grouped.
-function weatherLook(code) {
+// Open-Meteo's weather codes (WMO), grouped. A day's code is its worst moment: "drizzle" with a
+// 10% chance of rain is a dry day, so rain only shows from a 30% chance (rain: the chance, when known).
+function weatherLook(code, rain) {
+  if (typeof rain === 'number' && rain < 30 && ((code >= 51 && code <= 67) || (code >= 80 && code <= 82))) return { icon: 'cloud', text: 'Cloudy' };
   if (code === 0) return { icon: 'sunny', text: 'Clear' };
   if (code <= 2) return { icon: 'partly_cloudy_day', text: 'Partly cloudy' };
   if (code === 3) return { icon: 'cloud', text: 'Cloudy' };
@@ -28,6 +30,7 @@ const weather = {
   saved: (() => { try { return JSON.parse(localStorage.getItem(WEATHER_KEY)) || {}; } catch { return {}; } })(),
   loading: new Set(),
   retryAt: new Map(),   // place → time a failed fetch may be tried again
+  asked: new Set(),     // places asked about since the app was opened
 };
 
 // Where to ask about for a day: the trip's city. A country or a region is too big for one forecast,
@@ -57,21 +60,27 @@ function dayWeather(trip, day) {
   const entry = weather.saved[spotKey(spot)];
   refreshWeather(day, spot, entry);
   const d = entry && entry.days[day];
-  return d ? { ...d, ...weatherLook(d.code) } : null;
+  return d ? { ...d, ...weatherLook(d.code, d.rain) } : null;
 }
 
-// Rain, snow or storms likely: suggestions prefer indoor places.
+// Rain, snow or storms likely: suggestions prefer indoor places, and the packing list has an umbrella.
+const rainLikely = w => (w.wet && w.rain >= 40) || w.rain >= 60;
 function isWetDay(trip, day) {
   const w = dayWeather(trip, day);
-  return !!w && (w.wet || w.rain >= 60);
+  return !!w && rainLikely(w);
 }
 
 function refreshWeather(day, spot, entry) {
   const key = spotKey(spot);
   if (!navigator.onLine || weather.loading.has(key) || Date.now() < (weather.retryAt.get(key) || 0)) return;
-  if (entry && Date.now() - entry.fetched < WEATHER_MAX_AGE) return;
-  // Only for a day within the forecast's reach.
-  if (day < todayISO() || day > toISO(new Date(Date.now() + (FORECAST_DAYS - 1) * 864e5))) return;
+  const today = todayISO();
+  if (day < today) return;
+  // A fresh forecast for a day within its reach. For a later day the spot is asked about once: the
+  // answer also says which time zone it is in (calendar.js).
+  const inReach = day <= toISO(new Date(Date.now() + (FORECAST_DAYS - 1) * 864e5));
+  const zoned = !!entry && typeof entry.tz === 'string';
+  if (inReach ? zoned && Date.now() - entry.fetched < WEATHER_MAX_AGE : zoned || weather.asked.has(key)) return;
+  weather.asked.add(key);
 
   weather.loading.add(key);
   const params = new URLSearchParams({
@@ -95,10 +104,10 @@ function refreshWeather(day, spot, entry) {
           rain: d.precipitation_probability_max[i] ?? 0,
         };
       });
-      weather.saved[key] = { fetched: Date.now(), days };
-      // Only the 24 most recently used places are kept (a trip on the road has one a day, 16 days ahead).
+      weather.saved[key] = { fetched: Date.now(), days, tz: typeof data.timezone === 'string' ? data.timezone : '' };
+      // Only the 60 most recently asked places are kept (a trip on the road has one a day).
       const keys = Object.keys(weather.saved).sort((a, b) => weather.saved[b].fetched - weather.saved[a].fetched);
-      for (const old of keys.slice(24)) delete weather.saved[old];
+      for (const old of keys.slice(60)) delete weather.saved[old];
       try { localStorage.setItem(WEATHER_KEY, JSON.stringify(weather.saved)); } catch { /* storage full: keep in memory */ }
       renderSoon();
     })

@@ -168,14 +168,17 @@ async function openFiles(itemId) {
       ${list.filter(f => f.type.startsWith('image/') || SAFE_FILE.test(f.type)).map((f) => {
         const url = URL.createObjectURL(f.blob);
         openUrls.push(url);
+        // A second way to a file, should it not open from here: a copy in Downloads, for any other app.
+        const save = `<a class="icon-btn tonal ripple" href="${url}" download="${esc(f.name)}" aria-label="Save a copy of ${esc(f.name)} to Downloads" title="Save a copy to Downloads">${icon('download')}</a>`;
         // A drawing (SVG) attached before those were refused is shown, but can't be opened on its own.
         return f.type.startsWith('image/')
-          ? `<figure class="file-view"><img src="${url}" alt="${esc(f.name)}"><figcaption>${esc(f.name)}
-              ${SAFE_FILE.test(f.type) ? `<a class="assist-chip ripple" href="${url}" target="_blank" rel="noopener">${icon('open_in_new')}Full screen</a>` : ''}</figcaption></figure>`
-          : `<a class="file-row file-open ripple" href="${url}" target="_blank" rel="noopener">${icon('picture_as_pdf')}
-              <span class="file-name">${esc(f.name)}</span><span class="file-size">${fmtSize(f.size)}</span>${icon('open_in_new')}</a>`;
+          ? `<figure class="file-view"><img src="${url}" alt="${esc(f.name)}"><figcaption><span class="file-name">${esc(f.name)}</span>
+              ${SAFE_FILE.test(f.type) ? `<a class="assist-chip ripple" href="${url}" target="_blank" rel="noopener">${icon('open_in_new')}Full screen</a>${save}` : ''}</figcaption></figure>`
+          : `<div class="file-line"><a class="file-row file-open ripple" href="${url}" target="_blank" rel="noopener">${icon('picture_as_pdf')}
+              <span class="file-name">${esc(f.name)}</span><span class="file-size">${fmtSize(f.size)}</span>${icon('open_in_new')}</a>${save}</div>`;
       }).join('') || '<p class="supporting">No files.</p>'}
-      <p class="footnote">${icon('attach_file', 'sm')}Saved on this device only, and not shared with anyone. To change them, edit the plan.</p>`;
+      <p class="footnote">${icon('attach_file', 'sm')}Saved on this device only, and not shared with anyone. To change them, edit the plan.</p>
+      ${list.length ? `<p class="footnote">${icon('download', 'sm')}A file that won’t open? Save a copy: it goes to Downloads, to open with another app.</p>` : ''}`;
   } catch {
     $('#files-body').innerHTML = '<p class="supporting">Couldn’t open the files.</p>';
   }

@@ -84,12 +84,14 @@ self.addEventListener('activate', (event) => {
 
 // Map data: reuse what was already viewed (so maps work offline), fetch the rest.
 // fresh: ask the internet first (the map's style and index change now and then), the saved copy when offline.
+const FRESH_WAIT = 2500;                   // how long a saved copy waits for a fresher one
 let tilesAdded = 0;
-async function mapTile(req, fresh = false) {
+async function mapTile(event, fresh = false) {
+  const req = event.request;
   const cache = await caches.open(TILES);
   const hit = await cache.match(req);
   if (hit && !fresh) return hit;
-  try {
+  const online = (async () => {
     const res = await fetch(req);
     if (res.ok) {
       await cache.put(req, res.clone());
@@ -99,9 +101,12 @@ async function mapTile(req, fresh = false) {
       }
     }
     return res;
-  } catch {
-    return hit || new Response('', { status: 504 });
-  }
+  })();
+  if (!hit) return online.catch(() => new Response('', { status: 504 }));
+  // A saved copy is there: it is used when the internet answers with an error, or on a connection that
+  // hardly moves, after a short wait (the fresher one is still saved when it arrives, for next time).
+  event.waitUntil(online.catch(() => {}));
+  return Promise.race([online.then(res => (res.ok ? res : hit)), new Promise(resolve => setTimeout(resolve, FRESH_WAIT, hit))]).catch(() => hit);
 }
 
 self.addEventListener('fetch', (event) => {
@@ -110,11 +115,11 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   // The vector map (OpenFreeMap): its style and index fresh when online, its data and fonts reused.
   if (url.hostname === 'tiles.openfreemap.org') {
-    event.respondWith(mapTile(req, url.pathname.startsWith('/styles/') || url.pathname === '/planet'));
+    event.respondWith(mapTile(event, url.pathname.startsWith('/styles/') || url.pathname === '/planet'));
     return;
   }
   if (url.hostname.endsWith('.basemaps.cartocdn.com') || url.hostname === 'tile.openstreetmap.org') {
-    event.respondWith(mapTile(req));
+    event.respondWith(mapTile(event));
     return;
   }
   // Firebase (sign-in and sync) talks to Google's servers directly and handles being offline itself.

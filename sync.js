@@ -247,6 +247,18 @@ function onAccountSnapshot(snap) {
   mergeRemote(got.remote, got.pending);
 }
 
+// One plan changed both here and on another device since they last agreed (base): the other device's
+// version, with the fields changed here put on top. So a plan that only moved one place down here
+// (another one was deleted above it) keeps the new title someone else gave it.
+function mergeDoc(base, local, remote) {
+  const b = JSON.parse(base), l = JSON.parse(local), out = JSON.parse(remote);
+  for (const f of new Set([...Object.keys(b), ...Object.keys(l)])) {
+    if (stable(l[f]) === stable(b[f])) continue;
+    if (f in l) out[f] = l[f]; else delete out[f];
+  }
+  return stable(out);
+}
+
 // Combines the account's copy with changes made on this phone that the
 // account hasn't confirmed yet (for example, made while offline).
 // id: the shared trip the documents belong to ('' for the account's own).
@@ -259,7 +271,8 @@ function mergeRemote(remote, pending, keepLocal, id = '') {
 
   const merged = { ...remote };
   for (const k of changedHere) {
-    if (k in local) merged[k] = local[k]; else delete merged[k];
+    if (!(k in local)) delete merged[k];
+    else merged[k] = k in base && k in remote && remote[k] !== base[k] ? mergeDoc(base[k], local[k], remote[k]) : local[k];
   }
   // What the account has confirmed becomes the new base (except our writes still on the way).
   for (const k of new Set([...Object.keys(remote), ...Object.keys(base)])) {

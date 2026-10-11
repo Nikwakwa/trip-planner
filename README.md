@@ -220,7 +220,9 @@ Notes:
 ## Suggestions for any city or country
 
 When you add a trip, type the place and pick it from the list (or just type it and save: the
-best match is used). The app then fetches that place's
+best match is used). Later you can give the trip any name you like ("USA with Sam"): it keeps
+its place. To move a trip to another place, edit it and pick the new place from the list.
+The app fetches the place's
 [Wikivoyage](https://en.wikivoyage.org) guide once and saves it on the phone:
 
 - **A city** → sights, food, drinks and shopping, grouped by neighborhood, shown under each

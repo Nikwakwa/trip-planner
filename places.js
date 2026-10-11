@@ -643,6 +643,17 @@ function planGroups(trip) {
   return groups.filter(g => g.n >= 2 && (!city || miles(city, g) > 15)).sort((a, b) => b.n - a.n).slice(0, 5);
 }
 
+// The town a spot is in or next to, from the guides saved near the plans ("Boston", "Manhattan"), or ''.
+function townNear(at) {
+  let best = null;
+  for (const g of Object.values(savedGuides)) {
+    if (g.kind !== 'near' || !g.city || !g.center) continue;
+    const d = miles(g.center, at);
+    if (d < 10 && (!best || d < best.d)) best = { d, city: g.city };
+  }
+  return best ? best.city : '';
+}
+
 // The saved guides near the trip's plans. Starts fetching the missing ones.
 function nearbyGuides(trip) {
   const out = [];
@@ -656,16 +667,20 @@ function nearbyGuides(trip) {
       }
       out.push(readyGuides.get(key));
       if (savedGuides[key].v !== GUIDE_VERSION) loadNearbyGuide(g, key);
-    } else {
+    } else if (!nearLoading.some(c => miles(c, g) < 2.5)) {
+      // (not while one for almost the same spot is on its way: the middle moves as plans are found on the map)
       loadNearbyGuide(g, `near:${g.lat.toFixed(3)},${g.lng.toFixed(3)}`);
     }
   }
   return out;
 }
 
+const nearLoading = [];     // the spots whose guide is being fetched
 function loadNearbyGuide(center, key) {
   if (guideStatus.has(key) || !navigator.onLine) return;
   guideStatus.set(key, 'loading');
+  const spot = { lat: center.lat, lng: center.lng };
+  nearLoading.push(spot);
   nearbyGuide(center).then((guide) => {
     if (!guide) throw new Error('nothing nearby');
     storeGuide(key, guide);
@@ -675,7 +690,7 @@ function loadNearbyGuide(center, key) {
   }).catch((e) => {
     console.warn('No guide near', key, e);
     guideStatus.set(key, 'failed');
-  });
+  }).finally(() => nearLoading.splice(nearLoading.indexOf(spot), 1));
 }
 
 // The trip's guide with the guides near its plans added: one list of places for suggestions,

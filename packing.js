@@ -14,7 +14,7 @@ const packingHidden = (() => { try { return JSON.parse(localStorage.getItem(PACK
 function packingIdeas(trip) {
   const days = tripDays(trip);
   const weather = days.map(d => dayWeather(trip, d)).filter(Boolean);
-  const wet = weather.filter(w => w.wet || w.rain >= 50);
+  const wet = weather.filter(rainLikely);
   const hiC = weather.length ? Math.max(...weather.map(w => w.hi)) : null;
   const loC = weather.length ? Math.min(...weather.map(w => w.lo)) : null;
   const plans = trip.items;

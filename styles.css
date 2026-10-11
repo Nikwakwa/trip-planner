@@ -1421,7 +1421,9 @@ dialog.map-sheet[open] { display: flex; flex-direction: column; }
   font-size: 14px;
   line-height: 20px;
 }
-.place-chosen .icon { width: 18px; height: 18px; color: var(--primary); }
+.place-chosen .icon { width: 18px; height: 18px; flex: none; color: var(--primary); }
+.place-chosen small { display: block; font-size: 12px; line-height: 16px; }
+.place-chosen .kind { flex: none; }
 .place-chosen .kind {
   margin-left: auto;
   padding: 2px 10px;
@@ -2037,6 +2039,8 @@ dialog.ai-sheet { height: 94dvh; }
 .file-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-size { flex: none; color: var(--on-surface-variant); font-size: 12px; }
 .file-open { padding: 14px; margin-bottom: 8px; }
+.file-line { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.file-line .file-open { flex: 1; min-width: 0; margin-bottom: 0; }
 .file-view { margin: 0 0 16px; }
 .file-view img { display: block; width: 100%; border-radius: 16px; background: #fff; }
 .file-view figcaption { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; font-size: 13px; color: var(--on-surface-variant); }
