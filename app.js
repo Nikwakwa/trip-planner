@@ -171,10 +171,37 @@ function guideFor(trip) {
 const placeLabel = trip => (trip.place ? trip.place.label : trip.name);
 
 // Which guide places does a plan refer to? (a plan named after a sight → that sight's entry)
-const matchMemo = new WeakMap();     // plan → its last answer (this is asked many times per redraw)
+const matchMemo = new WeakMap();     // plan → the places with its name (this is asked many times per redraw)
 const MATCH_REACH = 100;             // miles: wide enough for a plan anywhere in a big region or park
-function matchPlaces(item, guide) {
+const SIGHT_REACH = 5;               // miles: a sight is in one town, and its namesake ("Rathaus") in another
+const AROUND_REACH = 40;             // miles: how far a plan can be from the plans around it
+
+// The plans around a plan that have their own spot on the map: from the day before to the day after
+// (for an idea: the whole trip). trip: for a plan that isn't in a trip yet.
+function plansAround(item, trip = state.trips.find(t => t.items.includes(item))) {
+  if (!trip) return [];
+  return trip.items.filter(i => i !== item && typeof i.lat === 'number' && typeof i.lng === 'number'
+    && (!item.date || (i.date && Math.abs(daysBetween(i.date, item.date)) <= 1)));
+}
+
+// A name alone doesn't say where: a trip across a country has a "Rathaus", a "Residenz" and a "Castle" in
+// several towns. So a plan with a spot on the map is only a place of that name right there, and a plan
+// without one only a place near the plans around it. A destination (a city, a region) is big, and its
+// name is its own: it is given more room.
+function matchPlaces(item, guide, trip) {
   if (!guide) return [];
+  const named = placesNamed(item, guide);
+  if (!named.length || named[0].id === item.guideId) return named;
+  const wide = p => guide.kind === 'destinations' && !p.local;
+  if (typeof item.lat === 'number' && typeof item.lng === 'number') {
+    return named.filter(p => typeof p.lat !== 'number' || miles(item, p) <= (wide(p) ? MATCH_REACH : SIGHT_REACH));
+  }
+  const around = plansAround(item, trip);
+  return around.length ? named.filter(p => wide(p) || around.some(i => miles(i, p) < AROUND_REACH)) : named;
+}
+
+// The guide places a plan is named after, wherever they are.
+function placesNamed(item, guide) {
   if (item.guideId) {
     const byId = guide.places.filter(p => p.id === item.guideId);
     if (byId.length) return byId;
@@ -184,13 +211,10 @@ function matchPlaces(item, guide) {
   // A street address names a street, not a place: "22-43 Jackson Avenue" is not the town of Jackson.
   const where = String(item.place || '').split(',')[0];
   const text = norm(/^\s*\d/.test(where) ? item.title : `${where} | ${item.title}`);
-  const at = typeof item.lat === 'number' && typeof item.lng === 'number' ? item : null;
-  const key = `${guide.id}|${guide.places.length}|${text}|${at ? `${at.lat},${at.lng}` : ''}`;
+  const key = `${guide.id}|${guide.places.length}|${text}`;
   const had = matchMemo.get(item);
   if (had && had.key === key) return had.found;
-  // A plan with a spot on the map is never a place with the same name far from there.
-  const found = guide.places.filter(p => p.re.test(text) && !(at && typeof p.lat === 'number' && miles(at, p) > MATCH_REACH))
-    .sort((a, b) => b.name.length - a.name.length);
+  const found = guide.places.filter(p => p.re.test(text)).sort((a, b) => b.name.length - a.name.length);
   matchMemo.set(item, { key, found });
   return found;
 }
@@ -217,20 +241,24 @@ const TRAVEL_MODES = {
 };
 const modeFor = (trip, day) => (day && trip.dayTravel && trip.dayTravel[day]) || trip.travel || 'transit';
 
-// Rough estimate: real streets are ~30% longer than a straight line. Short hops are walked.
+// Rough estimate from the straight-line distance d (miles). Short hops are walked.
+// dist: the way by road, ~30% longer than the straight line in town, ~20% on a long journey.
+// The speed grows with the distance, with no jump: across town is slow (lights, parking, waiting for
+// a tram), and the further it is, the more of the way is open road or a fast train.
 function travel(d, mode = 'transit') {
-  const street = d * 1.3;
+  const dist = d * (1.2 + 0.1 / (1 + d / 20));
   if (d <= (mode === 'drive' ? 0.8 : 1.2)) {
-    const mins = Math.max(1, Math.round(street / 3 * 60));
-    return { icon: 'directions_walk', mode: 'walking', mins, text: `${mins} min walk` };
+    const mins = Math.max(1, Math.round(dist / 3 * 60));
+    return { icon: 'directions_walk', mode: 'walking', mins, dist, text: `${mins} min walk` };
   }
   if (mode === 'drive') {
-    // City streets are slow (plus parking); open roads are quicker.
-    const mins = Math.round((5 + street / (d > 25 ? 50 : 18) * 60) / 5) * 5;
-    return { icon: 'directions_car', mode: 'driving', mins, text: `${fmtDuration(mins)} drive` };
+    const mph = Math.min(65, 12 + 11 * Math.log(1 + d));
+    const mins = Math.round((4 + dist / mph * 60) / 5) * 5;
+    return { icon: 'directions_car', mode: 'driving', mins, dist, text: `${fmtDuration(mins)} drive` };
   }
-  const mins = Math.round((10 + street / (d > 25 ? 35 : 12) * 60) / 5) * 5;
-  return { icon: 'directions_subway', mode: 'transit', mins, text: `${mins < 60 ? '~' : ''}${fmtDuration(mins)} by transit` };
+  const mph = Math.min(55, 6 + 8 * Math.log(1 + d));
+  const mins = Math.round((10 + dist / mph * 60) / 5) * 5;
+  return { icon: 'directions_subway', mode: 'transit', mins, dist, text: `${mins < 60 ? '~' : ''}${fmtDuration(mins)} by transit` };
 }
 
 // Metric or imperial (Settings → Appearance → Units). Distances are worked out in miles.
@@ -767,6 +795,17 @@ if (!(state.settings.geoRetry >= 4)) {
     if (i.guideId && /^\s*\d/.test(i.place || '')) { delete i.lat; delete i.lng; delete i.guideId; delete i.geoMiss; }
   });
 }
+// Once after a plan with an address stopped being pinned on the guide place with its name ("Würzburg
+// Residenz, Residenzplatz 2" was pinned on Munich's "Residenz", 140 miles away): the plans the AI Assistant
+// pinned that way are looked up again. (A place picked from a list has that place's own name as its address.)
+if (!(state.settings.geoRetry >= 5)) {
+  state.settings.geoRetry = 5;
+  const known = new Map(Object.values(savedGuides).flatMap(g => g.places || []).map(p => [p.id, p]));
+  for (const t of state.trips) t.items.forEach((i) => {
+    const p = i.guideId && known.get(i.guideId);
+    if (p && i.place && norm(i.place) !== norm(p.place || p.name)) { delete i.lat; delete i.lng; delete i.guideId; delete i.geoMiss; }
+  });
+}
 saveLocal();
 
 const ui = { view: 'plan', ideasTab: 'mine', filter: 'all', shuffle: {}, suggest: {}, pickDay: null };
@@ -1224,7 +1263,7 @@ function legHTML(a, b, mode, label = '') {
   const t = travel(d, mode);
   return `
     <li class="leg"><a class="leg-link ripple${label ? ' labelled' : ''}" href="${esc(directionsUrl(a, b, t.mode))}" target="_blank" rel="noopener"
-      aria-label="Directions ${label ? esc(label.toLowerCase()) : ''} ${esc(t.text)}, ${fmtDist(d)}">${label ? `${icon('hotel')}<span class="leg-base">${esc(label)}:</span>` : ''}${icon(t.icon)}<span>${esc(t.text)} · ${fmtDist(d)}</span><span class="leg-go">Directions</span></a></li>`;
+      aria-label="Directions ${label ? esc(label.toLowerCase()) : ''} ${esc(t.text)}, ${fmtDist(t.dist)}">${label ? `${icon('hotel')}<span class="leg-base">${esc(label)}:</span>` : ''}${icon(t.icon)}<span>${esc(t.text)} · ${fmtDist(t.dist)}</span><span class="leg-go">Directions</span></a></li>`;
 }
 
 // A day's plans, with the travel time between each pair of stops, and to and from the home base (today.js).

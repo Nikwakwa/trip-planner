@@ -499,6 +499,41 @@ function runSelfCheck() {
       ids({ title: 'Arrive in Jackson', place: '' }),
     ], [[], [], ['p'], ['j']]);
   });
+  // A trip across a country: Munich's "Residenz" is in the guide, Würzburg has one too, 140 miles away.
+  const twoTowns = () => {
+    const guide = prepGuide({ id: 'check', kind: 'destinations', places: [
+      { id: 'res', name: 'Residenz', lat: 48.141, lng: 11.578, local: true }, { id: 'dd', name: 'Dresden', lat: 51.05, lng: 13.74 }] });
+    const plan = (id, title, date, at) => ({ id, title, category: 'sight', date, time: '', place: '', link: '', notes: '', done: false, ...(at ? { lat: at[0], lng: at[1] } : {}) });
+    const s = sample();
+    s.trips[0].items = [
+      plan('hotel', 'Hotel', '2026-11-02', [48.136, 11.58]), plan('muc', 'Residenz tour', '2026-11-02'),
+      plan('bridge', 'Old bridge', '2026-11-04', [49.79, 9.93]), plan('wue', 'Würzburg Residenz', '2026-11-04'), plan('dd', 'Arrive in Dresden', '2026-11-04'),
+    ];
+    return { s, guide };
+  };
+  check('A plan is not the place with its name in another town: where it is, or the plans around it, decide', () => sandbox(() => {
+    const { s, guide } = twoTowns();
+    state = s;
+    const ids = id => matchPlaces(item(s, id), guide).map(p => p.id);
+    const at = (id, lat, lng) => matchPlaces({ ...item(s, id), lat, lng }, guide).map(p => p.id);
+    return same([ids('muc'), ids('wue'), ids('dd'), at('wue', 49.7928, 9.9389), at('muc', 48.14, 11.58), at('dd', 51.2, 13.9)],
+      [['res'], [], ['dd'], [], ['res'], ['dd']]);
+  }));
+  check('A plan with an address is looked up on the map, also when its name is a place in the guide', () =>
+    same([{ place: 'Residenzplatz 2, Würzburg' }, { place: 'Residenzplatz 2', lat: 49.79, lng: 9.94 }, { place: 'Nowhere 1', geoMiss: true }, { place: '' }]
+      .map(i => !!needsLookup({ title: 'Residenz', ...i })), [true, false, false, false]));
+  check('Travel times and distances grow with the distance, without a jump', () => {
+    for (const mode of ['drive', 'transit']) {
+      let last = travel(1.3, mode);
+      for (let d = 1.4; d < 400; d += 0.1) {
+        const t = travel(d, mode);
+        if (t.mins < last.mins || t.mins > last.mins + 5 || t.dist <= last.dist) return `${mode}: ${last.mins} min at ${(d - 0.1).toFixed(1)} mi, ${t.mins} min at ${d.toFixed(1)} mi`;
+        last = t;
+      }
+    }
+    // By car: 20 km across the country is about half an hour, 200 km some two and a half hours.
+    return same([travel(20 / 1.609, 'drive').mins, travel(200 / 1.609, 'drive').mins], [25, 145]);
+  });
 
   /* ---------- AI answers ---------- */
   group = 'AI Assistant answers';
@@ -525,6 +560,18 @@ function runSelfCheck() {
     const add = out[0].item;
     return same([out.map(c => c.kind), add.date, add.time, add.category, isId(add.id), out[1].patch, out[3].start, out[3].end, trip.items.length],
       [['add', 'update', 'delete', 'dates'], '', '', 'other', true, { date: '' }, '2026-05-02', '2026-05-09', 3]);
+  }));
+  check('A plan the AI adds is pinned on a guide place by its id, or by its name when it has no address and is near that day’s plans', () => sandbox(() => {
+    const { s, guide } = twoTowns();
+    state = s;
+    guideFor = () => guide;
+    const out = checkChanges(s.trips[0], [
+      { action: 'add', title: 'Residenz', date: '2026-11-02' },
+      { action: 'add', title: 'Residenz', place: 'Residenzstraße 1, München', date: '2026-11-02' },
+      { action: 'add', title: 'Würzburg Residenz', date: '2026-11-04' },
+      { action: 'add', title: 'Palace', place: 'Residenzstraße 1', guide_id: 'res', date: '2026-11-02' },
+    ]);
+    return same(out.map(c => c.item.guideId || (typeof c.item.lat === 'number' ? 'pinned' : 'not pinned')), ['res', 'not pinned', 'not pinned', 'res']);
   }));
 
   /* ---------- Opening hours ---------- */

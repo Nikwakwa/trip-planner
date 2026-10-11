@@ -120,6 +120,9 @@ localStorage `tripPlanner.guides` (up to 10). `planSuggestions` in `app.js` and 
 **Travel mode and units.**
 - `trip.travel` is `'transit'` (the default when missing) or `'drive'`. `trip.dayTravel[day]` overrides it for a
   day, and both sync. Always go through `modeFor(trip, day)` and `travel(miles, mode)`.
+- `travel` is an estimate from the straight-line distance, with no routing service: it returns the time (`mins`)
+  and the way by road (`dist`, 20–30% longer), and its speed grows smoothly with the distance. A leg and a day's
+  total show `dist`. A step in the speed once made 39 km by car "2 h" and 41 km "45 min": the self-check guards it.
 - Distances are computed in miles. Show them with `fmtDist()`, and temperatures with `temp()`. Both follow
   `state.settings.units` (`'metric'`/`'imperial'`, per phone, defaulting from the phone's language).
 - The app is English only. Dates and times go through `fmtDay()`, `fmtTime()` and `fmtClock()`, which follow
@@ -130,7 +133,13 @@ localStorage `tripPlanner.guides` (up to 10). `planSuggestions` in `app.js` and 
 **Maps (`maps.js`).** Leaflet (vendored) is loaded on first use. Addresses are looked up with
 Nominatim (`lookupMissing`); when an address exists in several places, the one nearest the plans around it wins, or
 the one where the plan's name is found. A plan matches a guide place by its title or by the part of its address
-before the first comma only (`matchPlaces`), so "…, New York, NY" isn't taken for the city. The basemap is a MapLibre GL vector layer inside Leaflet (`L.maplibreGL`, vendored in `vendor/maplibre`),
+before the first comma only (`matchPlaces`), so "…, New York, NY" isn't taken for the city. A name never says
+where: a trip across a country has a "Rathaus" and a "Residenz" in several towns' guides. So a plan with an address
+is always looked up (`needsLookup`), a plan on the map only matches a place of that name within `SIGHT_REACH`
+(5 miles; a destination of a country guide gets `MATCH_REACH`), and a plan without a spot only one near the plans
+around it (`plansAround`: its day, the day before and after). When the address found is a whole town or park and
+the guide place with the plan's name is inside it, the pin goes on that place. A short address on a country or
+region trip ("Hauptbahnhof") is first searched around the day's plans. The basemap is a MapLibre GL vector layer inside Leaflet (`L.maplibreGL`, vendored in `vendor/maplibre`),
 using OpenFreeMap's "liberty" style as adjusted by `tuneMapStyle(style, theme)` in `mapstyle.js` (earlier POI labels;
 the dark theme is derived by recoloring every paint color, see `nightColor`). Pins, routes and popups stay Leaflet.
 If MapLibre or the style can't load, raster tiles are used: CARTO (Voyager / dark) when `window.CARTO_KEY` is set in

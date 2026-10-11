@@ -39,8 +39,10 @@ const geoPending = new Set();
 let geoChain = Promise.resolve();
 let geoLast = 0;
 
-function needsLookup(item, guide) {
-  return item.place && typeof item.lat !== 'number' && !item.geoMiss && !matchPlaces(item, guide).length;
+// A plan with an address is looked up, also when its name is a place in the guide: the address says
+// where it is, the name doesn't (a "Residenz" in the guide can be another town's).
+function needsLookup(item) {
+  return item.place && typeof item.lat !== 'number' && !item.geoMiss;
 }
 
 // Looks up plans that have an address but no map position, one per second
@@ -49,7 +51,7 @@ function lookupMissing(trip, items) {
   if (!state.settings.lookup || !navigator.onLine) return;
   const guide = guideFor(trip);
   for (const item of items) {
-    if (!needsLookup(item, guide) || geoPending.has(item.id)) continue;
+    if (!needsLookup(item) || geoPending.has(item.id)) continue;
     geoPending.add(item.id);
     geoChain = geoChain.then(async () => {
       const city = trip.place ? trip.place.name : guide ? guide.city : trip.name;
@@ -60,34 +62,46 @@ function lookupMissing(trip, items) {
         ? [norm(item.place).includes(norm(city)) ? item.place : `${item.place}, ${where}`]
         : [item.place, `${item.place}, ${where}`];
       const fits = nearTrip(trip, guide);
-      // One question to OpenStreetMap's address search (at most one a second).
-      const ask = async (q) => {
+      // One question to OpenStreetMap's address search (at most one a second). box: only inside it.
+      const ask = async (q, box) => {
         const waitMs = geoLast + 1100 - Date.now();
         if (waitMs > 0) await new Promise(r => setTimeout(r, waitMs));
         geoLast = Date.now();
         const params = new URLSearchParams({ format: 'jsonv2', limit: '5', q, 'accept-language': 'en' });
-        if (trip.place && trip.place.bbox) params.set('viewbox', trip.place.bbox.join(','));
+        if (box) { params.set('viewbox', box.join(',')); params.set('bounded', '1'); }
+        else if (trip.place && trip.place.bbox) params.set('viewbox', trip.place.bbox.join(','));
         const res = await fetch('https://nominatim.openstreetmap.org/search?' + params);
         if (!res.ok) throw new Error('lookup ' + res.status);
         const all = (await res.json()).map(f => ({
           lat: Number(f.lat), lng: Number(f.lon),
-          // Asked for a house number but only the street was found: the pin could be miles along it.
-          street: /^\s*\d/.test(q) && (f.category === 'highway' || f.addresstype === 'road'),
+          area: (f.boundingbox || []).map(Number),      // what was found reaches from south to north, west to east
+          // Asked for a house number ("9 West Street", "Hauptstraße 52") but only the street was found:
+          // the pin could be miles along it.
+          street: /^\s*\d|\s\d+\s?[a-z]?\s*$/i.test(q.split(',')[0]) && (f.category === 'highway' || f.addresstype === 'road'),
         }));
         if (!all.length) return null;
         // The same address can exist in several places ("117 MacDougal St, New York" is in Brooklyn and
         // in Manhattan): the one nearest the plans around it comes first, and the others are kept as "rivals".
         const exact = all.filter(p => !p.street && fits(p));
         if (exact.length < 2) return exact[0] || all[0];
-        const far = p => (around.length ? Math.min(...around.map(i => miles(i, p))) : 0);
+        const far = p => (close.length ? Math.min(...close.map(i => miles(i, p))) : 0);
         exact.sort((a, b) => far(a) - far(b));
         return { ...exact[0], rivals: exact.slice(1).filter(p => miles(p, exact[0]) > 0.1) };
       };
       // The plans around it (the day before to the day after) that are on the map: a looser search
       // can answer with a place of the same name far away, so its answer has to be near them.
-      const dayGap = (a, b) => Math.abs(daysBetween(a, b));
-      const around = trip.items.filter(i => i !== item && typeof i.lat === 'number' && (!item.date || (i.date && dayGap(i.date, item.date) <= 1)));
-      const plausible = p => fits(p) && (!around.length || around.some(i => miles(i, p) < 40));
+      const around = plansAround(item, trip);
+      const plausible = p => fits(p) && (!around.length || around.some(i => miles(i, p) < AROUND_REACH));
+      // The closest of them: the plans of its own day, when some are on the map.
+      const sameDay = around.filter(i => item.date && i.date === item.date);
+      const close = sameDay.length ? sameDay : around;
+      // A short address on a trip across a country ("Hauptbahnhof", "Marktplatz 3") exists in every town:
+      // it is first looked for around those plans.
+      const pad = 0.3;      // degrees: some 20 miles
+      const nearby = close.length && !item.place.includes(',') && !(trip.place && trip.place.kind === 'city')
+        ? [Math.min(...close.map(i => i.lng)) - pad, Math.min(...close.map(i => i.lat)) - pad,
+          Math.max(...close.map(i => i.lng)) + pad, Math.max(...close.map(i => i.lat)) + pad]
+        : null;
       // A looser search (Photon): it copes with "Near …" and odd spellings, but the house number must be the one asked for.
       const askLoosely = async (q) => {
         const params = new URLSearchParams({ q, limit: '1', lang: 'en' });
@@ -105,7 +119,7 @@ function lookupMissing(trip, items) {
         let hit = null;
         let street = null; // only the street of the address: kept in case nothing better turns up
         for (const q of tries) {
-          const found = await ask(q);
+          const found = (nearby && await ask(q, nearby)) || await ask(q);
           if (found && (tries.length === 1 || fits(found))) {
             if (!found.street) { hit = found; break; }
             street = street || found;
@@ -140,6 +154,12 @@ function lookupMissing(trip, items) {
           }
         }
         if (!hit && street) hit = street;
+        // The address is a whole town or a park ("Munich", "Englischer Garten") and the plan is named after
+        // a place of the guide inside it: that place is the spot.
+        const [south, north, west, east] = (hit && hit.area) || [];
+        const named = hit && matchPlaces({ title: item.title, place: item.place, date: item.date }, guide, trip)
+          .find(p => p.lat >= south && p.lat <= north && p.lng >= west && p.lng <= east);
+        if (named) hit = named;
         if (hit) {
           item.lat = hit.lat;
           item.lng = hit.lng;
@@ -253,13 +273,7 @@ function dayToolsHTML(trip, day, items, guide) {
   const own = trip.dayTravel && trip.dayTravel[day];
   // The day's travel, from the stay and back (as on the map).
   const route = withBase(trip, day, located.map(it => ({ it, c: coordsOf(it, guide) })));
-  let total = 0, minutes = 0;
-  route.forEach((c, k) => {
-    if (!k) return;
-    const d = miles(route[k - 1], c);
-    total += d;
-    minutes += travel(d, modeFor(trip, day)).mins;
-  });
+  const { total, minutes } = routeTravel(route, modeFor(trip, day));
   return `
     ${route.length > 1 ? `<p class="day-total">${icon('route', 'sm')}${esc(fmtDuration(Math.round(minutes)))} of travel · ${esc(fmtDist(total))}</p>` : ''}
     <div class="day-tools">
@@ -343,6 +357,18 @@ function withBase(trip, day, located) {
   return [...(start ? [start.c] : []), ...pts, ...(back ? [end.c] : [])];
 }
 
+// A route's travel, added up stop by stop: the way by road (miles) and the time (see travel in app.js).
+function routeTravel(route, mode) {
+  let total = 0, minutes = 0;
+  route.forEach((c, k) => {
+    if (!k) return;
+    const t = travel(miles(route[k - 1], c), mode);
+    total += t.dist;
+    minutes += t.mins;
+  });
+  return { total, minutes };
+}
+
 function googleRouteUrl(points, mode) {
   const fmt = p => `${p.lat},${p.lng}`;
   const params = new URLSearchParams({ api: '1', origin: fmt(points[0]), destination: fmt(points[points.length - 1]) });
@@ -421,13 +447,7 @@ function renderMapPane() {
   const located = g.stops.filter(s => s.c);
   // The day's journey, from the stay and back to it when there is one.
   const route = withBase(trip, g.day, located);
-  let total = 0, minutes = 0;
-  route.forEach((c, k) => {
-    if (!k) return;
-    const d = miles(route[k - 1], c);
-    total += d;
-    minutes += travel(d, modeFor(trip, g.day)).mins;
-  });
+  const { total, minutes } = routeTravel(route, modeFor(trip, g.day));
   $('#pane-title').textContent = fmtDay(g.day, { weekday: 'long', month: 'short', day: 'numeric' });
   $('#pane-sub').textContent = route.length > 1
     ? `${plural(located.length, 'stop')} · ${fmtDist(total)} · ${fmtDuration(Math.round(minutes))} of travel`
@@ -501,13 +521,7 @@ function renderMapBody() {
   const located = g.stops.filter(s => s.c);
   // The day's journey, from the stay and back to it when there is one.
   const route = withBase(trip, g.day, located);
-  let total = 0, minutes = 0;
-  route.forEach((c, k) => {
-    if (!k) return;
-    const d = miles(route[k - 1], c);
-    total += d;
-    minutes += travel(d, modeFor(trip, g.day)).mins;
-  });
+  const { total, minutes } = routeTravel(route, modeFor(trip, g.day));
   $('#map-title').textContent = fmtDay(g.day, { weekday: 'long', month: 'short', day: 'numeric' });
   $('#map-sub').textContent = pending ? 'Finding places on the map…'
     : route.length > 1 ? `${plural(located.length, 'stop')} · ${fmtDist(total)} · ${fmtDuration(Math.round(minutes))} of travel`

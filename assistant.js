@@ -361,9 +361,9 @@ function checkChanges(trip, changes) {
   const out = [];
   for (const c of changes) {
     if (c.action === 'add') {
-      // The guide place: by its id, or else by its name in the title or place.
-      const p = guide && ((c.guide_id && guide.places.find(x => x.id === c.guide_id))
-        || matchPlaces({ title: aiText(c.title, 120), place: aiText(c.place, 200) }, guide)[0]) || null;
+      // The guide place: by its id, or else by its name in the title or place (near the plans around that day).
+      const byId = (guide && c.guide_id && guide.places.find(x => x.id === c.guide_id)) || null;
+      const p = byId || (guide && matchPlaces({ title: aiText(c.title, 120), place: aiText(c.place, 200), date: aiIsDate(c.date) ? c.date : '' }, guide, trip)[0]) || null;
       const title = aiText(c.title, 120) || (p && p.name);
       if (!title) continue;
       const item = {
@@ -371,7 +371,8 @@ function checkChanges(trip, changes) {
         category: CATEGORIES[c.category] ? c.category : p ? p.cat : 'other',
         date: aiIsDate(c.date) ? c.date : '', time: aiIsTime(c.time) ? c.time : '',
         place: aiText(c.place, 200) || (p ? p.place || p.name : ''), link: '', notes: aiText(c.notes, 2000), done: false,
-        ...(p ? { lat: p.lat, lng: p.lng, guideId: p.id } : {}),
+        // A place only known by its name, with an address: the address says where it is (it is looked up).
+        ...(p && (byId || !aiText(c.place, 200)) ? { lat: p.lat, lng: p.lng, guideId: p.id } : {}),
       };
       if (!item.date) item.time = '';
       out.push({ kind: 'add', item, icon: 'add', text: `${whenText(item)}${title}` });
