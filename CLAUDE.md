@@ -171,6 +171,11 @@ then everything else (`byPlanOrder`).
   from 2026-11-02.
 - It uses the Gemini free tier only: `gemini-3.8-flash` (~20 requests/day), and on a daily 429 it switches to
   `gemini-3.5-flash-lite` for the rest of the day (`liteDay`).
+- Nothing waits for ever: a model gets `AI_WAIT` (30 s) to answer, the App Check token `AI_CHECK_WAIT`. Under "high
+  demand" Flash was seen hanging 3 minutes before a 503 (2026-10-11, live). No answer in time counts as `busy`:
+  Flash-Lite takes over, and for the next ten minutes (`ai.busyUntil`) it is asked first.
+- App Check is already enforced for Gemini (a request without a token gets 401). After one 403 the Firebase SDK
+  stops asking for a day, until the page is loaded again: the error message says to close and reopen the app.
 - The model returns JSON `{reply, add[], update[], remove[], dates}` (structured output, `aiSchema()`; every field is
   required, since Flash-Lite drops optional ones). `parseAnswer` turns it into one `changes` list. `checkChanges` validates the
   changes against the trip, and nothing is applied until the user taps Apply (with Undo).

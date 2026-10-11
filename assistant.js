@@ -184,18 +184,34 @@ class AIError extends Error {
   constructor(kind, message) { super(message); this.kind = kind; }
 }
 
+// Nothing waits for ever: under "high demand" Google can keep a request hanging for minutes.
+const AI_WAIT = 30000;          // an answer from a model
+const AI_CHECK_WAIT = 20000;    // the App Check token
+const within = (promise, ms, what) => Promise.race([promise,
+  new Promise((_, reject) => setTimeout(() => reject(new Error(`${what}: no answer in time`)), ms))]);
+
 async function callGemini(model, body) {
   const c = window.FIREBASE_CONFIG;
   const headers = { 'Content-Type': 'application/json', 'x-goog-api-key': c.apiKey };
   try {
-    const check = await appCheck();
-    if (check) headers['X-Firebase-AppCheck'] = (await check.getToken(false)).token;
+    const check = await within(appCheck(), AI_CHECK_WAIT, 'App Check');
+    if (check) headers['X-Firebase-AppCheck'] = (await within(check.getToken(false), AI_CHECK_WAIT, 'App Check')).token;
   } catch (e) {
     throw new AIError(navigator.onLine ? 'appcheck' : 'other', e.message);
   }
-  const res = await fetch(`https://firebasevertexai.googleapis.com/v1beta/projects/${c.projectId}/models/${model}:generateContent`,
-    { method: 'POST', headers, body: JSON.stringify(body) });
-  const data = await res.json().catch(() => ({}));
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), AI_WAIT);
+  let res, data;
+  try {
+    res = await fetch(`https://firebasevertexai.googleapis.com/v1beta/projects/${c.projectId}/models/${model}:generateContent`,
+      { method: 'POST', headers, body: JSON.stringify(body), signal: ctl.signal });
+    data = await res.json().catch(() => ({}));
+  } catch (e) {
+    // No answer in time counts as "busy": the lighter model usually still answers.
+    throw e && e.name === 'AbortError' ? new AIError('busy', 'no answer in time') : e;
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) {
     const msg = (data.error && data.error.message) || `HTTP ${res.status}`;
     if (res.status === 429) throw new AIError(/day/i.test(msg) ? 'daily' : 'busy', msg);
@@ -225,14 +241,16 @@ async function askGemini(trip, chat) {
     contents,
     generationConfig: { responseMimeType: 'application/json', responseSchema: aiSchema(), temperature: 0.5 },
   };
-  let first = ai.saved.liteDay === todayISO() ? 1 : 0;
+  // The lighter model from the start: for the rest of the day once the allowance is used up, and for
+  // ten minutes after the first one was too busy to answer (so not every message waits for it again).
+  const first = ai.saved.liteDay === todayISO() || Date.now() < (ai.busyUntil || 0) ? 1 : 0;
   for (let k = first; k < AI_MODELS.length; k++) {
     try {
       const text = await callGemini(AI_MODELS[k].id, body);
       return { ...parseAnswer(text), model: AI_MODELS[k].label };
     } catch (e) {
       if (e.kind === 'daily' && k === 0) { ai.saved.liteDay = todayISO(); saveAI(); continue; }
-      if (e.kind === 'busy' && k === 0) continue;
+      if (e.kind === 'busy' && k === 0) { ai.busyUntil = Date.now() + 10 * 60e3; continue; }
       throw e;
     }
   }
@@ -438,7 +456,8 @@ function aiErrorText(e) {
   if (!navigator.onLine) return 'You’re offline. The assistant needs a connection.';
   return {
     setup: 'The assistant isn’t switched on in Firebase yet — see “AI assistant” in the README.',
-    appcheck: 'Firebase couldn’t confirm this is your app (App Check). Check the reCAPTCHA key in firebase-config.js.',
+    // After one refusal Firebase stops asking for a day, until the app is started again.
+    appcheck: 'Google couldn’t confirm that this is the app (App Check). Close the app completely, open it again, then retry. If it stays, see “AI assistant” in the README.',
     daily: 'Today’s free Gemini allowance is used up. Try again tomorrow, or use another AI app below.',
     busy: 'Gemini is busy right now. Wait a minute and try again.',
     format: 'The answer couldn’t be read. Try asking again in other words.',

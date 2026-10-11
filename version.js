@@ -7,6 +7,9 @@
    Written for the people who use the app, and kept short: what is new for them, one short line
    each, five at most. Fixes are not listed one by one: a single line, "Bug fixes". */
 const CHANGELOG = [
+  { v: '2.14.1', date: '2026-10-11', items: [
+    'When Google is busy, the AI Assistant switches to the lighter model after half a minute',
+  ] },
   { v: '2.14.0', date: '2026-10-11', items: [
     'Back in the app on a new day, it opens on today, with a fresh forecast',
     'On a trip across a country, calendar times and the local time follow where you are each day',
