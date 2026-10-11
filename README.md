@@ -16,7 +16,9 @@ the same address shows a desktop layout on a wide screen, by itself.
 - Warns when a plan is on a day or at a time the place is usually closed.
 - An **AI Assistant** that plans days and edits your trip when you ask (free, see below).
 - Each trip gets around by **public transit + walk** or **drive + walk** (set in the trip; a day can differ),
-  for travel times, directions and route links. Distances and temperatures in metric or imperial units
+  for travel times, directions and route links. By car, the time and distance between stops follow the
+  real roads (from OpenStreetMap's free routing service, kept on the phone for offline); walks and public
+  transit are estimates. Distances and temperatures in metric or imperial units
   (**Settings → Appearance → Units**).
 - During the trip: **Now & next** (what's on and when to leave for the next plan) and **What's near me**.
 - A **Stay** plan with an address (your hotel) becomes the **home base**: days start and end there.
@@ -39,6 +41,7 @@ the same address shows a desktop layout on a wide screen, by itself.
 | `firestore.rules` | Database rules: each account only sees its own plans, and the trips it was invited to. |
 | `vendor/firebase/` | Firebase library, stored in the app. |
 | `maps.js` | Day and trip maps, Optimize route, address lookup, sharing. |
+| `routes.js` | By car, the real distance and time by road between a day's stops (OpenStreetMap routing). |
 | `mapstyle.js` | The look of the map: landmark labels and the dark (night) version. |
 | `vendor/maplibre/` | MapLibre GL, the library that draws the detailed map (BSD-3 license), stored in the app. |
 | `weather.js` | The forecast for each trip day (Open-Meteo). |
@@ -242,7 +245,8 @@ All free services, no account or key needed:
   Temperatures follow **Settings → Appearance → Units** (°C or °F).
 - **Essentials** (the button on the trip's card) are fetched once while online and kept on the phone.
 - **Opening hours** come from OpenStreetMap, or the travel guide. They're hints: always check before
-  going. Turn off **Settings → Find addresses and opening hours** to stop these lookups.
+  going. Turn off **Settings → Find addresses and opening hours** to stop these lookups (and the
+  road times by car: they go back to estimates).
 
 ## AI Assistant
 

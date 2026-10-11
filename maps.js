@@ -273,9 +273,9 @@ function dayToolsHTML(trip, day, items, guide) {
   const own = trip.dayTravel && trip.dayTravel[day];
   // The day's travel, from the stay and back (as on the map).
   const route = withBase(trip, day, located.map(it => ({ it, c: coordsOf(it, guide) })));
-  const { total, minutes } = routeTravel(route, modeFor(trip, day));
+  const { total, time } = routeTravel(route, modeFor(trip, day));
   return `
-    ${route.length > 1 ? `<p class="day-total">${icon('route', 'sm')}${esc(fmtDuration(Math.round(minutes)))} of travel · ${esc(fmtDist(total))}</p>` : ''}
+    ${route.length > 1 ? `<p class="day-total">${icon('route', 'sm')}${esc(time)} of travel · ${esc(fmtDist(total))}</p>` : ''}
     <div class="day-tools">
       <button type="button" class="assist-chip ripple" data-action="day-map" data-date="${day}">${icon('map')}Map</button>
       ${canOptimize ? `<button type="button" class="assist-chip ripple" data-action="optimize" data-date="${day}">${icon('route')}Optimize route</button>` : ''}
@@ -359,14 +359,17 @@ function withBase(trip, day, located) {
 
 // A route's travel, added up stop by stop: the way by road (miles) and the time (see travel in app.js).
 function routeTravel(route, mode) {
-  let total = 0, minutes = 0;
+  let total = 0, minutes = 0, guessed = 0;
   route.forEach((c, k) => {
     if (!k) return;
-    const t = travel(miles(route[k - 1], c), mode);
+    const t = legTravel(route[k - 1], c, mode);      // routes.js: by car the real road, once it is known
     total += t.dist;
     minutes += t.mins;
+    if (!t.road && t.mode !== 'walking') guessed++;
   });
-  return { total, minutes };
+  // Real roads add up to the minute; an estimate is only good to the half hour.
+  const time = guessed ? time : fmtRoadTime(Math.round(minutes / 5) * 5);
+  return { total, minutes, time };
 }
 
 function googleRouteUrl(points, mode) {
@@ -447,10 +450,10 @@ function renderMapPane() {
   const located = g.stops.filter(s => s.c);
   // The day's journey, from the stay and back to it when there is one.
   const route = withBase(trip, g.day, located);
-  const { total, minutes } = routeTravel(route, modeFor(trip, g.day));
+  const { total, time } = routeTravel(route, modeFor(trip, g.day));
   $('#pane-title').textContent = fmtDay(g.day, { weekday: 'long', month: 'short', day: 'numeric' });
   $('#pane-sub').textContent = route.length > 1
-    ? `${plural(located.length, 'stop')} · ${fmtDist(total)} · ${fmtDuration(Math.round(minutes))} of travel`
+    ? `${plural(located.length, 'stop')} · ${fmtDist(total)} · ${time} of travel`
     : `${plural(located.length, 'stop')} on the map`;
   $('#pane-actions').innerHTML = `
     <button type="button" class="assist-chip ripple" data-action="trip-map">${icon('map')}All days</button>
@@ -521,10 +524,10 @@ function renderMapBody() {
   const located = g.stops.filter(s => s.c);
   // The day's journey, from the stay and back to it when there is one.
   const route = withBase(trip, g.day, located);
-  const { total, minutes } = routeTravel(route, modeFor(trip, g.day));
+  const { total, time } = routeTravel(route, modeFor(trip, g.day));
   $('#map-title').textContent = fmtDay(g.day, { weekday: 'long', month: 'short', day: 'numeric' });
   $('#map-sub').textContent = pending ? 'Finding places on the map…'
-    : route.length > 1 ? `${plural(located.length, 'stop')} · ${fmtDist(total)} · ${fmtDuration(Math.round(minutes))} of travel`
+    : route.length > 1 ? `${plural(located.length, 'stop')} · ${fmtDist(total)} · ${time} of travel`
     : `${plural(located.length, 'stop')} on the map`;
 
   const canOptimize = located.length >= 3 && located.some(s => !s.it.time);

@@ -20,6 +20,7 @@ const FILES = [
   'essentials.js',
   'mapstyle.js',
   'maps.js',
+  'routes.js',
   'drag.js',
   'today.js',
   'calendar.js',

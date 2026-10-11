@@ -770,8 +770,8 @@ function load() {
 function saveLocal() {
   const text = JSON.stringify(state);
   // When the storage is full, what can be fetched again makes room for the plans: what was read about
-  // places, opening hours, forecasts, then the saved guides (they stay in use until the app is closed).
-  for (const makeRoom of [null, INFO_KEY, HOURS_KEY, WEATHER_KEY, GUIDES_KEY]) {
+  // places, road routes, opening hours, forecasts, then the saved guides (they stay in use until the app is closed).
+  for (const makeRoom of [null, INFO_KEY, ROUTES_KEY, HOURS_KEY, WEATHER_KEY, GUIDES_KEY]) {
     try {
       if (makeRoom) localStorage.removeItem(makeRoom);
       localStorage.setItem(STORAGE_KEY, text);
@@ -1266,6 +1266,7 @@ function renderPlan(trip) {
   // Plans with an address that isn't in the guide get looked up on the map, then their opening hours.
   lookupMissing(trip, planned);
   lookupHours(trip, planned);
+  lookupRoads(trip);           // routes.js: by car, the real way between each day's stops
   lookupBooking(trip);         // assistant.js: which plans are known to sell out
   // Save the trip's essentials while online, so they're there on arrival.
   essentialsFor(trip);
@@ -1273,9 +1274,8 @@ function renderPlan(trip) {
 
 // The travel time between two stops, as a link to directions. label: e.g. "From Hotel Avenida".
 function legHTML(a, b, mode, label = '') {
-  const d = miles(a, b);
-  if (d < 0.05) return '';
-  const t = travel(d, mode);
+  if (miles(a, b) < 0.05) return '';
+  const t = legTravel(a, b, mode);      // routes.js: by car the real road, once it is known
   return `
     <li class="leg"><a class="leg-link ripple${label ? ' labelled' : ''}" href="${esc(directionsUrl(a, b, t.mode))}" target="_blank" rel="noopener"
       aria-label="Directions ${label ? esc(label.toLowerCase()) : ''} ${esc(t.text)}, ${fmtDist(t.dist)}">${label ? `${icon('hotel')}<span class="leg-base">${esc(label)}:</span>` : ''}${icon(t.icon)}<span>${esc(t.text)} · ${fmtDist(t.dist)}</span><span class="leg-go">Directions</span></a></li>`;
@@ -1608,7 +1608,7 @@ function renderMore() {
       </button></li>
       <li><button type="button" class="row ripple" data-action="toggle-lookup" role="switch" aria-checked="${state.settings.lookup}">
         <span class="row-icon">${icon('pin_drop')}</span>
-        <span class="row-text"><span class="row-title">Find addresses and opening hours</span><span class="row-sub">Sends the place names you typed (not your plans) to OpenStreetMap</span></span>
+        <span class="row-text"><span class="row-title">Find addresses and opening hours</span><span class="row-sub">And the way by road. Sends where your plans are (not what you plan there) to OpenStreetMap</span></span>
         <span class="switch ${state.settings.lookup ? 'on' : ''}" aria-hidden="true"></span>
       </button></li>
       ${aiReady() ? `<li><button type="button" class="row ripple" data-action="toggle-booking" role="switch" aria-checked="${state.settings.booking !== false}">
@@ -2844,7 +2844,7 @@ window.addEventListener('scroll', onScroll, { passive: true });
 // "Erase everything" also clears what is kept on this device only: tickets, assistant chats,
 // hidden packing suggestions, and the saved guides, forecasts, opening hours and essentials.
 function eraseDeviceData() {
-  for (const key of [AI_KEY, PACKING_KEY, GUIDES_KEY, WEATHER_KEY, HOURS_KEY, ESSENTIALS_KEY, INFO_KEY]) {
+  for (const key of [AI_KEY, PACKING_KEY, GUIDES_KEY, WEATHER_KEY, HOURS_KEY, ESSENTIALS_KEY, INFO_KEY, ROUTES_KEY]) {
     try { localStorage.removeItem(key); } catch { /* storage unavailable */ }
   }
   ai.saved = { chats: {}, booking: {} };
@@ -2854,6 +2854,7 @@ function eraseDeviceData() {
   weather.saved = {};
   weather.asked.clear();
   hours.saved = {};
+  roadRoutes.saved = {};
   essentials.saved = {};
   planInfo.saved = {};
   joinedGuides.clear();
@@ -3006,7 +3007,7 @@ function openPrivacy() {
     ]),
     part('public', 'Sent to other services', [
       'To do its job, the app asks free outside services. They get only what the question needs, never your account.',
-      '<b>OpenStreetMap services</b> (Photon, Nominatim, Overpass): the places you search for, and the names and addresses of your plans, to put them on the map and find opening hours. “Find addresses and opening hours” in Settings switches the automatic lookups off.',
+      '<b>OpenStreetMap services</b> (Photon, Nominatim, Overpass): the places you search for, and the names and addresses of your plans, to put them on the map and find opening hours. On a day by car, <b>OpenStreetMap’s routing server</b> (run by FOSSGIS) gets the map positions of that day’s stops, your stay included, for the real distance and time by road. “Find addresses and opening hours” in Settings switches these automatic lookups off.',
       '<b>Wikivoyage, Wikipedia and Wikidata</b>: your destination and the area around your plans, for guides, photos and essentials. <b>Open-Meteo</b>: your destination, or the area of a day’s stay and plans, for the weather.',
       '<b>The map</b> (OpenFreeMap, CARTO or OpenStreetMap): the part of the map you look at.',
       aiReady() && '<b>Google Gemini</b>: when you send a message to the AI Assistant, the message and that trip’s plans. “Flag plans that sell out” in Settings sends the names of your plans. Google’s reCAPTCHA checks that these requests really come from the app.',

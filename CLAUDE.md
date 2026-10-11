@@ -58,7 +58,7 @@ Asset scripts (they download from the internet and rewrite files in the repo):
 ## Architecture
 
 **Classic scripts that share one global scope.** `index.html` loads, in this order:
-`theme.js` (in the `<head>`), then at the end of the page `version.js` → `firebase-config.js` → `places.js` → `weather.js` → `hours.js` → `essentials.js` → `mapstyle.js` → `maps.js` →
+`theme.js` (in the `<head>`), then at the end of the page `version.js` → `firebase-config.js` → `places.js` → `weather.js` → `hours.js` → `essentials.js` → `mapstyle.js` → `maps.js` → `routes.js` →
 `drag.js` → `today.js` → `calendar.js` → `files.js` → `packing.js` → `info.js` → `assistant.js` → `vote.js` → `share.js` → `sync.js` → `app.js`. Don't use `app.js` names (`$`, `CATEGORIES`, …) at load time
 in the earlier files, only inside functions. The files are not modules. The feature files call helpers defined in `app.js` (`$`, `esc`, `icon`,
 `save`, `render`, `snackbar`, `state`, …) at runtime, which works because `app.js` loads last and the calls
@@ -123,9 +123,16 @@ localStorage `tripPlanner.guides` (up to 10). `planSuggestions` in `app.js` and 
 **Travel mode and units.**
 - `trip.travel` is `'transit'` (the default when missing) or `'drive'`. `trip.dayTravel[day]` overrides it for a
   day, and both sync. Always go through `modeFor(trip, day)` and `travel(miles, mode)`.
-- `travel` is an estimate from the straight-line distance, with no routing service: it returns the time (`mins`)
-  and the way by road (`dist`, 20–30% longer), and its speed grows smoothly with the distance. A leg and a day's
-  total show `dist`. A step in the speed once made 39 km by car "2 h" and 41 km "45 min": the self-check guards it.
+- `travel` is an estimate from the straight-line distance: it returns the time (`mins`) and the way by road (`dist`,
+  20–30% longer), and its speed grows smoothly with the distance. A step in the speed once made 39 km by car "2 h"
+  and 41 km "45 min": the self-check guards it.
+- By car the estimate is replaced by the real road (`routes.js`): between two stops, use `legTravel(a, b, mode)`,
+  and for a day `routeTravel` (maps.js). `lookupRoads(trip)`, called while the Plan is drawn, asks OpenStreetMap's
+  routing server (FOSSGIS, `routing.openstreetmap.de`, no key, one request a second at most) for each car day in one
+  question: the stay, the stops in order, the stay. Legs are saved per device in `tripPlanner.routes` (by the two
+  spots, 90 days, 600 at most; never synced), so they also show offline. A leg no road reaches is saved as `none`
+  and stays an estimate, like walks and public transit (no free service for those). It follows the
+  "Find addresses and opening hours" switch. The estimate was up to 3× too low where roads wind (the Mosel valley).
 - Distances are computed in miles. Show them with `fmtDist()`, and temperatures with `temp()`. Both follow
   `state.settings.units` (`'metric'`/`'imperial'`, per phone, defaulting from the phone's language).
 - The app is English only. Dates and times go through `fmtDay()`, `fmtTime()` and `fmtClock()`, which follow

@@ -557,6 +557,24 @@ function runSelfCheck() {
     // By car: 20 km across the country is about half an hour, 200 km some two and a half hours.
     return same([travel(20 / 1.609, 'drive').mins, travel(200 / 1.609, 'drive').mins], [25, 145]);
   });
+  check('By car, the real road between two stops replaces the estimate once it is known, and only by car', () => {
+    // Eltz Castle to the Geierlay bridge: 13 km in a straight line, 46 km around the Mosel valley.
+    const a = { lat: 50.20507, lng: 7.33677 }, b = { lat: 50.08997, lng: 7.34115 };
+    const real = roadRoutes.saved;
+    try {
+      roadRoutes.saved = {};
+      const guess = legTravel(a, b, 'drive');
+      // The way back ends more than a mile from any road: that leg stays an estimate.
+      roadRoutes.saved = Object.fromEntries(readRoads([a, b, a], { code: 'Ok',
+        routes: [{ legs: [{ distance: 45624, duration: 4695 }, { distance: 40000, duration: 3000 }] }], waypoints: [{ distance: 70 }, { distance: 130 }, { distance: 2000 }] }));
+      const road = legTravel(a, b, 'drive');
+      return same([!!guess.road, road.text, Math.round(road.dist * 1.609), road.mins, !!legTravel(b, a, 'drive').road, !!legTravel(a, b, 'transit').road,
+        readRoads([a, b], { code: 'NoRoute' }), readRoads([a, b], { code: 'Ok', routes: [{ legs: [] }] })],
+      [false, '1 h 20 min drive', 46, 80, false, false, null, null]);
+    } finally {
+      roadRoutes.saved = real;
+    }
+  });
 
   /* ---------- AI answers ---------- */
   group = 'AI Assistant answers';

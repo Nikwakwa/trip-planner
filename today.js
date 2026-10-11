@@ -111,7 +111,7 @@ function nowNext(trip) {
     const from = before ? coordsOf(before, guide) : (dayEnds(trip, today, items, guide).start || {}).c;
     const to = coordsOf(next, guide);
     if (from && to) {
-      const t = travel(miles(from, to), modeFor(trip, today));
+      const t = legTravel(from, to, modeFor(trip, today));
       leave = { trip: t, at: next.time ? toMinutes(next.time) - t.mins - 5 : null, to };
     } else if (to) {
       leave = { trip: null, at: null, to };
