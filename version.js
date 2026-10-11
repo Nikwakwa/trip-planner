@@ -7,6 +7,9 @@
    Written for the people who use the app, and kept short: what is new for them, one short line
    each, five at most. Fixes are not listed one by one: a single line, "Bug fixes". */
 const CHANGELOG = [
+  { v: '2.15.1', date: '2026-10-11', items: [
+    'Bug fixes',
+  ] },
   { v: '2.15.0', date: '2026-10-11', items: [
     'By car, the time and distance between stops now follow the real roads, not a straight line',
     'They come from OpenStreetMap’s routing service, and are kept on the device for when you’re offline',

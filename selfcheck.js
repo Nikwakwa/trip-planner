@@ -568,9 +568,11 @@ function runSelfCheck() {
       roadRoutes.saved = Object.fromEntries(readRoads([a, b, a], { code: 'Ok',
         routes: [{ legs: [{ distance: 45624, duration: 4695 }, { distance: 40000, duration: 3000 }] }], waypoints: [{ distance: 70 }, { distance: 130 }, { distance: 2000 }] }));
       const road = legTravel(a, b, 'drive');
+      // A day's total: to the minute when every drive is a real road, to the half hour with an estimate in it.
       return same([!!guess.road, road.text, Math.round(road.dist * 1.609), road.mins, !!legTravel(b, a, 'drive').road, !!legTravel(a, b, 'transit').road,
-        readRoads([a, b], { code: 'NoRoute' }), readRoads([a, b], { code: 'Ok', routes: [{ legs: [] }] })],
-      [false, '1 h 20 min drive', 46, 80, false, false, null, null]);
+        readRoads([a, b], { code: 'NoRoute' }), readRoads([a, b], { code: 'Ok', routes: [{ legs: [] }] }),
+        routeTravel([a, b], 'drive').time, routeTravel([a, b, a], 'drive').time, routeTravel([a, b], 'transit').time, routeTravel([a], 'drive').time],
+      [false, '1 h 20 min drive', 46, 80, false, false, null, null, '1 h 20 min', '~1.5 h', '35 min', '0 min']);
     } finally {
       roadRoutes.saved = real;
     }

@@ -368,7 +368,7 @@ function routeTravel(route, mode) {
     if (!t.road && t.mode !== 'walking') guessed++;
   });
   // Real roads add up to the minute; an estimate is only good to the half hour.
-  const time = guessed ? time : fmtRoadTime(Math.round(minutes / 5) * 5);
+  const time = guessed ? fmtDuration(Math.round(minutes)) : fmtRoadTime(Math.round(minutes / 5) * 5);
   return { total, minutes, time };
 }
 
