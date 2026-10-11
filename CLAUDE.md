@@ -108,6 +108,9 @@ localStorage `tripPlanner.guides` (up to 10). `planSuggestions` in `app.js` and 
   `local: true`). "Nearby ideas" then only use local places, and never anything over 25 miles away.
   On a country or region trip, a plan's link to Google Maps adds the town of the nearest of these guides
   (`townNear`, in `mapsUrl`): "Museum of Fine Arts, United States" could be Houston's.
+  On a city trip, `mapsUrl` adds the trip's town only to a plan that is in it. A plan outside it (a day trip) keeps
+  its address's own town plus the country, and an address with no town at all ("Am Bahnhof") opens the plan's
+  spot by its coordinates: with "Daun" added, Google opened Daun's station for a plan in Moselkern, 24 miles away.
 - Places may also carry `price`, `tip` (how to get there) and `url` (`GUIDE_VERSION` 4). Destinations without a photo
   get the picture of the Wikipedia article with the same name (`fillPhotosByName`).
 - Places carry `fame` (`GUIDE_VERSION` 5): the number of Wikipedia languages with an article about them, from Wikidata

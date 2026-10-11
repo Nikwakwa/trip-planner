@@ -7,6 +7,10 @@
    Written for the people who use the app, and kept short: what is new for them, one short line
    each, five at most. Fixes are not listed one by one: a single line, "Bug fixes". */
 const CHANGELOG = [
+  { v: '2.14.3', date: '2026-10-11', items: [
+    'On a day trip out of town, a plan’s “Directions” button opens the right town in Google Maps',
+    'Bug fixes',
+  ] },
   { v: '2.14.2', date: '2026-10-11', items: [
     'A plan with an address is pinned at that address, no longer on a place with the same name in another town',
     'Travel times between stops are closer to the real ones, most of all by car, and distances are by road',

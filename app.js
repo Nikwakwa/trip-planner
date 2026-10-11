@@ -97,14 +97,29 @@ function hostLabel(url) {
   return h.length > 22 ? h.slice(0, 21) + '…' : h;
 }
 
-// at: where the plan is on the map, when known.
-function mapsUrl(place, trip, at) {
+// A plan's address in Google Maps. at: where the plan is on the map, when known. title: the plan's name.
+function mapsUrl(place, trip, at, title = '') {
   const where = trip.place ? trip.place.label : trip.name;
+  const city = trip.place ? trip.place.name : trip.name;
+  const search = q => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
+  // Only the town as address ("Daun"): the plan's name says which place in it.
+  if (title && norm(place).trim() === norm(city).trim()) return search(norm(title).includes(norm(city)) ? title : `${title}, ${where}`);
+  if (norm(place).includes(norm(city))) return search(place);
+  if (trip.place && trip.place.kind === 'city') {
+    // A day trip out of town: adding the trip's town would send "Am Bahnhof" (in Moselkern) to the station
+    // of Daun. The address's own town counts, else the town of the guide nearest the plan, else the spot itself.
+    const box = trip.place.bbox;
+    const away = at && miles(trip.place, at) > (box ? NEAR_REACH : 15)
+      && !(box && at.lng >= box[0] && at.lng <= box[2] && at.lat >= box[1] && at.lat <= box[3]);
+    if (!away) return search(`${place}, ${where}`);
+    const country = where.split(', ').slice(1).join(', ');
+    if (place.includes(',')) return search(country && !norm(place).includes(norm(country)) ? `${place}, ${country}` : place);
+    const town = townNear(at);
+    return search(town ? [place, town, country].filter(Boolean).join(', ') : `${at.lat},${at.lng}`);
+  }
   // A country or a region doesn't say which "Museum of Fine Arts": the town of the guide nearest the plan does.
-  const town = at && trip.place && trip.place.kind !== 'city' && !place.includes(',') ? townNear(at) : '';
-  const q = town && !norm(place).includes(norm(town)) ? `${place}, ${town}, ${where}`
-    : place.toLowerCase().includes((trip.place ? trip.place.name : trip.name).toLowerCase()) ? place : `${place}, ${where}`;
-  return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
+  const town = at && trip.place && !place.includes(',') ? townNear(at) : '';
+  return search(town && !norm(place).includes(norm(town)) ? `${place}, ${town}, ${where}` : `${place}, ${where}`);
 }
 
 /* ---------- Expressive "cookie" shape ---------- */
@@ -1081,7 +1096,7 @@ function itemHTML(item, trip, { showDate = false, drag = false, note = null, sch
     const filesLabel = files === 1 ? 'Ticket' : `${files} files`;
     chips = [
       schedule && days.length && `<button type="button" class="assist-chip primary ripple" data-action="pick-day">${icon('calendar_add_on')}Add to a day</button>`,
-      item.place && `<a class="assist-chip ${schedule ? 'compact ' : ''}ripple" href="${esc(mapsUrl(item.place, trip, coordsOf(item, guideFor(trip))))}" target="_blank" rel="noopener" title="Directions">${icon('location_on')}<span>Directions</span></a>`,
+      item.place && `<a class="assist-chip ${schedule ? 'compact ' : ''}ripple" href="${esc(mapsUrl(item.place, trip, coordsOf(item, guideFor(trip)), item.title))}" target="_blank" rel="noopener" title="Directions">${icon('location_on')}<span>Directions</span></a>`,
       link && `<a class="assist-chip compact ripple" href="${esc(link)}" target="_blank" rel="noopener" title="${esc(hostLabel(link))}" aria-label="Link: ${esc(hostLabel(link))}">${icon('link')}<span>${esc(hostLabel(link))}</span></a>`,
       files && `<button type="button" class="assist-chip compact ripple" data-action="files" title="${filesLabel}" aria-label="${filesLabel}">${icon('confirmation_number')}<span>${filesLabel}</span></button>`,
       hasPlanInfo(item, guideFor(trip)) && `<button type="button" class="assist-chip icon-only ripple" data-action="plan-info" aria-label="About ${esc(item.title)}" title="About this place">${icon('info')}</button>`,

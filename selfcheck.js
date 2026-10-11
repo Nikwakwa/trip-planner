@@ -448,6 +448,29 @@ function runSelfCheck() {
       Object.assign(savedGuides, real);
     }
   });
+  check('On a trip to a town, a plan in another town isn’t sent to the trip’s town on the map', () => {
+    const trip = { name: 'Daun', place: { kind: 'city', name: 'Daun', label: 'Daun, Germany', lat: 50.19625, lng: 6.8305, bbox: [6.7441, 50.161, 6.8755, 50.2461] } };
+    const query = (...args) => new URL(mapsUrl(...args)).searchParams.get('query');
+    const real = { ...savedGuides };
+    const empty = () => { for (const k of Object.keys(savedGuides)) delete savedGuides[k]; };
+    try {
+      empty();
+      return same([
+        query('Am Bahnhof', trip, { lat: 50.1955, lng: 7.37125 }, 'Moselkern'),                          // 24 miles away, no town in the address
+        query('Clara-Viebig-Straße, Bad Bertrich', trip, { lat: 50.06913, lng: 7.03182 }, 'Vulkaneifel Therme'),
+        query('Auf der Holl, Schalkenmehren', trip, { lat: 50.16553, lng: 6.85597 }, 'Hike'),          // a village of Daun
+        query('Am Bahnhof', trip, null, 'Station'),
+        query('Daun', trip, { lat: 50.19825, lng: 6.82968 }, 'Volcano Museum, Daun'),
+        query('Daun', trip, null, 'Volcano Museum'),
+        query('Leopoldstraße 1, Daun', trip, { lat: 50.1974, lng: 6.83003 }, 'Café U'),
+        query('Austraße 10, 52156 Monschau, Germany', trip, { lat: 50.5546, lng: 6.2443 }, 'Monschau'),
+      ], ['50.1955,7.37125', 'Clara-Viebig-Straße, Bad Bertrich, Germany', 'Auf der Holl, Schalkenmehren, Daun, Germany', 'Am Bahnhof, Daun, Germany',
+        'Volcano Museum, Daun', 'Volcano Museum, Daun, Germany', 'Leopoldstraße 1, Daun', 'Austraße 10, 52156 Monschau, Germany']);
+    } finally {
+      empty();
+      Object.assign(savedGuides, real);
+    }
+  });
   check('A sight is not taken for the station named after it', () =>
     same(['Museum of Fine Arts station', 'Brooklyn Bridge–City Hall/Chambers Street station', 'Harvard station', 'Museum of Fine Arts, Boston', 'Fenway Park', 'Grand Central Terminal']
       .map(t => TRANSIT_ARTICLE.test(t)), [true, true, true, false, false, false]));
