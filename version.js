@@ -7,6 +7,9 @@
    Written for the people who use the app, and kept short: what is new for them, one short line
    each, five at most. Fixes are not listed one by one: a single line, "Bug fixes". */
 const CHANGELOG = [
+  { v: '2.15.3', date: '2026-10-13', items: [
+    'Travel times by public transit are closer to the real ones: they count the walk to the stop and the wait',
+  ] },
   { v: '2.15.2', date: '2026-10-13', items: [
     'An address like “476 Fifth Avenue” is pinned at the right building, not somewhere along the avenue',
     'The opening hours on a plan are the place’s own, no longer those of a shop or station next to it',

@@ -125,7 +125,8 @@ localStorage `tripPlanner.guides` (up to 10). `planSuggestions` in `app.js` and 
   day, and both sync. Always go through `modeFor(trip, day)` and `travel(miles, mode)`.
 - `travel` is an estimate from the straight-line distance: it returns the time (`mins`) and the way by road (`dist`,
   20–30% longer), and its speed grows smoothly with the distance. A step in the speed once made 39 km by car "2 h"
-  and 41 km "45 min": the self-check guards it.
+  and 41 km "45 min": the self-check guards it. Transit is door to door: 20–30 minutes for the walk to the stop,
+  the wait and the changes, plus a slow ride (the owner's own notes for Boston and New York were the measure).
 - By car the estimate is replaced by the real road (`routes.js`): between two stops, use `legTravel(a, b, mode)`,
   and for a day `routeTravel` (maps.js). `lookupRoads(trip)`, called while the Plan is drawn, asks OpenStreetMap's
   routing server (FOSSGIS, `routing.openstreetmap.de`, no key, one request a second at most) for each car day in one

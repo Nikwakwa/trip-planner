@@ -271,8 +271,12 @@ function travel(d, mode = 'transit') {
     const mins = Math.round((4 + dist / mph * 60) / 5) * 5;
     return { icon: 'directions_car', mode: 'driving', mins, dist, text: `${fmtDuration(mins)} drive` };
   }
-  const mph = Math.min(55, 6 + 8 * Math.log(1 + d));
-  const mins = Math.round((10 + dist / mph * 60) / 5) * 5;
+  // Door to door: 20 to 30 minutes of walking to the stop, waiting and changing (more changes on a longer
+  // way), then a slow ride in town (13 mph over 2 miles) that gets faster with the distance. Logan Airport
+  // to Cambridge, 4 miles, was "25 min" and takes close to an hour; the subway across New York was 10 to
+  // 30 minutes short as well.
+  const mph = Math.min(55, 11 + 1.3 * d);
+  const mins = Math.round((Math.min(30, 18 + 2.5 * d) + dist / mph * 60) / 5) * 5;
   return { icon: 'directions_subway', mode: 'transit', mins, dist, text: `${mins < 60 ? '~' : ''}${fmtDuration(mins)} by transit` };
 }
 

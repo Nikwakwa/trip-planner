@@ -555,7 +555,8 @@ function runSelfCheck() {
       }
     }
     // By car: 20 km across the country is about half an hour, 200 km some two and a half hours.
-    return same([travel(20 / 1.609, 'drive').mins, travel(200 / 1.609, 'drive').mins], [25, 145]);
+    // By transit, door to door: 2 miles across town is over half an hour, 4 miles (airport to town) 45 minutes.
+    return same([travel(20 / 1.609, 'drive').mins, travel(200 / 1.609, 'drive').mins, travel(2, 'transit').mins, travel(4, 'transit').mins], [25, 145, 35, 45]);
   });
   check('By car, the real road between two stops replaces the estimate once it is known, and only by car', () => {
     // Eltz Castle to the Geierlay bridge: 13 km in a straight line, 46 km around the Mosel valley.
@@ -572,7 +573,7 @@ function runSelfCheck() {
       return same([!!guess.road, road.text, Math.round(road.dist * 1.609), road.mins, !!legTravel(b, a, 'drive').road, !!legTravel(a, b, 'transit').road,
         readRoads([a, b], { code: 'NoRoute' }), readRoads([a, b], { code: 'Ok', routes: [{ legs: [] }] }),
         routeTravel([a, b], 'drive').time, routeTravel([a, b, a], 'drive').time, routeTravel([a, b], 'transit').time, routeTravel([a], 'drive').time],
-      [false, '1 h 20 min drive', 46, 80, false, false, null, null, '1 h 20 min', '~1.5 h', '35 min', '0 min']);
+      [false, '1 h 20 min drive', 46, 80, false, false, null, null, '1 h 20 min', '~1.5 h', '~1 h', '0 min']);
     } finally {
       roadRoutes.saved = real;
     }
