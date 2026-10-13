@@ -10,6 +10,9 @@
 
 const HOURS_KEY = 'tripPlanner.hours';
 const HOURS_MAX_AGE = 30 * 864e5;
+const HOURS_VERSION = 2;         // goes up when the matching changes: older saved answers are asked again
+// A train, a transfer or a hotel has no opening hours worth a note (the station's own aren't the train's).
+const HOURS_KINDS = ['sight', 'food', 'shopping', 'event', 'other'];
 const OVERPASS = 'https://overpass-api.de/api/interpreter';
 
 /* ---------- Reading OpenStreetMap's opening_hours format ----------
@@ -165,6 +168,31 @@ function nameScore(item, tags) {
   return best;
 }
 
+// Is this OpenStreetMap place the plan's? Its name has to be the plan's own, or the name its address starts
+// with ("Belasco Theatre, 111 W 44th Street"). A street, a town or half a name is not enough: "22 Cortlandt
+// Street" got the hours of Cortlandt Street station, and "Salem Witch Trials Memorial" those of the Salem
+// Wax Museum. Stations and car parks near a sight are never it.
+function hoursFit(item, tags) {
+  if (tags.railway || tags.public_transport || tags.highway || tags.amenity === 'parking') return 0;
+  const where = String(item.place || '').split(',')[0];
+  const named = { title: item.title, place: /^\s*\d/.test(where) ? '' : where };
+  const mine = `${named.title} ${named.place}`;
+  const words = s => norm(String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')).split(/[^a-z0-9]+/).filter(Boolean);
+  const own = new Set(plainWords(mine));
+  let best = 0;
+  for (const name of [tags.name, tags['name:en'], tags.alt_name, tags.official_name].filter(Boolean)) {
+    // The whole name is in the plan's, as words ("On", a shop, is not in "Flatiron"), or written
+    // together: "Strand Book Store" is "Strand Bookstore".
+    const tight = words(name).join('');
+    if (!tight) continue;
+    if (` ${words(mine).join(' ')} `.includes(` ${words(name).join(' ')} `)) return 1;
+    if (tight.length >= 6 && words(mine).join('').includes(tight)) return 1;
+    const key = plainWords(name);
+    if (key.length) best = Math.max(best, key.filter(w => own.has(w)).length / key.length);
+  }
+  return best > 0.5 ? best : 0;
+}
+
 // Looks up hours for plans that have a day and a map position, in one request.
 function lookupHours(trip, items) {
   if (!state.settings.lookup || !navigator.onLine || hours.busy || Date.now() < hours.retryAt) return;
@@ -172,10 +200,10 @@ function lookupHours(trip, items) {
   const todo = [];
   for (const item of items) {
     const c = coordsOf(item, guide);
-    if (!c || !item.date) continue;
+    if (!c || !item.date || !HOURS_KINDS.includes(item.category)) continue;
     const key = hoursKey(item, c);
     const had = hours.saved[key];
-    if ((had && Date.now() - had.t < HOURS_MAX_AGE) || hours.pending.has(key)) continue;
+    if ((had && had.v === HOURS_VERSION && Date.now() - had.t < HOURS_MAX_AGE) || hours.pending.has(key)) continue;
     todo.push({ item, c, key });
     if (todo.length === 20) break;
   }
@@ -192,11 +220,11 @@ function lookupHours(trip, items) {
         for (const f of found) {
           const d = miles(c, f);
           if (d > 0.08) continue;
-          const score = nameScore(item, f.tags);
-          if (score < 0.5) continue;
+          const score = hoursFit(item, f.tags);
+          if (!score) continue;
           if (!best || score > best.score || (score === best.score && d < best.d)) best = { score, d, f };
         }
-        hours.saved[key] = best ? { oh: best.f.tags.opening_hours, name: best.f.tags.name, t: Date.now() } : { t: Date.now() };
+        hours.saved[key] = { ...(best && { oh: best.f.tags.opening_hours, name: best.f.tags.name }), t: Date.now(), v: HOURS_VERSION };
       }
       const keys = Object.keys(hours.saved).sort((a, b) => hours.saved[b].t - hours.saved[a].t);
       for (const old of keys.slice(400)) delete hours.saved[old];
@@ -221,14 +249,17 @@ function guideHours(text) {
   const closed = [...String(text || '').toLowerCase().matchAll(/closed\s+(?:on\s+)?(mon|tue|wed|thu|fri|sat|sun)[a-z]*/g)]
     .map(m => DAY_WORDS[m[1]]);
   if (!closed.length) return null;
-  // Only the closed days are known: every other day counts as open all day.
-  return [{ ranges: [[0, 1440]] }, { days: new Set(closed), ranges: [] }];
+  // Only the closed days are known: every other day counts as open, at hours nobody knows (`unknown`).
+  const open = [[0, 1440]];
+  open.unknown = true;
+  return [{ ranges: open }, { days: new Set(closed), ranges: [] }];
 }
 
 function itemHours(item, guide) {
+  if (!HOURS_KINDS.includes(item.category)) return null;
   const c = coordsOf(item, guide);
   const had = c && hours.saved[hoursKey(item, c)];
-  const osm = had && had.oh && parseHours(had.oh);
+  const osm = had && had.v === HOURS_VERSION && had.oh && parseHours(had.oh);
   if (osm) return osm;
   const p = matchPlaces(item, guide)[0];
   return p && p.hours ? guideHours(p.hours) : null;
@@ -251,6 +282,7 @@ function hoursNote(item, guide) {
     else if ([-14, -7, 7, 14].filter(closed).length >= 3) text = `Usually closed on ${fmtDay(item.date, { weekday: 'long' })}s`;
     return { warn: true, text };
   }
+  if (open.unknown) return null;      // open that day, but the guide's hours couldn't be read
   if (item.time) {
     const t = toMin(item.time);
     const ok = open.some(([a, b]) => (t >= a && t < b) || (t + 1440 >= a && t + 1440 < b));

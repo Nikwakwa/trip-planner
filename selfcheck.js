@@ -630,6 +630,43 @@ function runSelfCheck() {
   });
   check('Hours the app can’t read give no note, not a guess', () =>
     same([parseHours('whenever we feel like it'), parseHours(''), parseHours('Mo-Fr 9am to 5pm')], [null, null, null]));
+  check('Only the closed day is known: a warning that day, no "Open all day" on the others', () => sandbox(() => {
+    state = sample();
+    const guide = prepGuide({ id: 'g', places: [{ id: 'lib', name: 'Castle', lat: 38.7, lng: -9.1, hours: 'Mon-Sat 10AM-6PM, closed Sun' }] });
+    const on = date => hoursNote({ title: 'Castle', category: 'sight', place: '', date }, guide);
+    // 3 and 4 October 2026: a Saturday and a Sunday.
+    return same([on('2026-10-03'), on('2026-10-04').warn], [null, true]);
+  }));
+  check('A place’s hours are not those of a street, a station or a namesake next to it', () => same([
+    hoursFit({ title: 'Century 21', place: '22 Cortlandt Street, Manhattan' }, { name: 'Cortlandt Street', railway: 'station' }),
+    hoursFit({ title: 'Century 21', place: '22 Cortlandt Street, Manhattan' }, { name: 'Cortlandt Street' }),
+    hoursFit({ title: 'Salem Witch Trials Memorial', place: 'Liberty Street, Salem, MA' }, { name: 'Salem Wax Museum' }),
+    hoursFit({ title: 'DUMBO', place: 'DUMBO, Brooklyn' }, { name: 'Salon Dumbo' }),
+    hoursFit({ title: 'Lunch at Chelsea Market', place: '75 Ninth Avenue, Manhattan' }, { name: 'Chelsea Market' }),
+    hoursFit({ title: 'Strand Book Store', place: '828 Broadway, New York, NY' }, { name: 'Strand Bookstore' }),
+    hoursFit({ title: 'Maybe Happy Ending', place: 'Belasco Theatre, 111 W 44th Street, Manhattan' }, { name: 'Belasco Theatre' }),
+    hoursFit({ title: 'Flatiron Building', place: 'Flatiron Building' }, { name: 'On' }),
+    hoursFit({ title: 'St. Patrick’s Cathedral', place: 'Fifth Avenue and 50th Street' }, { name: 'Saint Patrick’s Cathedral', alt_name: 'St. Patrick\'s Cathedral' }),
+  ], [0, 0, 0, 0, 1, 1, 1, 0, 1]));
+
+  /* ---------- Addresses and distances ---------- */
+  group = 'Addresses and distances';
+  check('A house number on "Fifth Avenue" is searched on "5th Avenue"', () => same([
+    numbered('476 Fifth Avenue, Manhattan'), numbered('75 Ninth Ave'), numbered('Fifth Avenue and 50th Street, Manhattan'),
+    numbered('12 First Lane, Boston'), numbered('Hauptstraße 52'), numbered(''),
+  ], ['476 5th Avenue, Manhattan', '75 9th Ave', 'Fifth Avenue and 50th Street, Manhattan', '12 First Lane, Boston', 'Hauptstraße 52', '']));
+  check('Just under a kilometre is "1.0 km", never "1000 m"', () => sandbox(() => {
+    state = sample();
+    state.settings = { ...defaultSettings(), units: 'metric' };
+    return same([0.5, 0.6, 0.615, 0.62, 6.19, 6.2].map(fmtDist), ['800 m', '950 m', '1.0 km', '1.0 km', '10 km', '10 km']);
+  }));
+  check('Signing in doesn’t add the starting checklist a second time', () => {
+    const doc = (id, text) => stable({ k: 'check', pos: 0, id, text, done: false });
+    const local = { check_a: doc('a', 'ID / wallet'), check_b: doc('b', 'Sunscreen'), trip_t: stable({ k: 'trip', id: 't', name: 'Rome' }) };
+    const keep = new Set(Object.keys(local));
+    dropSameChecks(keep, local, { check_z: doc('z', 'ID / Wallet '), trip_u: stable({ k: 'trip', id: 'u', name: 'Rome' }) });
+    return same([...keep].sort(), ['check_b', 'trip_t']);
+  });
 
   /* ---------- Texts from the travel guide ---------- */
   group = 'Texts from the travel guide';

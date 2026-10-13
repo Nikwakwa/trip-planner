@@ -190,6 +190,7 @@ function openNow(p) {
   const rules = p.hours && guideHours(p.hours);
   if (!rules) return null;
   const open = hoursOn(rules, todayISO());
+  if (open.unknown) return null;      // open today, but at what hours isn't known
   const t = nowMinutes();
   return open.some(([a, b]) => (t >= a && t < b) || (t + 1440 >= a && t + 1440 < b));
 }

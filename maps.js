@@ -39,6 +39,57 @@ const geoPending = new Set();
 let geoChain = Promise.resolve();
 let geoLast = 0;
 
+// "476 Fifth Avenue" → "476 5th Avenue", for an address with a house number: OpenStreetMap's search only
+// knows the numbered streets of American towns by their number.
+const ORDINALS = { first: '1st', second: '2nd', third: '3rd', fourth: '4th', fifth: '5th', sixth: '6th', seventh: '7th', eighth: '8th', ninth: '9th', tenth: '10th', eleventh: '11th', twelfth: '12th' };
+function numbered(place) {
+  const [first, ...rest] = String(place || '').split(',');
+  if (!/^\s*\d/.test(first)) return place;
+  return [first.replace(/\b(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth)\b(?=\s+(avenue|ave|street|st)\b)/gi, w => ORDINALS[w.toLowerCase()]), ...rest].join(',');
+}
+
+// Once after "476 Fifth Avenue" started being searched as "476 5th Avenue" (the library was pinned 3 miles
+// up Fifth Avenue): such plans are looked up again. A pin only moves when the house itself is found
+// somewhere else, so a plan that was right stays where it is.
+function repinNumbered() {
+  if (state.settings.geoRetry >= 6 || !state.settings.lookup || !navigator.onLine) return;
+  const todo = state.trips.flatMap(trip => trip.items
+    .filter(i => typeof i.lat === 'number' && typeof i.lng === 'number' && !i.guideId && numbered(i.place) !== i.place)
+    .map(item => ({ tripId: trip.id, id: item.id, place: item.place, where: trip.place ? trip.place.label : trip.name })));
+  geoChain = geoChain.then(async () => {
+    let moved = false;
+    for (const { tripId, id, place, where } of todo) {
+      const waitMs = geoLast + 1100 - Date.now();
+      if (waitMs > 0) await new Promise(r => setTimeout(r, waitMs));
+      geoLast = Date.now();
+      const q = norm(place).includes(norm(where)) ? numbered(place) : `${numbered(place)}, ${where}`;
+      const res = await fetch('https://nominatim.openstreetmap.org/search?' + new URLSearchParams({ format: 'jsonv2', limit: '5', q, 'accept-language': 'en' }));
+      if (!res.ok) throw new Error('lookup ' + res.status);
+      const answer = await res.json();
+      // Found again now: an answer from the account may have replaced the plans while waiting.
+      const trip = state.trips.find(t => t.id === tripId);
+      const item = trip && trip.items.find(i => i.id === id);
+      if (!item || item.place !== place || typeof item.lat !== 'number') continue;
+      const around = plansAround(item, trip);
+      const sameDay = around.filter(i => i.date === item.date);
+      const close = sameDay.length ? sameDay : around;
+      const far = p => (close.length ? Math.min(...close.map(i => miles(i, p))) : 0);
+      const found = answer
+        .filter(f => f.category !== 'highway' && f.addresstype !== 'road')
+        .map(f => ({ lat: Number(f.lat), lng: Number(f.lon) }))
+        .filter(p => !around.length || around.some(i => miles(i, p) < AROUND_REACH))
+        .sort((a, b) => far(a) - far(b))[0];
+      if (found && miles(item, found) > 0.2) {
+        item.lat = found.lat;
+        item.lng = found.lng;
+        moved = true;
+      }
+    }
+    state.settings.geoRetry = 6;
+    if (moved) { save(); renderSoon(); } else saveLocal();
+  }).catch(() => { /* no connection: at the next start */ });
+}
+
 // A plan with an address is looked up, also when its name is a place in the guide: the address says
 // where it is, the name doesn't (a "Residenz" in the guide can be another town's).
 function needsLookup(item) {
@@ -58,9 +109,12 @@ function lookupMissing(trip, items) {
       const where = trip.place ? trip.place.label : city;
       // A full address ("…, 1200-359 Lisboa, Portugal") is searched as written first; a short
       // one ("Castelo") with the trip's city added. The first answer near the trip counts.
-      const tries = norm(item.place).includes(norm(city)) || !item.place.includes(',')
-        ? [norm(item.place).includes(norm(city)) ? item.place : `${item.place}, ${where}`]
-        : [item.place, `${item.place}, ${where}`];
+      // "476 Fifth Avenue" is only found as "476 5th Avenue": with the word, the search answers with the
+      // street alone, and the pin lands miles along it.
+      const addr = numbered(item.place);
+      const tries = norm(addr).includes(norm(city)) || !addr.includes(',')
+        ? [norm(addr).includes(norm(city)) ? addr : `${addr}, ${where}`]
+        : [addr, `${addr}, ${where}`];
       const fits = nearTrip(trip, guide);
       // One question to OpenStreetMap's address search (at most one a second). box: only inside it.
       const ask = async (q, box) => {
@@ -83,8 +137,10 @@ function lookupMissing(trip, items) {
         // The same address can exist in several places ("117 MacDougal St, New York" is in Brooklyn and
         // in Manhattan): the one nearest the plans around it comes first, and the others are kept as "rivals".
         const exact = all.filter(p => !p.street && fits(p));
-        if (exact.length < 2) return exact[0] || all[0];
         const far = p => (close.length ? Math.min(...close.map(i => miles(i, p))) : 0);
+        // Only the street was found, in several stretches: the one nearest those plans.
+        if (!exact.length) return all.filter(fits).sort((a, b) => far(a) - far(b))[0] || all[0];
+        if (exact.length < 2) return exact[0];
         exact.sort((a, b) => far(a) - far(b));
         return { ...exact[0], rivals: exact.slice(1).filter(p => miles(p, exact[0]) > 0.1) };
       };
@@ -142,11 +198,14 @@ function lookupMissing(trip, items) {
           const name = item.title.replace(/^check[ -]?(in|out)\s*:?\s*/i, '').trim();
           // "High Line at W 34th Street": the place itself, without where along it.
           const bare = q => q.split(/\s+(?:at|near)\s+/i)[0].trim();
+          const head = q => q.split(/\s*[:(–—]\s*|\s+-\s+/)[0].trim();
           const others = [
             parts.length >= 3 && `${parts[0]}, ${parts[parts.length - 1]}`,
             !['food', 'transport'].includes(item.category) && norm(name) !== norm(item.place) && name,
             bare(parts[0] || '') !== parts[0] && bare(parts[0]),
             bare(name) !== name && norm(bare(name)) !== norm(bare(parts[0] || '')) && bare(name),
+            // "New York Public Library: Rose Main Reading Room tour": the place, without what is done there.
+            !['food', 'transport'].includes(item.category) && head(name) !== name && head(name),
           ].filter((q, i, all) => q && !all.slice(0, i).some(o => o && norm(o) === norm(q)));
           for (const q of others) {
             const found = await ask(inCity(q));

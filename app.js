@@ -280,10 +280,11 @@ function travel(d, mode = 'transit') {
 const usesImperial = () => /-(US|LR|MM)$/i.test(navigator.language || '');
 const imperial = () => (state.settings.units || (usesImperial() ? 'imperial' : 'metric')) === 'imperial';
 function fmtDist(d) {
-  const n = (v, dec) => (v < 10 ? v.toFixed(dec) : Math.round(v).toLocaleString('en-US'));
+  const n = (v, dec) => (v < 9.95 ? v.toFixed(dec) : Math.round(v).toLocaleString('en-US'));
   if (imperial()) return d < 0.1 ? '<0.1 mi' : `${n(d, 1)} mi`;
   const km = d * 1.609;
-  if (km < 1) return `${Math.max(50, Math.round(km * 20) * 50)} m`;
+  // Under 975 m: from there it would round to "1000 m".
+  if (km < 0.975) return `${Math.max(50, Math.round(km * 20) * 50)} m`;
   return `${n(km, 1)} km`;
 }
 const fmtDuration = m => (m < 60 ? `${m} min` : `~${Math.round(m / 30) / 2} h`);
@@ -821,6 +822,7 @@ if (!(state.settings.geoRetry >= 5)) {
     if (p && i.place && norm(i.place) !== norm(p.place || p.name)) { delete i.lat; delete i.lng; delete i.guideId; delete i.geoMiss; }
   });
 }
+// (geoRetry 6 is repinNumbered in maps.js: it needs the internet, and runs once the app has started.)
 saveLocal();
 
 const ui = { view: 'plan', ideasTab: 'mine', filter: 'all', shuffle: {}, suggest: {}, pickDay: null };
@@ -3373,6 +3375,7 @@ function jumpToToday() {
   showFabs();     // this jump isn't the user scrolling down: the + and AI buttons stay
 }
 jumpToToday();
+repinNumbered();   // maps.js: a one-time repair of some pins
 
 // A phone keeps the app open for days. Back on screen it is drawn again: "today", "now and next" and
 // the forecast move on. On a new day the plan opens on that day, like at a fresh start.

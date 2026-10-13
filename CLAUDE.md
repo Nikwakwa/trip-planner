@@ -141,7 +141,9 @@ localStorage `tripPlanner.guides` (up to 10). `planSuggestions` in `app.js` and 
 - User-facing text says "device", not "phone" (the app also runs on computers).
 
 **Maps (`maps.js`).** Leaflet (vendored) is loaded on first use. Addresses are looked up with
-Nominatim (`lookupMissing`); when an address exists in several places, the one nearest the plans around it wins, or
+Nominatim (`lookupMissing`); a house number on "Fifth Avenue" is asked as "5th Avenue" (`numbered`: with the word,
+Nominatim only answers with the street, and the pin landed 3 miles up it; `repinNumbered` repairs such pins once,
+`geoRetry` 6, moving a pin only when the house itself is found); when an address exists in several places, the one nearest the plans around it wins, or
 the one where the plan's name is found. A plan matches a guide place by its title or by the part of its address
 before the first comma only (`matchPlaces`), so "…, New York, NY" isn't taken for the city. A name never says
 where: a trip across a country has a "Rathaus" and a "Residenz" in several towns' guides. So a plan with an address
@@ -168,6 +170,10 @@ then everything else (`byPlanOrder`).
 - Each fetches in the background from a render path. When it finishes, it calls `renderSoon()`; after a failure it
   waits before retrying. Anything that finishes later than the tap that started it (a fetch, a timer) redraws with
   `renderSoon()`, never `render()`: it waits while something is typed in the page or a plan is dragged.
+- A plan only gets the hours of an OpenStreetMap place with its own name (`hoursFit`: the title, or the name its
+  address starts with; never a street, a station or half a name: "22 Cortlandt Street" once got a subway station's
+  hours). Transport and stay plans get none (`HOURS_KINDS`). Saved answers are stamped with `HOURS_VERSION`. A guide
+  text that only says "closed Sun" warns on Sundays and shows nothing on the other days (`unknown`).
 - The hours parser supports a subset of OSM's format and returns `null` (no note shown) for anything it
   can't read, rather than guessing.
 - Weather is per day and per spot (`weatherSpot(trip, day)`): the trip's city, else (a country or region trip, or

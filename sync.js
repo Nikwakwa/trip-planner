@@ -294,6 +294,14 @@ function mergeRemote(remote, pending, keepLocal, id = '') {
   pushChanges();
 }
 
+// Every device starts with the same checklist ("ID / wallet", …), each line with an id of its own. A line
+// the account already has in the same words isn't added a second time.
+function dropSameChecks(keep, local, remote) {
+  const text = j => { const d = JSON.parse(j); return d.k === 'check' ? norm(d.text).trim() : null; };
+  const theirs = new Set(Object.values(remote).map(text).filter(Boolean));
+  for (const k of [...keep]) if (theirs.has(text(local[k]))) keep.delete(k);
+}
+
 // First time this phone connects to the account: combine or replace?
 async function askHowToLink() {
   if (sync.asking) return;
@@ -327,6 +335,7 @@ async function askHowToLink() {
   sync.saved.base = {};
   const { remote: latest, pending } = sync.firstSnap;
   sync.firstSnap = null;
+  dropSameChecks(keep, local, latest);
   mergeRemote(latest, pending, keep);
   snackbar(`Signed in — plans sync with ${sync.saved.email}`);
   resumeInvite();     // share.js: an invitation that was waiting for the sign-in
