@@ -367,6 +367,11 @@ Phone styles are the default. Add desktop overrides in the media blocks at the e
 - A day's tools (`.day-tools`) are one row on a phone, scrolled sideways. Two fields side by side go in `.row2`
   (its columns are `minmax(0, 1fr)`, or a date pushes the form wider than the screen).
 - The plan and trip forms keep their actions (`.sheet-actions`) stuck to the bottom of the sheet.
+- Sheets close with their ✕, a tap outside, a swipe down, Esc or Back, all through `closeSheet`. A tap outside
+  must start and end there: selecting text and letting go outside the sheet sends the dialog a click too (a
+  tester lost a typed plan that way). Sheets to type in (`DRAFTS`: plan, trip, report, suggestion) ask "Discard…?"
+  first when their form changed since it opened (`draftStart`, called by their open functions). Esc is caught on
+  `keydown`: the browser lets a page stop the dialog's `cancel` only once per tap or key typed.
 - Suggestion cards all start with `.s-photo`: the photo, over the type's color and icon when there is none.
 - Settings: "Appearance" is the four choices (`.row.pick`: Theme, Units, Date, Time); the switches that fetch or
   suggest things are under "Planning help".

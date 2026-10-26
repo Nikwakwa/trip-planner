@@ -1899,6 +1899,7 @@ function openItemForm(item, defaults = {}) {
   openFilesInForm(item ? item.id : null);   // files.js: tickets & bookings
   itemDialog.showModal();
   itemDialog.scrollTop = 0;
+  draftStart(itemDialog);
   if (!item) itemForm.elements.title.focus();
 }
 
@@ -2079,6 +2080,7 @@ function openTripForm(trip) {
   $('#trip-delete').hidden = !trip;
   $('#trip-delete-label').textContent = tripEndLabel(trip);     // share.js: "Leave trip" when it is someone else's
   tripDialog.showModal();
+  draftStart(tripDialog);
   if (!trip) f.name.focus();
 }
 
@@ -2301,10 +2303,68 @@ accountForm.addEventListener('submit', async (e) => {
   }
 });
 
-// Close buttons and tapping the dark area outside a sheet close it.
+/* ---------- Closing a sheet ---------- */
+
+// Sheets to type in. Closed any other way than by saving (the ✕, a tap outside, a swipe down, Esc, the
+// device's Back), they ask first when something in them was changed since they opened.
+const DRAFTS = new Map([
+  [itemDialog, { form: itemForm, ask: () => editingItemId
+    ? { title: 'Discard your changes?', text: 'The plan stays as it was.' }
+    : { title: 'Discard this plan?', text: 'What you entered hasn’t been saved.' } }],
+  [tripDialog, { form: tripForm, ask: () => editingTripId
+    ? { title: 'Discard your changes?', text: 'The trip stays as it was.' }
+    : { title: 'Discard this trip?', text: 'What you entered hasn’t been saved.' } }],
+  [$('#report-dialog'), { form: $('#report-form'), ask: () => ({ title: 'Discard your message?', text: 'It hasn’t been sent.' }) }],
+  [$('#vote-dialog'), { form: $('#vote-form'), ask: () => ({ title: 'Discard your idea?', text: 'It hasn’t been sent.' }) }],
+]);
+
+// What a sheet's form holds (in the plan form, with the files attached or removed).
+function draftOf(dlg) {
+  const { form } = DRAFTS.get(dlg);
+  const values = [...new FormData(form)].filter(([, v]) => typeof v === 'string');
+  const files = form === itemForm && tickets.form ? [tickets.form.added.length, tickets.form.removed.size] : [];
+  return JSON.stringify([values, files]);
+}
+
+// Called once a sheet is open and filled in: what it holds then is "nothing changed".
+function draftStart(dlg) {
+  DRAFTS.get(dlg).start = draftOf(dlg);
+}
+
+function draftChanged(dlg) {
+  const d = DRAFTS.get(dlg);
+  return !!d && dlg.open && d.start !== undefined && draftOf(dlg) !== d.start;
+}
+
+// Closes a sheet, unless something typed in it would be lost and the user keeps it.
+async function closeSheet(dlg) {
+  if (draftChanged(dlg)) {
+    const ok = await askConfirm({ icon: 'edit', ...DRAFTS.get(dlg).ask(), ok: 'Discard', cancel: 'Keep editing' });
+    if (!ok) return;
+  }
+  if (dlg.open) dlg.close();
+}
+
+for (const dlg of DRAFTS.keys()) {
+  // Esc is caught before it becomes the dialog's "cancel": the browser lets a page stop that only once
+  // per tap or key typed, so the second Esc would close the sheet without asking.
+  dlg.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && draftChanged(dlg)) { e.preventDefault(); closeSheet(dlg); }
+  });
+  // The device's Back.
+  dlg.addEventListener('cancel', (e) => {
+    if (e.cancelable && draftChanged(dlg)) { e.preventDefault(); closeSheet(dlg); }
+  });
+}
+
+// Close buttons close a sheet, and so does a tap on the dark area around it: one that starts and ends
+// there. Selecting text and letting go outside the sheet is not one (that click goes to the dialog itself).
 for (const dlg of [itemDialog, tripDialog, authDialog, accountDialog, $('#about-dialog'), $('#vote-dialog'), $('#report-dialog'), $('#share-dialog'), $('#join-dialog'), $('#confirm-dialog'), $('#map-dialog'), $('#info-dialog'), $('#place-dialog'), $('#ai-dialog'), $('#files-dialog'), $('#near-dialog')]) {
+  let outside = false;
+  dlg.addEventListener('pointerdown', (e) => { outside = e.target === dlg; });
+  dlg.addEventListener('pointerup', (e) => { outside = outside && e.target === dlg; });
   dlg.addEventListener('click', (e) => {
-    if (e.target === dlg || e.target.closest('[data-close]')) dlg.close();
+    if (e.target.closest('[data-close]') || (e.target === dlg && outside)) closeSheet(dlg);
   });
 }
 
@@ -2350,16 +2410,19 @@ document.addEventListener('touchmove', (e) => {
   dlg.style.transform = `translateY(${pull.dy}px)`;
 }, { passive: false });
 
-// Let go: far enough down (or flicked down) closes the sheet, otherwise it slides back up.
+// Let go: far enough down (or flicked down) closes the sheet, otherwise it slides back up. A sheet
+// with something typed in it slides back up and asks.
 function endPull(e) {
   const dlg = pull.dlg;
   pull.dlg = null;
   if (!dlg || !pull.on) return;
   const close = e.type === 'touchend' && (pull.dy > Math.min(140, dlg.offsetHeight / 3) || (pull.speed > 0.5 && pull.dy > 24));
+  const ask = close && draftChanged(dlg);
   dlg.style.transition = 'transform .2s var(--ease)';
-  dlg.style.transform = close ? 'translateY(100%)' : 'none';
+  dlg.style.transform = close && !ask ? 'translateY(100%)' : 'none';
   setTimeout(() => {
-    if (close && dlg.open) dlg.close();
+    if (ask) closeSheet(dlg);
+    else if (close && dlg.open) dlg.close();
     dlg.style.transition = dlg.style.transform = '';
   }, 200);
 }
@@ -3220,6 +3283,7 @@ function openReport() {
     ? 'Your message goes by email to the person who looks after this copy of the app.'
     : 'Your message is handed to the Share menu: send it to the person who shared the app with you.';
   reportDialog.showModal();
+  draftStart(reportDialog);
   reportForm.elements.message.focus();
 }
 

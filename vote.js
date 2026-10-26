@@ -271,6 +271,7 @@ function openVoting() {
   voteError('');
   $('#vote-form').reset();
   $('#vote-dialog').showModal();
+  draftStart($('#vote-dialog'));
   $('#vote-body').scrollTop = 0;
   startVoting();
 }

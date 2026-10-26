@@ -7,6 +7,9 @@
    Written for the people who use the app, and kept short: what is new for them, one short line
    each, five at most. Fixes are not listed one by one: a single line, "Bug fixes". */
 const CHANGELOG = [
+  { v: '2.15.4', date: '2026-10-26', items: [
+    'Bug fixes',
+  ] },
   { v: '2.15.3', date: '2026-10-13', items: [
     'Travel times by public transit are closer to the real ones: they count the walk to the stop and the wait',
   ] },
