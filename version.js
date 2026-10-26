@@ -5,17 +5,16 @@
      second number  something new was added
      third number   fixes only
    Written for the people who use the app, and kept short: what is new for them, one short line
-   each, five at most. Fixes are not listed one by one: a single line, "Bug fixes". */
+   each, five at most. Fixes are never described, not even one people would notice: they are a
+   single line, "Bug fixes", and a version with fixes only says just that. */
 const CHANGELOG = [
   { v: '2.15.4', date: '2026-10-26', items: [
     'Bug fixes',
   ] },
   { v: '2.15.3', date: '2026-10-13', items: [
-    'Travel times by public transit are closer to the real ones: they count the walk to the stop and the wait',
+    'Bug fixes',
   ] },
   { v: '2.15.2', date: '2026-10-13', items: [
-    'An address like “476 Fifth Avenue” is pinned at the right building, not somewhere along the avenue',
-    'The opening hours on a plan are the place’s own, no longer those of a shop or station next to it',
     'Bug fixes',
   ] },
   { v: '2.15.1', date: '2026-10-11', items: [
@@ -23,25 +22,20 @@ const CHANGELOG = [
   ] },
   { v: '2.15.0', date: '2026-10-11', items: [
     'By car, the time and distance between stops now follow the real roads, not a straight line',
-    'They come from OpenStreetMap’s routing service, and are kept on the device for when you’re offline',
+    'They’re kept on your device, so they show offline too',
   ] },
   { v: '2.14.3', date: '2026-10-11', items: [
-    'On a day trip out of town, a plan’s “Directions” button opens the right town in Google Maps',
     'Bug fixes',
   ] },
   { v: '2.14.2', date: '2026-10-11', items: [
-    'A plan with an address is pinned at that address, no longer on a place with the same name in another town',
-    'Travel times between stops are closer to the real ones, most of all by car, and distances are by road',
     'Bug fixes',
   ] },
   { v: '2.14.1', date: '2026-10-11', items: [
-    'When Google is busy, the AI Assistant switches to the lighter model after half a minute',
+    'Bug fixes',
   ] },
   { v: '2.14.0', date: '2026-10-11', items: [
     'Back in the app on a new day, it opens on today, with a fresh forecast',
     'On a trip across a country, calendar times and the local time follow where you are each day',
-    'Renaming a trip keeps its place: pick another from the list to change it',
-    'A small chance of drizzle no longer counts as a rainy day',
     'Bug fixes',
   ] },
   { v: '2.13.1', date: '2026-10-10', items: [
@@ -95,7 +89,7 @@ const CHANGELOG = [
     'Bug fixes',
   ] },
   { v: '2.8.1', date: '2026-10-09', items: [
-    'On the day you check in, your stay keeps its hotel icon, on its card and on the map',
+    'Bug fixes',
   ] },
   { v: '2.8.0', date: '2026-10-09', items: [
     'Moving to another stay: the day starts with “Check out” and ends with “Check in”',

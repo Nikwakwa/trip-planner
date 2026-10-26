@@ -304,7 +304,9 @@ to publish them by hand.
 When you **add a new app file**, add it to `FILES` (`selfcheck.js` is there too, so the self-check matches the saved app). When you **ship any change**, add an entry at the top of `CHANGELOG` in `version.js`
 (`x.y.z`: the app looks or works differently . something new . fixes only), written for users in plain words and
 kept short: `{ v, date, items }`, no title, what is new in five short lines at most, and all the fixes as one line,
-"Bug fixes" (the self-check enforces this). "What's new" shows each as "Version x.y.z", the date (the first one with "on this
+"Bug fixes" (the self-check enforces this). The owner wants it easy to digest: a fix is never described, not even
+one users would notice ("a stay keeps its icon", "times are closer to the real ones"), and a fixes-only version
+says just "Bug fixes". "What's new" shows each as "Version x.y.z", the date (the first one with "on this
 device"), the lines; only the latest five show until "Earlier versions" is tapped.
 `APP_VERSION` is that first entry. `sw.js` imports it for its cache name (`trip-planner-v1.2.3`), which is how
 installed phones pick up the new version. Settings → About → "What's new" lists every entry (`openChangelog`), and
