@@ -124,9 +124,9 @@ function nowCardHTML(trip) {
   const n = nowNext(trip);
   if (!n) return '';
   if (n.done) {
-    return `<section class="now-card" id="now-card"><p class="now-label">${icon('check')}Today</p>
-      <p class="now-title">All of today’s plans are done.</p>
-      <div class="now-actions"><button type="button" class="assist-chip ripple" data-action="near-me">${icon('my_location')}What’s near me</button></div></section>`;
+    return `<section class="now-card" id="now-card"><p class="now-label">${icon('check')}${T('Today')}</p>
+      <p class="now-title">${T('All of today’s plans are done.')}</p>
+      <div class="now-actions"><button type="button" class="assist-chip ripple" data-action="near-me">${icon('my_location')}${T('What’s near me')}</button></div></section>`;
   }
   const line = (label, it, sub) => `
     <div class="now-row">
@@ -138,17 +138,17 @@ function nowCardHTML(trip) {
   if (n.next && n.leave && n.leave.trip) {
     const late = n.leave.at !== null && n.leave.at <= n.now;
     leaveText = n.leave.at === null ? `${icon(n.leave.trip.icon)}${esc(n.leave.trip.text)}`
-      : late ? `<span class="now-late">${icon(n.leave.trip.icon)}Leave now · ${esc(n.leave.trip.text)}</span>`
-      : `${icon(n.leave.trip.icon)}Leave by <b>${esc(minutesText(n.leave.at))}</b> · ${esc(n.leave.trip.text)}`;
+      : late ? `<span class="now-late">${icon(n.leave.trip.icon)}${T('Leave now')} · ${esc(n.leave.trip.text)}</span>`
+      : `${icon(n.leave.trip.icon)}${T('Leave by {time}', { time: `<b>${esc(minutesText(n.leave.at))}</b>` })} · ${esc(n.leave.trip.text)}`;
   }
   const mode = n.leave && n.leave.trip ? n.leave.trip.mode : 'transit';
   return `
-    <section class="now-card" id="now-card" aria-label="Now and next">
-      ${n.current ? line(`${icon('navigation')}Now`, n.current, '') : ''}
-      ${n.next ? line(`${icon('schedule')}Next`, n.next, leaveText) : ''}
+    <section class="now-card" id="now-card" aria-label="${T('Now and next')}">
+      ${n.current ? line(`${icon('navigation')}${T('Now')}`, n.current, '') : ''}
+      ${n.next ? line(`${icon('schedule')}${T('Next')}`, n.next, leaveText) : ''}
       <div class="now-actions">
-        ${n.next && n.leave ? `<a class="assist-chip ripple" href="https://www.google.com/maps/dir/?api=1&destination=${n.leave.to.lat},${n.leave.to.lng}&travelmode=${mode}" target="_blank" rel="noopener">${icon('directions')}Directions</a>` : ''}
-        <button type="button" class="assist-chip ripple" data-action="near-me">${icon('my_location')}What’s near me</button>
+        ${n.next && n.leave ? `<a class="assist-chip ripple" href="https://www.google.com/maps/dir/?api=1&destination=${n.leave.to.lat},${n.leave.to.lng}&travelmode=${mode}" target="_blank" rel="noopener">${icon('directions')}${T('Directions')}</a>` : ''}
+        <button type="button" class="assist-chip ripple" data-action="near-me">${icon('my_location')}${T('What’s near me')}</button>
       </div>
     </section>`;
 }
@@ -171,7 +171,7 @@ function openNearMe() {
   near.error = '';
   if (!$('#near-dialog').open) $('#near-dialog').showModal();     // "Try again" is tapped inside the open sheet
   renderNearMe();
-  if (!navigator.geolocation) { near.status = 'error'; near.error = 'This device’s browser can’t share its location.'; renderNearMe(); return; }
+  if (!navigator.geolocation) { near.status = 'error'; near.error = T('This device’s browser can’t share its location.'); renderNearMe(); return; }
   navigator.geolocation.getCurrentPosition((p) => {
     near.pos = { lat: p.coords.latitude, lng: p.coords.longitude };
     near.status = 'ready';
@@ -179,8 +179,8 @@ function openNearMe() {
   }, (err) => {
     near.status = 'error';
     near.error = err.code === 1
-      ? 'Location is blocked for this app. Allow it for this site in your browser’s settings (on an iPhone: Settings → Privacy → Location Services), then try again.'
-      : 'Couldn’t find where you are. Check that location is on, then try again.';
+      ? T('Location is blocked for this app. Allow it for this site in your browser’s settings (on an iPhone: Settings → Privacy → Location Services), then try again.')
+      : T('Couldn’t find where you are. Check that location is on, then try again.');
     renderNearMe();
   }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
 }
@@ -200,18 +200,18 @@ function renderNearMe() {
   const body = $('#near-body');
   if (!trip) return;
   const guide = guideFor(trip);
-  if (near.status === 'locating') { body.innerHTML = `<p class="guide-note">${icon('my_location')}Finding where you are…</p>`; return; }
+  if (near.status === 'locating') { body.innerHTML = `<p class="guide-note">${icon('my_location')}${T('Finding where you are…')}</p>`; return; }
   if (near.status === 'error') {
-    body.innerHTML = emptyState('location_off', 'No location', esc(near.error),
-      `<button type="button" class="btn tonal ripple" data-action="near-me">${icon('restart_alt')}Try again</button>`);
+    body.innerHTML = emptyState('location_off', T('No location'), esc(near.error),
+      `<button type="button" class="btn tonal ripple" data-action="near-me">${icon('restart_alt')}${T('Try again')}</button>`);
     return;
   }
-  if (!guide) { body.innerHTML = emptyState('travel_explore', 'No guide yet', `The guide for ${esc(trip.name)} isn’t ready. Open the trip while online first.`); return; }
+  if (!guide) { body.innerHTML = emptyState('travel_explore', T('No guide yet'), T('The guide for {trip} isn’t ready. Open the trip while online first.', { trip: esc(trip.name) })); return; }
   const here = near.pos;
   const ranked = guide.places.map(p => ({ p, d: miles(here, p) })).sort((a, b) => a.d - b.d);
   if (!ranked.length || ranked[0].d > 30) {
-    body.innerHTML = emptyState('my_location', `You’re ${ranked.length ? fmtDist(ranked[0].d) : 'far'} from ${esc(guide.city)}`,
-      'This shows places around you once you’re there.');
+    body.innerHTML = emptyState('my_location', ranked.length ? T('You’re {dist} from {place}', { dist: fmtDist(ranked[0].d), place: esc(guide.city) }) : T('You’re far from {place}', { place: esc(guide.city) }),
+      T('This shows places around you once you’re there.'));
     return;
   }
   const mode = modeFor(trip, todayISO());
@@ -221,7 +221,7 @@ function renderNearMe() {
     .sort((a, b) => (a.open === false) - (b.open === false) || a.d - b.d);
   const day = trip.start && todayISO() >= trip.start && todayISO() <= trip.end ? todayISO() : '';
   body.innerHTML = `
-    <p class="supporting">${close.length >= 5 ? `Within ${fmtDist(1.5)}` : 'Closest to you'}, from the ${esc(guide.city)} guide. Tap one for more.</p>
+    <p class="supporting">${close.length >= 5 ? T('Within {dist}, from the {place} guide. Tap one for more.', { dist: fmtDist(1.5), place: esc(guide.city) }) : T('Closest to you, from the {place} guide. Tap one for more.', { place: esc(guide.city) })}</p>
     <ul class="group">${list.map(({ p, d, open }) => {
       const cat = CATEGORIES[p.cat] || CATEGORIES.other;
       const t = travel(d, mode);
@@ -232,8 +232,8 @@ function renderNearMe() {
             <span class="item-text">
               <span class="overline">${esc([fmtDist(d), t.text].join(' · '))}</span>
               <span class="item-title">${esc(p.name)}</span>
-              ${open === true ? `<span class="item-hours">${icon('schedule')}Open now</span>` : ''}
-              ${open === false ? `<span class="item-hours warn">${icon('event_busy')}Closed now</span>` : ''}
+              ${open === true ? `<span class="item-hours">${icon('schedule')}${T('Open now')}</span>` : ''}
+              ${open === false ? `<span class="item-hours warn">${icon('event_busy')}${T('Closed now')}</span>` : ''}
               <span class="item-notes">${esc(p.blurb)}</span>
             </span>
           </button>

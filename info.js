@@ -116,55 +116,55 @@ function renderPlanInfo() {
   const why = p ? (p.about || p.blurb) : '';
   const site = safeUrl((p && p.url) || item.link);
   const facts = factsHTML([
-    ['Usual hours', p && p.hours],
-    ['Price', p && p.price],
-    ['Getting there', p && p.tip],
-    ['Time to allow', p && p.mins < 360 ? fmtDuration(p.mins) : ''],
-    ['Your notes', item.notes],
+    [T('Usual hours'), p && p.hours],
+    [T('Price'), p && p.price],
+    [T('Getting there'), p && p.tip],
+    [T('Time to allow'), p && p.mins < 360 ? fmtDuration(p.mins) : ''],
+    [T('Your notes'), item.notes],
   ]);
   const photos = [p && p.photo, wiki && wiki.img].filter((src, k, all) => src && all.indexOf(src) === k);
 
   $('#place-body').innerHTML = `
-    ${photos.map(src => `<figure class="pi-figure">${photoImg({ photo: src }, 'pi-photo').replace(' loading="lazy"', '')}<figcaption>Photo: Wikimedia Commons</figcaption></figure>`).join('')}
+    ${photos.map(src => `<figure class="pi-figure">${photoImg({ photo: src }, 'pi-photo').replace(' loading="lazy"', '')}<figcaption>${T('Photo: Wikimedia Commons')}</figcaption></figure>`).join('')}
     <div class="pi-head">
       <span class="avatar" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}</span>
       <div class="pi-heading">
         <p class="overline">${esc(over)}</p>
         <h2 tabindex="-1" autofocus>${esc(item.title)}</h2>
       </div>
-      <button type="button" class="icon-btn ripple" data-close aria-label="Close">${icon('close')}</button>
+      <button type="button" class="icon-btn ripple" data-close aria-label="${T('Close')}">${icon('close')}</button>
     </div>
     ${item.place && norm(item.place) !== norm(item.title) ? `<p class="pi-hours">${icon('location_on')}<span>${esc(item.place)}</span></p>` : ''}
-    ${note ? `<p class="pi-hours ${note.warn ? 'warn' : ''}">${icon(note.warn ? 'event_busy' : 'schedule')}<span>${esc(note.text)}${item.date ? ` on ${esc(fmtDay(item.date, { weekday: 'long' }))}` : ''}</span></p>` : ''}
+    ${note ? `<p class="pi-hours ${note.warn ? 'warn' : ''}">${icon(note.warn ? 'event_busy' : 'schedule')}<span>${esc(note.text)}${item.date ? ` ${T('on {day}', { day: esc(fmtDay(item.date, { weekday: 'long' })) })}` : ''}</span></p>` : ''}
     ${wiki && wiki.text ? `
       <section class="tip">
-        <h3>${icon('info')}What it is</h3>
+        <h3>${icon('info')}${T('What it is')}</h3>
         <p>${esc(wiki.text)}</p>
-        <div class="tip-links">${safeUrl(wiki.url) ? `<a class="assist-chip ripple" href="${esc(safeUrl(wiki.url))}" target="_blank" rel="noopener">${icon('open_in_new')}Wikipedia: ${esc(wiki.title)}</a>` : ''}</div>
+        <div class="tip-links">${safeUrl(wiki.url) ? `<a class="assist-chip ripple" href="${esc(safeUrl(wiki.url))}" target="_blank" rel="noopener">${icon('open_in_new')}${T('Wikipedia: {title}', { title: esc(wiki.title) })}</a>` : ''}</div>
       </section>` : ''}
     ${why ? `
       <section class="tip">
-        <h3>${icon('auto_awesome')}Why go</h3>
+        <h3>${icon('auto_awesome')}${T('Why go')}</h3>
         <p>${esc(why)}</p>
-        <div class="tip-links">${guide.sourceUrl && !p.local ? `<a class="assist-chip ripple" href="${esc(guide.sourceUrl)}" target="_blank" rel="noopener">${icon('open_in_new')}${esc(guide.source)} travel guide</a>` : ''}</div>
+        <div class="tip-links">${guide.sourceUrl && !p.local ? `<a class="assist-chip ripple" href="${esc(guide.sourceUrl)}" target="_blank" rel="noopener">${icon('open_in_new')}${T('{source} travel guide', { source: esc(guide.source) })}</a>` : ''}</div>
       </section>` : ''}
     ${facts ? `
       <section class="tip">
-        <h3>${icon('schedule')}Know before you go</h3>
+        <h3>${icon('schedule')}${T('Know before you go')}</h3>
         ${facts}
-        <p class="pi-small">Hours and prices change — check before you go.</p>
+        <p class="pi-small">${T('Hours and prices change — check before you go.')}</p>
       </section>` : ''}
-    ${looking ? `<p class="guide-note" role="status">${icon('travel_explore')}Looking it up…</p>` : ''}
+    ${looking ? `<p class="guide-note" role="status">${icon('travel_explore')}${T('Looking it up…')}</p>` : ''}
     ${!looking && !(wiki && wiki.text) && !why && !facts ? `<p class="supporting">${navigator.onLine
-      ? 'Nothing found about this place. A fuller name or address on the plan can help.'
-      : 'You’re offline. Open this once while online, and it is saved for later.'}</p>` : ''}
+      ? T('Nothing found about this place. A fuller name or address on the plan can help.')
+      : T('You’re offline. Open this once while online, and it is saved for later.')}</p>` : ''}
     <div class="pi-links">
-      ${item.place ? `<a class="assist-chip ripple" href="${esc(mapsUrl(item.place, trip, c, item.title))}" target="_blank" rel="noopener">${icon('location_on')}Directions</a>` : ''}
+      ${item.place ? `<a class="assist-chip ripple" href="${esc(mapsUrl(item.place, trip, c, item.title))}" target="_blank" rel="noopener">${icon('location_on')}${T('Directions')}</a>` : ''}
       ${site ? `<a class="assist-chip ripple" href="${esc(site)}" target="_blank" rel="noopener">${icon('link')}${esc(hostLabel(site))}</a>` : ''}
     </div>
     <div class="sheet-actions">
       <span class="spacer"></span>
-      <button type="button" class="btn tonal ripple" data-action="plan-edit">${icon('edit')}Edit plan</button>
+      <button type="button" class="btn tonal ripple" data-action="plan-edit">${icon('edit')}${T('Edit plan')}</button>
     </div>`;
 }
 

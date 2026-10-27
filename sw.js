@@ -12,6 +12,8 @@ const FILES = [
   'styles.css',
   'theme.js',
   'version.js',
+  'i18n.js',
+  'lang/fr.js',
   'app.js',
   'firebase-config.js',
   'places.js',

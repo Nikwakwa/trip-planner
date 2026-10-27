@@ -62,6 +62,8 @@ function tripContext(trip) {
   lines.push(`Getting around: ${TRAVEL_MODES[trip.travel || 'transit'].label} (short distances on foot)`
     + `${own.length ? `, except ${own.join('; ')}` : ''}. Plan travel times for that.`);
   lines.push(`Use ${imperial() ? 'miles and °F' : 'kilometres and °C'} when you mention distances or temperatures.`);
+  // The app's language (i18n.js): the answer and the new plans read like the rest of the app.
+  if (LANG !== 'en') lines.push(`The app is shown in ${LANGS[LANG]}: write "reply", and the titles and notes of the plans you add, in that language, unless the user writes in another one. Keep the names of travel guide places as they are.`);
 
   const plans = trip.items.map((i) => {
     const note = hoursNote(i, guide);
@@ -293,12 +295,12 @@ Answer false for anything a traveller can normally walk into or buy a ticket for
 has queues or uses timed entry: most museums, aquariums, zoos, parks, churches, streets, markets, neighborhoods, ordinary
 restaurants. Answer false when you are not sure, or when you don't recognize the place.
 "why" is a short reason of at most 8 words when true (like "Crown tickets sell out months ahead", or
-"Game tickets are sold ahead"), and "" when false.`;
+"Game tickets are sold ahead"), and "" when false.${LANG !== 'en' ? ` Write "why" in ${LANGS[LANG]}.` : ''}`;
 const BOOKING_VERSION = 2;      // raise it when the rules change: the answers kept on devices are asked again
 
 ai.saved.booking = ai.saved.booking || {};
 const bookingCheck = { busy: false, retryAt: 0 };
-const bookingKey = (item, trip) => norm(`${item.title} | ${placeLabel(trip)}`).slice(0, 200);
+const bookingKey = (item, trip) => norm(`${item.title} | ${placeLabel(trip)}`).slice(0, 200) + (LANG === 'en' ? '' : `|${LANG}`);
 const sellsOut = (item, trip) => {
   const had = ai.saved.booking[bookingKey(item, trip)];
   return had && had.v === BOOKING_VERSION ? had : null;
@@ -379,7 +381,7 @@ function checkChanges(trip, changes) {
     } else if (c.action === 'update' || c.action === 'delete') {
       const item = trip.items.find(i => i.id === c.id);
       if (!item) continue;
-      if (c.action === 'delete') { out.push({ kind: 'delete', item, icon: 'delete', text: `Remove: ${item.title}` }); continue; }
+      if (c.action === 'delete') { out.push({ kind: 'delete', item, icon: 'delete', text: T('Remove: {name}', { name: item.title }) }); continue; }
       const patch = {};
       if ('title' in c && aiText(c.title, 120)) patch.title = aiText(c.title, 120);
       if ('category' in c && CATEGORIES[c.category]) patch.category = c.category;
@@ -395,19 +397,19 @@ function checkChanges(trip, changes) {
       const moved = 'date' in patch || 'time' in patch;
       out.push({
         kind: 'update', item, patch, icon: moved ? 'schedule' : 'edit',
-        text: moved ? `Move: ${item.title} → ${after.date ? whenText(after).replace(/ · $/, '') : 'ideas'}` : `Change: ${after.title}`,
+        text: moved ? T('Move: {name} → {when}', { name: item.title, when: after.date ? whenText(after).replace(/ · $/, '') : T('ideas') }) : T('Change: {name}', { name: after.title }),
       });
     } else if (c.action === 'set_dates' && aiIsDate(c.start) && aiIsDate(c.end)) {
       const [start, end] = c.start <= c.end ? [c.start, c.end] : [c.end, c.start];
       if (start === trip.start && end === trip.end) continue;
-      out.push({ kind: 'dates', start, end, icon: 'calendar_month', text: `Trip dates: ${fmtDay(start)} – ${fmtDay(end)}` });
+      out.push({ kind: 'dates', start, end, icon: 'calendar_month', text: T('Trip dates: {start} – {end}', { start: fmtDay(start), end: fmtDay(end) }) });
     }
   }
   return out;
 }
 
 function whenText(item) {
-  if (!item.date) return 'Idea: ';
+  if (!item.date) return T('Idea:') + ' ';
   return `${fmtDay(item.date)}${item.time ? ' ' + fmtTime(item.time) : ''} · `;
 }
 
@@ -432,7 +434,7 @@ function applyProposal(trip, msg) {
   save();
   render();
   renderChat();
-  snackbar(`Applied ${plural(checked.length, 'change')}`, 'Undo', () => {
+  snackbar(Tn(checked.length, 'Applied {n} change', 'Applied {n} changes'), T('Undo'), () => {
     trip.start = before.start;
     trip.end = before.end;
     trip.items = before.items;
@@ -447,22 +449,22 @@ function applyProposal(trip, msg) {
 /* ---------- The chat sheet ---------- */
 
 const AI_STARTERS = [
-  'Plan my first day',
-  'Fill my free days with ideas from the guide',
-  'What should I not miss?',
-  'Make a rainy-day plan',
+  T('Plan my first day'),
+  T('Fill my free days with ideas from the guide'),
+  T('What should I not miss?'),
+  T('Make a rainy-day plan'),
 ];
 
 function aiErrorText(e) {
-  if (!navigator.onLine) return 'You’re offline. The assistant needs a connection.';
+  if (!navigator.onLine) return T('You’re offline. The assistant needs a connection.');
   return {
-    setup: 'The assistant isn’t switched on in Firebase yet — see “AI assistant” in the README.',
+    setup: T('The assistant isn’t switched on in Firebase yet — see “AI assistant” in the README.'),
     // After one refusal Firebase stops asking for a day, until the app is started again.
-    appcheck: 'Google couldn’t confirm that this is the app (App Check). Close the app completely, open it again, then retry. If it stays, see “AI assistant” in the README.',
-    daily: 'Today’s free Gemini allowance is used up. Try again tomorrow, or use another AI app below.',
-    busy: 'Gemini is busy right now. Wait a minute and try again.',
-    format: 'The answer couldn’t be read. Try asking again in other words.',
-  }[e && e.kind] || 'Something went wrong. Try again in a moment.';
+    appcheck: T('Google couldn’t confirm that this is the app (App Check). Close the app completely, open it again, then retry. If it stays, see “AI assistant” in the README.'),
+    daily: T('Today’s free Gemini allowance is used up. Try again tomorrow, or use another AI app below.'),
+    busy: T('Gemini is busy right now. Wait a minute and try again.'),
+    format: T('The answer couldn’t be read. Try asking again in other words.'),
+  }[e && e.kind] || T('Something went wrong. Try again in a moment.');
 }
 
 function messageHTML(trip, m, index) {
@@ -474,13 +476,13 @@ function messageHTML(trip, m, index) {
       ${m.text ? `<p>${esc(m.text)}</p>` : ''}
       ${m.changes && m.changes.length ? `
         <div class="proposal ${m.status || ''}">
-          <p class="proposal-head">${icon('auto_awesome')}${m.status === 'applied' ? 'Applied' : m.status === 'dismissed' ? 'Not applied' : m.status === 'undone' ? 'Undone' : `${plural(checked.length, 'change')} to your plan`}</p>
+          <p class="proposal-head">${icon('auto_awesome')}${m.status === 'applied' ? T('Applied') : m.status === 'dismissed' ? T('Not applied') : m.status === 'undone' ? T('Undone') : Tn(checked.length, '{n} change to your plan', '{n} changes to your plan')}</p>
           ${checked.length || m.status ? `<ul>${(checked.length ? checked : m.changes.map(c => ({ icon: 'edit', text: c.title || c.action }))).map(c => `<li>${icon(c.icon)}<span>${esc(c.text)}</span></li>`).join('')}</ul>`
-            : '<p class="proposal-none">These changes no longer fit the trip.</p>'}
+            : `<p class="proposal-none">${T('These changes no longer fit the trip.')}</p>`}
           ${pending ? `
             <div class="proposal-actions">
-              <button type="button" class="btn text ripple" data-action="ai-dismiss" data-msg="${index}">No thanks</button>
-              <button type="button" class="btn filled ripple" data-action="ai-apply" data-msg="${index}">${icon('check')}Apply</button>
+              <button type="button" class="btn text ripple" data-action="ai-dismiss" data-msg="${index}">${T('No thanks')}</button>
+              <button type="button" class="btn filled ripple" data-action="ai-apply" data-msg="${index}">${icon('check')}${T('Apply')}</button>
             </div>` : ''}
         </div>` : ''}
       ${m.model ? `<p class="msg-model">${esc(m.model)}</p>` : ''}
@@ -494,35 +496,35 @@ function renderChat() {
   if (!trip) { dlg.close(); return; }
   const chat = chatOf(trip);
   const lite = ai.saved.liteDay === todayISO();
-  $('#ai-sub').textContent = !aiReady() ? 'Use another AI app (below)'
-    : lite ? 'Gemini · lighter model until tomorrow (today’s free allowance is used up)'
-    : 'Gemini · free';
+  $('#ai-sub').textContent = !aiReady() ? T('Use another AI app (below)')
+    : lite ? T('Gemini · lighter model until tomorrow (today’s free allowance is used up)')
+    : T('Gemini · free');
 
   const body = $('#ai-body');
   body.innerHTML = `
-    ${aiReady() ? `<p class="ai-notice">${icon('info')}<span>This chat uses Google Gemini’s free service. Google may use what you send, including your trip details, to improve its AI, so leave out anything private.</span></p>` : ''}
+    ${aiReady() ? `<p class="ai-notice">${icon('info')}<span>${T('This chat uses Google Gemini’s free service. Google may use what you send, including your trip details, to improve its AI, so leave out anything private.')}</span></p>` : ''}
     ${chat.length ? '' : `
       <div class="ai-intro">
-        <p>Ask me to plan days, suggest places, or change your plans in ${esc(trip.name)}. I’ll show you the changes first — nothing changes until you tap <b>Apply</b>.</p>
+        <p>${T('Ask me to plan days, suggest places, or change your plans in {trip}. I’ll show you the changes first — nothing changes until you tap <b>Apply</b>.', { trip: esc(trip.name) })}</p>
         <div class="ai-starters">${AI_STARTERS.map(s => `<button type="button" class="filter-chip ripple" data-action="ai-starter">${esc(s)}</button>`).join('')}
-          <button type="button" class="filter-chip ripple" data-action="ai-booking">${icon('confirmation_number')}Add from a booking email</button></div>
+          <button type="button" class="filter-chip ripple" data-action="ai-booking">${icon('confirmation_number')}${T('Add from a booking email')}</button></div>
       </div>`}
     ${chat.map((m, i) => messageHTML(trip, m, i)).join('')}
-    ${ai.busy ? `<div class="msg ai thinking"><p>${icon('auto_awesome')}Thinking…</p></div>` : ''}
+    ${ai.busy ? `<div class="msg ai thinking"><p>${icon('auto_awesome')}${T('Thinking…')}</p></div>` : ''}
     ${ai.error ? `<p class="ai-error" role="alert">${icon('error')}<span>${esc(ai.error)}</span></p>` : ''}
     <div class="ai-paste" ${ai.paste ? '' : 'hidden'}>
-      <p class="ai-paste-title">${icon('content_copy')}Use another AI app</p>
+      <p class="ai-paste-title">${icon('content_copy')}${T('Use another AI app')}</p>
       <ol>
-        <li>Type your request below, then
-          <button type="button" class="btn tonal sm ripple" data-action="ai-copy">${icon('content_copy')}Copy request</button></li>
-        <li>Paste it into your AI app (any chatbot), and copy its whole answer.</li>
-        <li>Paste the answer here:
-          <textarea id="ai-answer" rows="3" placeholder="Paste the answer…"></textarea>
-          <button type="button" class="btn tonal sm ripple" data-action="ai-read">${icon('check')}Read answer</button></li>
+        <li>${T('Type your request below, then')}
+          <button type="button" class="btn tonal sm ripple" data-action="ai-copy">${icon('content_copy')}${T('Copy request')}</button></li>
+        <li>${T('Paste it into your AI app (any chatbot), and copy its whole answer.')}</li>
+        <li>${T('Paste the answer here:')}
+          <textarea id="ai-answer" rows="3" placeholder="${T('Paste the answer…')}"></textarea>
+          <button type="button" class="btn tonal sm ripple" data-action="ai-read">${icon('check')}${T('Read answer')}</button></li>
       </ol>
     </div>
     <div class="ai-bottom">
-      <button type="button" class="btn text ripple ai-paste-toggle" data-action="ai-paste">${ai.paste ? 'Hide' : 'Use another AI app instead'}</button>
+      <button type="button" class="btn text ripple ai-paste-toggle" data-action="ai-paste">${ai.paste ? T('Hide') : T('Use another AI app instead')}</button>
     </div>`;
   $('#ai-send').disabled = ai.busy || !aiReady() || !navigator.onLine;
   requestAnimationFrame(() => { body.scrollTop = body.scrollHeight; });
@@ -582,10 +584,10 @@ document.addEventListener('click', async (e) => {
     case 'ai-booking': {
       // The user pastes the confirmation after this line, then sends.
       const input = $('#ai-input');
-      input.value = 'Add this booking to my trip:\n\n';
+      input.value = T('Add this booking to my trip:') + '\n\n';
       input.focus();
       input.setSelectionRange(input.value.length, input.value.length);
-      snackbar('Now paste the confirmation email, then send');
+      snackbar(T('Now paste the confirmation email, then send'));
       break;
     }
     case 'ai-starter':
@@ -605,14 +607,14 @@ document.addEventListener('click', async (e) => {
       break;
     case 'ai-copy': {
       const text = $('#ai-input').value.trim();
-      if (!text) { ai.error = 'Type your request in the box below first.'; renderChat(); $('#ai-input').focus(); break; }
+      if (!text) { ai.error = T('Type your request in the box below first.'); renderChat(); $('#ai-input').focus(); break; }
       try {
         await navigator.clipboard.writeText(requestForOtherApp(trip, text));
         ai.pending = text;
         ai.error = '';
-        snackbar('Request copied — paste it into your AI app');
+        snackbar(T('Request copied — paste it into your AI app'));
       } catch {
-        ai.error = 'Couldn’t copy. Try again.';
+        ai.error = T('Couldn’t copy. Try again.');
       }
       renderChat();
       break;
@@ -624,12 +626,12 @@ document.addEventListener('click', async (e) => {
         const answer = parseAnswer(pasted);
         const asked = ai.pending || $('#ai-input').value.trim();
         if (asked) chat.push({ role: 'user', text: asked });
-        chat.push({ role: 'model', text: answer.text, changes: answer.changes, model: 'From another AI app' });
+        chat.push({ role: 'model', text: answer.text, changes: answer.changes, model: T('From another AI app') });
         ai.pending = '';
         ai.error = '';
         $('#ai-input').value = '';
       } catch (err) {
-        ai.error = 'That doesn’t look like the answer. Copy the whole answer, including the part between ``` marks.';
+        ai.error = T('That doesn’t look like the answer. Copy the whole answer, including the part between ``` marks.');
       }
       saveAI();
       renderChat();
@@ -677,8 +679,8 @@ document.getElementById('ai-mic').addEventListener('click', () => {
     input.value = voice.before + said;
   };
   rec.onerror = (e) => {
-    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') snackbar('Microphone is blocked for this app — allow it in Chrome’s site settings');
-    else if (e.error === 'network') snackbar('Speaking needs a connection');
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') snackbar(T('Microphone is blocked for this app — allow it in Chrome’s site settings'));
+    else if (e.error === 'network') snackbar(T('Speaking needs a connection'));
   };
   rec.onend = () => {
     voice.rec = null;

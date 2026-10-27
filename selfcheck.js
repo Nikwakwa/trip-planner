@@ -8,7 +8,14 @@
    It works on made-up plans: the real ones are set aside while it runs and nothing is saved.
    ========================================================= */
 
+// The checks expect the app's English texts: they run in English, whatever language the app is in.
 function runSelfCheck() {
+  const lang = LANG;
+  LANG = 'en';
+  try { return runChecks(); } finally { LANG = lang; }
+}
+
+function runChecks() {
   const results = [];
   let group = '';
   // A check passes when it returns true. Anything else (or an error) is shown as what went wrong.
@@ -704,6 +711,64 @@ function runSelfCheck() {
       ['Tap an idea to vote for it', '1 vote saved', '3 votes saved', '2 votes kept for when you’re online']));
   check('The app’s own proposals each have a name, a text and an id of their own', () =>
     (FEATURE_IDEAS.every(f => isId(f.id) && f.title && f.text) && new Set(FEATURE_IDEAS.map(f => f.id)).size === FEATURE_IDEAS.length) || 'a proposal is not filled in right');
+
+  /* ---------- Languages (i18n.js, lang/…) ---------- */
+  group = 'Languages';
+  const inLang = (lang, fn) => { const was = LANG; LANG = lang; try { return fn(); } finally { LANG = was; } };
+  check('A text gets its names filled in, and stays in English when it has no translation', () =>
+    same(inLang('fr', () => [T('Day {n}', { n: 3 }), T('Not a text of the app {x}', { x: 1 }), T('{n} h ahead of you', {})]),
+      ['Jour 3', 'Not a text of the app 1', '{n} h d’avance sur vous']));
+  check('French says “0 activité” and “1 activité”, English “0 plans”', () =>
+    same([inLang('fr', () => [0, 1, 2].map(n => Tn(n, '{n} plan', '{n} plans'))), [0, 1, 2].map(n => Tn(n, '{n} plan', '{n} plans'))],
+      [['0 activité', '1 activité', '2 activités'], ['0 plans', '1 plan', '2 plans']]));
+  check('French writes days in French and decimals with a comma', () => sandbox(() => {
+    state = sample();
+    state.settings = { ...defaultSettings(), units: 'metric', dateOrder: 'mdy' };
+    return same(inLang('fr', () => [fmtDay('2026-05-01', { weekday: 'long', day: 'numeric', month: 'long' }), fmtDist(1), fmtDuration(90)]),
+      ['vendredi 1 mai', '1,6 km', '~1,5 h']);
+  }));
+  // The {names} and the markup (<b>, <span class="ok">) have to be the same in every language.
+  const parts = s => [...(s.match(/\{\w+\}/g) || []), ...(s.match(/<[^>]+>/g) || [])].sort().join(' ');
+  for (const [lang, dict] of Object.entries(DICTS)) {
+    check(`Every ${LANGS[lang]} text keeps the names and markup of the English one`, () => {
+      const bad = Object.entries(dict).filter(([en, text]) => typeof text !== 'string' || !text.trim() || parts(en) !== parts(text));
+      return !bad.length || 'not the same: ' + bad.slice(0, 5).map(([en]) => en).join(' | ');
+    });
+  }
+  // Every text of the app, as the code and the page have it: T('…'), Tn(n, '…', '…'), What's new, and index.html.
+  check('Every text of the app has a translation, and every translation a text', () => {
+    const read = (url) => {
+      const req = new XMLHttpRequest();
+      req.open('GET', url, false);      // waits: the checks run in one go
+      req.send();
+      if (req.status !== 200) throw new Error(`couldn’t read ${url} (offline?)`);
+      return req.responseText;
+    };
+    const texts = new Set(CHANGELOG.flatMap(c => c.items));
+    const unquote = s => s.replace(/\\(.)/g, '$1');
+    const files = [...new Set([...document.scripts].map(s => (s.getAttribute('src') || '').split('?')[0]))]
+      .filter(src => src && !/^(https?:|vendor\/|lang\/)/.test(src) && !['firebase-config.js', 'i18n.js', 'selfcheck.js'].includes(src));
+    for (const file of files) {
+      const code = read(file);
+      for (const m of code.matchAll(/\bT\(\s*'((?:[^'\\]|\\.)*)'/g)) texts.add(unquote(m[1]));
+      for (const m of code.matchAll(/\bTn\([^']*?'((?:[^'\\]|\\.)*)'\s*,\s*'((?:[^'\\]|\\.)*)'/g)) { texts.add(unquote(m[1])); texts.add(unquote(m[2])); }
+    }
+    // The page's own texts, taken as translatePage takes them.
+    const page = new DOMParser().parseFromString(read('index.html'), 'text/html');
+    const add = s => { const t = String(s || '').trim().replace(/\s+/g, ' '); if (/[a-z]{2}/i.test(t) && t !== 'https://') texts.add(t); };
+    const walk = page.createTreeWalker(page.body, NodeFilter.SHOW_TEXT);
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) if (!n.parentElement.closest('script, style')) add(n.nodeValue);
+    for (const el of page.body.querySelectorAll('[data-i18n]')) add(el.innerHTML);
+    for (const attr of ['aria-label', 'title', 'placeholder']) for (const el of page.body.querySelectorAll(`[${attr}]`)) add(el.getAttribute(attr));
+    const problems = [];
+    for (const [lang, dict] of Object.entries(DICTS)) {
+      const missing = [...texts].filter(t => !(t in dict));
+      const unused = Object.keys(dict).filter(t => !texts.has(t));
+      if (missing.length) problems.push(`${missing.length} without ${LANGS[lang]}: ${missing.slice(0, 8).join(' | ')}`);
+      if (unused.length) problems.push(`${unused.length} ${LANGS[lang]} not used: ${unused.slice(0, 8).join(' | ')}`);
+    }
+    return !problems.length || problems.join(' — ');
+  });
 
   /* ---------- Report a problem ---------- */
   group = 'Report a problem';

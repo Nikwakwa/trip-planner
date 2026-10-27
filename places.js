@@ -36,7 +36,7 @@ function placeFromPhoton(f) {
   const wide = bbox && miles({ lat: bbox[1], lng: bbox[0] }, { lat: bbox[3], lng: bbox[2] }) > 60;
   const kind = p.type === 'country' ? 'country' : (p.type === 'state' || wide) ? 'region' : 'city';
   // A city named like its country keeps the country ("Luxembourg, Luxembourg"), so it isn't mistaken for it.
-  const within = [kind === 'city' && p.country === 'United States' && p.state !== p.name ? p.state : '', kind !== 'country' ? p.country : '']
+  const within = [kind === 'city' && p.countrycode === 'US' && p.state !== p.name ? p.state : '', kind !== 'country' ? p.country : '']
     .filter(Boolean);
   return {
     name: p.name,
@@ -54,7 +54,7 @@ function placeFromPhoton(f) {
 const PLACE_RANK = { country: 0, city: 1, state: 2, region: 2, province: 2, county: 3, town: 3 };
 
 async function searchPlaces(q, signal) {
-  const params = new URLSearchParams({ q, limit: '12', lang: 'en' });
+  const params = new URLSearchParams({ q, limit: '12', lang: LANG === 'fr' ? 'fr' : 'en' });
   params.append('osm_tag', 'place');
   params.append('osm_tag', 'boundary:administrative');
   const res = await fetch('https://photon.komoot.io/api/?' + params, { signal });
@@ -86,7 +86,7 @@ async function findPlace(name) {
   }
 }
 
-const KIND_LABEL = { city: 'City', region: 'Region', country: 'Country' };
+const KIND_LABEL = { city: T('City'), region: T('Region'), country: T('Country') };
 
 /* ---------- Reading Wikivoyage pages (wikitext) ---------- */
 
@@ -443,8 +443,8 @@ function nameAreas(places, maxGroups) {
   const dayTitles = {};
   for (const g of groups) {
     const name = (g.find(p => p.cat === 'sight') || g[0]).name.replace(/\s*\([^)]*\)/g, '');
-    const label = `Around ${name}`;
-    dayTitles[label] = `Ideas for a day around ${name}`;
+    const label = T('Around {name}', { name });
+    dayTitles[label] = T('Ideas for a day around {name}', { name });
     g.forEach(p => { p.area = label; });
   }
   return { dayAreas: groups.sort((a, b) => b.length - a.length).map(g => g[0].area), dayTitles };
@@ -555,7 +555,7 @@ function listingPlaces(list, inName) {
     name: x.name,
     aliases: x.alt && x.alt.length < 50 ? [x.alt] : [],
     cat: LISTING_CAT[x.type] || 'sight',
-    area: x.area || (x.type === 'city' ? 'City' : x.type === 'vicinity' ? 'Destination' : ''),
+    area: x.area || (x.type === 'city' ? T('City') : x.type === 'vicinity' ? T('Destination') : ''),
     lat: Math.round(x.lat * 1e5) / 1e5,
     lng: Math.round(x.lng * 1e5) / 1e5,
     mins: guessMinutes(x.type, x.name),
@@ -564,7 +564,7 @@ function listingPlaces(list, inName) {
       /^\s*free\b/i.test(x.price) ? 'free' : '',
       x.type !== 'city' && RAINY.test(x.name) ? 'rainy' : '',
     ].filter(Boolean),
-    blurb: x.blurb || (x.type === 'city' ? `A destination in ${inName}.` : ''),
+    blurb: x.blurb || (x.type === 'city' ? T('A destination in {place}.', { place: inName }) : ''),
     ...(x.image ? { photo: commonsPhoto(x.image) } : x.photoUrl ? { photo: x.photoUrl } : {}),
     ...(x.hours ? { hours: x.hours } : {}),
     ...(x.about.length > x.blurb.length ? { about: x.about } : {}),

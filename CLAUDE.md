@@ -18,7 +18,7 @@ written for a non-developer owner, so keep its explanations plain-language when 
 There is no build, lint or test command. Check changes by loading the app in a browser at phone size.
 
 **Self-check before every push:** open `http://localhost:8080/?selfcheck`. It loads `selfcheck.js` (only then) and
-shows pass/fail for dates, the `tidy…` checks, backups, sync merging, shared trips, AI answers and opening hours. From the console:
+shows pass/fail for dates, the `tidy…` checks, backups, sync merging, shared trips, AI answers, opening hours and languages (every text has its French). From the console:
 `runSelfCheck().filter(r => !r.ok)`. It swaps `state` and `sync.saved` for made-up plans inside `sandbox()`, with
 saving and drawing switched off, all in one go (no `await`). When you change one of those parts, add a check.
 
@@ -58,7 +58,7 @@ Asset scripts (they download from the internet and rewrite files in the repo):
 ## Architecture
 
 **Classic scripts that share one global scope.** `index.html` loads, in this order:
-`theme.js` (in the `<head>`), then at the end of the page `version.js` → `firebase-config.js` → `places.js` → `weather.js` → `hours.js` → `essentials.js` → `mapstyle.js` → `maps.js` → `routes.js` →
+`theme.js` (in the `<head>`), then at the end of the page `version.js` → `i18n.js` → `lang/fr.js` → `firebase-config.js` → `places.js` → `weather.js` → `hours.js` → `essentials.js` → `mapstyle.js` → `maps.js` → `routes.js` →
 `drag.js` → `today.js` → `calendar.js` → `files.js` → `packing.js` → `info.js` → `assistant.js` → `vote.js` → `share.js` → `sync.js` → `app.js`. Don't use `app.js` names (`$`, `CATEGORIES`, …) at load time
 in the earlier files, only inside functions. The files are not modules. The feature files call helpers defined in `app.js` (`$`, `esc`, `icon`,
 `save`, `render`, `snackbar`, `state`, …) at runtime, which works because `app.js` loads last and the calls
@@ -136,10 +136,38 @@ localStorage `tripPlanner.guides` (up to 10). `planSuggestions` in `app.js` and 
   "Find addresses and opening hours" switch. The estimate was up to 3× too low where roads wind (the Mosel valley).
 - Distances are computed in miles. Show them with `fmtDist()`, and temperatures with `temp()`. Both follow
   `state.settings.units` (`'metric'`/`'imperial'`, per phone, defaulting from the phone's language).
-- The app is English only. Dates and times go through `fmtDay()`, `fmtTime()` and `fmtClock()`, which follow
+- Dates and times go through `fmtDay()`, `fmtTime()` and `fmtClock()`. In English they follow
   `state.settings.dateOrder` (`'dmy'`/`'mdy'`) and `state.settings.clock` (`'24'`/`'12'`), per phone, defaulting
-  from the device (`deviceFormats`). Don't call `toLocale…String(undefined, …)`: it follows the device's language.
-- User-facing text says "device", not "phone" (the app also runs on computers).
+  from the device (`deviceFormats`); in French the date is always day first (`LOCALES`, the Date choice is hidden),
+  the clock still follows the setting. Don't call `toLocale…String(undefined, …)`: it follows the device's language.
+- User-facing text says "device", not "phone" (the app also runs on computers); in French "appareil". A plan is
+  an "activité", the Plan tab "Programme", the Checklist "Liste", a stay "hébergement".
+
+**Languages (`i18n.js`, `lang/fr.js`).** English and French; built so another language is one more file.
+- Every text on screen goes through `T('English text', { name })` or `Tn(n, '{n} plan', '{n} plans', vars)`. The
+  English text is the key; `DICTS.fr` (lang/fr.js) maps it to French, and a missing one shows in English. The
+  first argument is always one plain `'…'` literal (never built from pieces, never `T(cond ? 'a' : 'b')`): the
+  self-check reads the code's files and fails on a text without a translation, or a translation no code uses.
+  Names go in through `{…}` and are put in as they are: user text still goes through `esc()` first. A French
+  text keeps the same `{names}` and markup (`<b>`, `<span class="ok">`) as the English, also checked.
+- `LANG` is picked once at startup (like theme.js): `settings.lang`, else the device's language when the app
+  has it (`deviceLang`), else English. Constants built at load time (`CATEGORIES`, `TRAVEL_MODES`,
+  `FEATURE_IDEAS`, `KIND_LABEL`…) use `T()` directly, so changing the language reloads the app
+  (Settings → Appearance → Language, action `lang`). `settings.lang` is per device, kept by "Erase everything"
+  and "Restore from backup" (`deviceMarks`).
+- index.html's own texts and its `aria-label`/`title`/`placeholder` are swapped once at startup
+  (`translatePage`); an element with markup inside a text needs `data-i18n` (none does yet).
+- "What's new" items are translated at display (`T(t)`): a new `CHANGELOG` line needs its French in lang/fr.js.
+- `fmtNum` writes decimals with a comma in French (`fmtDist`, `fmtDuration`). French plurals: 0 and 1 are
+  singular (`Intl.PluralRules`). lang/fr.js turns the space before `? ! : ; % »` into a non-breaking one.
+- What stays English on purpose: guide content (Wikivoyage, the Wikipedia "What it is", read in English because
+  guide place names are English: fr.wikipedia matched the wrong articles), "Report a problem" details (for the
+  owner; they say the app's language), the self-check (it switches `LANG` to English while it runs).
+- Language-aware outside calls: Photon place search (`lang`), Wikidata labels in Essentials (`factsLang`; saved
+  essentials carry `lang` and are fetched again in the other language), the AI Assistant (a line in
+  `tripContext` asks for replies and new plan titles in that language; booking answers are kept per language).
+  Packing suggestions match the checklist in both languages: each suggestion's French text must match its own
+  pattern (packing.js), or it keeps being suggested after it was added.
 
 **Maps (`maps.js`).** Leaflet (vendored) is loaded on first use. Addresses are looked up with
 Nominatim (`lookupMissing`); a house number on "Fifth Avenue" is asked as "5th Avenue" (`numbered`: with the word,
@@ -328,7 +356,7 @@ and `loadMapStyle` gives up after 8 seconds: a weak connection must not leave th
   they would run with the app's own access.
 - "Erase everything" also clears what is only on the device (`eraseDeviceData`). Add any new `tripPlanner.*` key there.
 - "Erase everything" and "Restore from backup" replace `state`, settings included. What says "this device already
-  did that" (`deviceMarks`: `geoRetry`, `seenVersion`) is carried over, or the one-time repairs at startup run again.
+  did that" (`deviceMarks`: `geoRetry`, `seenVersion`, and the language) is carried over, or the one-time repairs at startup run again.
   Add any new marker of that kind there.
 
 **Desktop layout (`styles.css`, end of file).** There is one codebase, and the layout switches by window width.
@@ -375,7 +403,7 @@ Phone styles are the default. Add desktop overrides in the media blocks at the e
   first when their form changed since it opened (`draftStart`, called by their open functions). Esc is caught on
   `keydown`: the browser lets a page stop the dialog's `cancel` only once per tap or key typed.
 - Suggestion cards all start with `.s-photo`: the photo, over the type's color and icon when there is none.
-- Settings: "Appearance" is the four choices (`.row.pick`: Theme, Units, Date, Time); the switches that fetch or
+- Settings: "Appearance" is the choices (`.row.pick`: Language, Theme, Units, Date (English only), Time; their buttons share the width by word length); the switches that fetch or
   suggest things are under "Planning help".
 - Suggestions are open only for the "focus day" (first day from today with suggestions). Other days show a one-line
   `suggest-toggle`, and `ui.suggest[day]` remembers a manual toggle.

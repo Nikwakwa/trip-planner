@@ -265,8 +265,8 @@ function itemHours(item, guide) {
   return p && p.hours ? guideHours(p.hours) : null;
 }
 
-const fmtMins = m => (m > 0 && m % 1440 === 0 ? 'midnight' : fmtTime(`${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`));
-const rangeText = rs => rs.map(([a, b]) => (a === 0 && b >= 1440 ? 'all day' : `${fmtMins(a)} – ${fmtMins(b)}`)).join(', ');
+const fmtMins = m => (m > 0 && m % 1440 === 0 ? T('midnight') : fmtTime(`${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`));
+const rangeText = rs => rs.map(([a, b]) => (a === 0 && b >= 1440 ? T('all day') : `${fmtMins(a)} – ${fmtMins(b)}`)).join(', ');
 
 // A short line for a plan's card: a warning when closed, otherwise that day's hours.
 function hoursNote(item, guide) {
@@ -277,9 +277,9 @@ function hoursNote(item, guide) {
   if (!open.length) {
     const addDays = (k) => { const d = parseDate(item.date); d.setDate(d.getDate() + k); return toISO(d); };
     const closed = k => !hoursOn(rules, addDays(k)).length;
-    let text = 'Closed on this date — likely a holiday';
-    if ([1, 2, 3, 4, 5, 6].every(closed)) text = 'Looks closed around this date';
-    else if ([-14, -7, 7, 14].filter(closed).length >= 3) text = `Usually closed on ${fmtDay(item.date, { weekday: 'long' })}s`;
+    let text = T('Closed on this date — likely a holiday');
+    if ([1, 2, 3, 4, 5, 6].every(closed)) text = T('Looks closed around this date');
+    else if ([-14, -7, 7, 14].filter(closed).length >= 3) text = T('Usually closed on {day}s', { day: fmtDay(item.date, { weekday: 'long' }) });
     return { warn: true, text };
   }
   if (open.unknown) return null;      // open that day, but the guide's hours couldn't be read
@@ -288,8 +288,8 @@ function hoursNote(item, guide) {
     const ok = open.some(([a, b]) => (t >= a && t < b) || (t + 1440 >= a && t + 1440 < b));
     if (!ok) {
       const later = open.find(([a]) => a > t);
-      return { warn: true, text: later ? `Closed at ${fmtTime(item.time)} — opens ${fmtMins(later[0])}` : `Closed by ${fmtTime(item.time)} — open ${rangeText(open)}` };
+      return { warn: true, text: later ? T('Closed at {time} — opens {open}', { time: fmtTime(item.time), open: fmtMins(later[0]) }) : T('Closed by {time} — open {hours}', { time: fmtTime(item.time), hours: rangeText(open) }) };
     }
   }
-  return { warn: false, text: `Open ${rangeText(open)}` };
+  return { warn: false, text: T('Open {hours}', { hours: rangeText(open) }) };
 }

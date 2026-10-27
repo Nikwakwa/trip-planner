@@ -250,10 +250,10 @@ function optimizeDay(trip, day) {
     if (c) pts.set(it, c);
   }
   const located = items.filter(it => pts.has(it));
-  if (located.length < 3) return { error: 'Optimizing needs at least 3 stops on the map.' };
+  if (located.length < 3) return { error: T('Optimizing needs at least 3 stops on the map.') };
   const timed = located.filter(it => it.time);
   const free = located.filter(it => !it.time);
-  if (!free.length) return { error: 'Every stop has a set time, so the order is fixed. Clear a time to let the app move that stop.' };
+  if (!free.length) return { error: T('Every stop has a set time, so the order is fixed. Clear a time to let the app move that stop.') };
 
   // With a hotel (today.js), the day starts and ends there; the route counts both ways.
   const ends = dayEnds(trip, day, items, guide);
@@ -305,7 +305,7 @@ function optimizeDay(trip, day) {
   }
 
   const saved = length(located) - length(best);
-  if (saved < 0.02) return { error: 'This day is already in the shortest order.' };
+  if (saved < 0.02) return { error: T('This day is already in the shortest order.') };
 
   const undo = items.map(it => [it, it.slot]);
   let anchor = '00:00', n = 0;
@@ -314,7 +314,7 @@ function optimizeDay(trip, day) {
     else it.slot = `${anchor}~${String(++n).padStart(2, '0')}`;
   }
   return {
-    message: `Route optimized — ${fmtDist(saved)} less travel.`,
+    message: T('Route optimized — {dist} less travel.', { dist: fmtDist(saved) }),
     undo: () => undo.forEach(([it, slot]) => { if (slot === undefined) delete it.slot; else it.slot = slot; }),
   };
 }
@@ -324,7 +324,7 @@ function optimizeDay(trip, day) {
 function dayToolsHTML(trip, day, items, guide) {
   const located = items.filter(it => coordsOf(it, guide));
   const fill = canAutoFill(day, guide)
-    ? `<button type="button" class="assist-chip ripple" data-action="autofill" data-date="${day}">${icon('auto_awesome')}Auto-fill day</button>` : '';
+    ? `<button type="button" class="assist-chip ripple" data-action="autofill" data-date="${day}">${icon('auto_awesome')}${T('Auto-fill day')}</button>` : '';
   if (!located.length) return fill ? `<div class="day-tools">${fill}</div>` : '';
   const canOptimize = located.length >= 3 && located.some(it => !it.time);
   // With 2+ stops there are travel times: this day can get around differently from the rest of the trip.
@@ -334,12 +334,12 @@ function dayToolsHTML(trip, day, items, guide) {
   const route = withBase(trip, day, located.map(it => ({ it, c: coordsOf(it, guide) })));
   const { total, time } = routeTravel(route, modeFor(trip, day));
   return `
-    ${route.length > 1 ? `<p class="day-total">${icon('route', 'sm')}${esc(time)} of travel · ${esc(fmtDist(total))}</p>` : ''}
+    ${route.length > 1 ? `<p class="day-total">${icon('route', 'sm')}${T('{time} of travel', { time: esc(time) })} · ${esc(fmtDist(total))}</p>` : ''}
     <div class="day-tools">
-      <button type="button" class="assist-chip ripple" data-action="day-map" data-date="${day}">${icon('map')}Map</button>
-      ${canOptimize ? `<button type="button" class="assist-chip ripple" data-action="optimize" data-date="${day}">${icon('route')}Optimize route</button>` : ''}
+      <button type="button" class="assist-chip ripple" data-action="day-map" data-date="${day}">${icon('map')}${T('Map')}</button>
+      ${canOptimize ? `<button type="button" class="assist-chip ripple" data-action="optimize" data-date="${day}">${icon('route')}${T('Optimize route')}</button>` : ''}
       ${located.length >= 2 ? `<button type="button" class="assist-chip ripple ${own ? 'selected' : ''}" data-action="day-travel" data-date="${day}"
-        aria-label="Getting around this day: ${mode.label}. Tap to switch">${icon(mode.icon)}${mode.short}${own ? ' this day' : ''}</button>` : ''}
+        aria-label="${T('Getting around this day: {mode}. Tap to switch', { mode: mode.label })}">${icon(mode.icon)}${own ? T('{mode} this day', { mode: mode.short }) : mode.short}</button>` : ''}
       ${fill}
     </div>`;
 }
@@ -487,7 +487,7 @@ function syncMapDock() {
     if (moved && mapView.map) mapView.map.invalidateSize();
     drawMap(fit);
   }).catch(() => {
-    el.innerHTML = `<div class="map-empty">${icon('location_off')}The map couldn't load. Check your connection.</div>`;
+    el.innerHTML = `<div class="map-empty">${icon('location_off')}${T('The map couldn’t load. Check your connection.')}</div>`;
   });
 }
 
@@ -497,8 +497,8 @@ function renderMapPane() {
   const groups = mapGroups(trip);
   if (mapView.day === 'all') {
     const count = groups.reduce((n, g) => n + g.stops.filter(s => s.c).length, 0);
-    $('#pane-title').textContent = 'All days';
-    $('#pane-sub').textContent = count ? `${plural(count, 'stop')} · pick a day to see its route` : 'Plans with a place appear here';
+    $('#pane-title').textContent = T('All days');
+    $('#pane-sub').textContent = count ? `${Tn(count, '{n} stop', '{n} stops')} · ${T('pick a day to see its route')}` : T('Plans with a place appear here');
     $('#pane-actions').innerHTML = groups.filter(g => g.stops.some(s => s.c)).map(g => `
       <button type="button" class="assist-chip ripple" data-action="day-map" data-date="${g.day}">
         <span class="legend-dot" style="background:${g.color}"></span>${esc(fmtDay(g.day, { weekday: 'short', day: 'numeric' }))}
@@ -512,12 +512,12 @@ function renderMapPane() {
   const { total, time } = routeTravel(route, modeFor(trip, g.day));
   $('#pane-title').textContent = fmtDay(g.day, { weekday: 'long', month: 'short', day: 'numeric' });
   $('#pane-sub').textContent = route.length > 1
-    ? `${plural(located.length, 'stop')} · ${fmtDist(total)} · ${time} of travel`
-    : `${plural(located.length, 'stop')} on the map`;
+    ? `${Tn(located.length, '{n} stop', '{n} stops')} · ${fmtDist(total)} · ${T('{time} of travel', { time })}`
+    : Tn(located.length, '{n} stop on the map', '{n} stops on the map');
   $('#pane-actions').innerHTML = `
-    <button type="button" class="assist-chip ripple" data-action="trip-map">${icon('map')}All days</button>
-    ${located.length >= 3 && located.some(s => !s.it.time) ? `<button type="button" class="assist-chip ripple" data-action="optimize" data-date="${g.day}">${icon('route')}Optimize route</button>` : ''}
-    ${located.length >= 2 ? `<a class="assist-chip ripple" href="${esc(googleRouteUrl(withBase(trip, g.day, located), modeFor(trip, g.day)))}" target="_blank" rel="noopener">${icon('directions')}Google Maps</a>` : ''}`;
+    <button type="button" class="assist-chip ripple" data-action="trip-map">${icon('map')}${T('All days')}</button>
+    ${located.length >= 3 && located.some(s => !s.it.time) ? `<button type="button" class="assist-chip ripple" data-action="optimize" data-date="${g.day}">${icon('route')}${T('Optimize route')}</button>` : ''}
+    ${located.length >= 2 ? `<a class="assist-chip ripple" href="${esc(googleRouteUrl(withBase(trip, g.day, located), modeFor(trip, g.day)))}" target="_blank" rel="noopener">${icon('directions')}${T('Google Maps')}</a>` : ''}`;
 }
 
 // A pin was clicked on the docked map: show its plan in the list.
@@ -546,7 +546,7 @@ function openMap(day) {
       drawMap(true);
     }, 0);
   }).catch(() => {
-    $('#map').innerHTML = `<div class="map-empty">${icon('location_off')}The map couldn't load. Check your connection.</div>`;
+    $('#map').innerHTML = `<div class="map-empty">${icon('location_off')}${T('The map couldn’t load. Check your connection.')}</div>`;
   });
 }
 
@@ -562,8 +562,8 @@ function renderMapBody() {
 
   if (mapView.day === 'all') {
     const count = groups.reduce((n, g) => n + g.stops.filter(s => s.c).length, 0);
-    $('#map-title').textContent = `${trip.name} · All days`;
-    $('#map-sub').textContent = pending ? 'Finding places on the map…' : `${plural(count, 'stop')} on the map`;
+    $('#map-title').textContent = `${trip.name} · ${T('All days')}`;
+    $('#map-sub').textContent = pending ? T('Finding places on the map…') : Tn(count, '{n} stop on the map', '{n} stops on the map');
     $('#map-body').innerHTML = `
       <div class="legend">
         ${groups.map((g) => {
@@ -571,11 +571,11 @@ function renderMapBody() {
           const inTrip = trip.start && g.day >= trip.start && g.day <= trip.end;
           return `
           <button type="button" class="assist-chip ripple" data-action="day-map" data-date="${g.day}">
-            <span class="legend-dot" style="background:${g.color}"></span>${inTrip ? `Day ${daysBetween(trip.start, g.day) + 1} · ` : ''}${esc(fmtDay(g.day, { weekday: 'short', day: 'numeric' }))}
+            <span class="legend-dot" style="background:${g.color}"></span>${inTrip ? `${T('Day {n}', { n: daysBetween(trip.start, g.day) + 1 })} · ` : ''}${esc(fmtDay(g.day, { weekday: 'short', day: 'numeric' }))}
           </button>`;
         }).join('')}
       </div>
-      ${count ? '' : '<p class="map-hint">Add plans with a place to see them here.</p>'}`;
+      ${count ? '' : `<p class="map-hint">${T('Add plans with a place to see them here.')}</p>`}`;
     return;
   }
 
@@ -585,9 +585,9 @@ function renderMapBody() {
   const route = withBase(trip, g.day, located);
   const { total, time } = routeTravel(route, modeFor(trip, g.day));
   $('#map-title').textContent = fmtDay(g.day, { weekday: 'long', month: 'short', day: 'numeric' });
-  $('#map-sub').textContent = pending ? 'Finding places on the map…'
-    : route.length > 1 ? `${plural(located.length, 'stop')} · ${fmtDist(total)} · ${time} of travel`
-    : `${plural(located.length, 'stop')} on the map`;
+  $('#map-sub').textContent = pending ? T('Finding places on the map…')
+    : route.length > 1 ? `${Tn(located.length, '{n} stop', '{n} stops')} · ${fmtDist(total)} · ${T('{time} of travel', { time })}`
+    : Tn(located.length, '{n} stop on the map', '{n} stops on the map');
 
   const canOptimize = located.length >= 3 && located.some(s => !s.it.time);
   let n = 0;
@@ -595,20 +595,20 @@ function renderMapBody() {
     ${mapView.note ? `
       <div class="map-note" role="status">
         <span>${esc(mapView.note.text)}</span>
-        ${mapView.note.undo ? '<button type="button" class="btn text ripple" data-action="undo-optimize">Undo</button>' : ''}
+        ${mapView.note.undo ? `<button type="button" class="btn text ripple" data-action="undo-optimize">${T('Undo')}</button>` : ''}
       </div>` : ''}
     <div class="map-actions">
-      ${canOptimize ? `<button type="button" class="btn tonal ripple" data-action="optimize" data-date="${g.day}">${icon('route')}Optimize route</button>` : ''}
-      ${located.length >= 2 ? `<a class="btn filled ripple" href="${esc(googleRouteUrl(withBase(trip, g.day, located), modeFor(trip, g.day)))}" target="_blank" rel="noopener">${icon('directions')}Open in Google Maps</a>` : ''}
+      ${canOptimize ? `<button type="button" class="btn tonal ripple" data-action="optimize" data-date="${g.day}">${icon('route')}${T('Optimize route')}</button>` : ''}
+      ${located.length >= 2 ? `<a class="btn filled ripple" href="${esc(googleRouteUrl(withBase(trip, g.day, located), modeFor(trip, g.day)))}" target="_blank" rel="noopener">${icon('directions')}${T('Open in Google Maps')}</a>` : ''}
     </div>
     <ol class="stops">
       ${g.stops.map(s => {
         const sub = [s.it.time && fmtTime(s.it.time), s.it.place !== s.it.title && s.it.place].filter(Boolean).join(' · ');
         if (!s.c) {
-          const why = geoPending.has(s.it.id) ? 'Finding it on the map…'
-            : !s.it.place ? 'No address — edit the plan to add one'
-            : !state.settings.lookup ? 'Not on the map (address lookup is off)'
-            : 'Not found on the map — try a fuller address';
+          const why = geoPending.has(s.it.id) ? T('Finding it on the map…')
+            : !s.it.place ? T('No address — edit the plan to add one')
+            : !state.settings.lookup ? T('Not on the map (address lookup is off)')
+            : T('Not found on the map — try a fuller address');
           return `
             <li class="stop off"><span class="stop-num">${icon('location_off')}</span>
               <span class="stop-text"><span class="stop-title">${esc(s.it.title)}</span><span class="stop-sub">${esc(why)}</span></span></li>`;
@@ -621,7 +621,7 @@ function renderMapBody() {
           </button></li>`;
       }).join('')}
     </ol>
-    <p class="map-credit">Map data © OpenStreetMap contributors. Travel times are estimates.</p>`;
+    <p class="map-credit">${T('Map data © OpenStreetMap contributors. Travel times are estimates.')}</p>`;
 }
 
 // Light or dark map, to match the app (called when the theme changes, and whenever the map is drawn).
@@ -694,7 +694,7 @@ function drawMap(fit) {
   // The hotel on a day's map (today.js).
   // On the day of a move or a check-out, the stay being left.
   const ends = mapView.day !== 'all' ? dayEnds(trip, mapView.day, dayItems(trip, mapView.day)) : {};
-  for (const [base, what] of [[ends.start, ends.out ? 'Check out' : 'Your home base'], [ends.end, 'Your home base']]) {
+  for (const [base, what] of [[ends.start, ends.out ? T('Check out') : T('Your home base')], [ends.end, T('Your home base')]]) {
     if (!base || all.some(([la, ln]) => la === base.c.lat && ln === base.c.lng)) continue;
     L.marker([base.c.lat, base.c.lng], {
       title: base.item.title,
@@ -738,26 +738,26 @@ function runOptimize(day) {
     mapView.note = { text: result.message, undo };
     refreshMap();
   } else {
-    snackbar(result.message, 'Undo', undo, 8000);
+    snackbar(result.message, T('Undo'), undo, 8000);
   }
 }
 
 /* ---------- Share the trip as text ---------- */
 
 function tripText(trip) {
-  const lines = [trip.name + (trip.start && trip.end ? ` — ${fmtDay(trip.start)} to ${fmtDay(trip.end)}` : '')];
+  const lines = [trip.name + (trip.start && trip.end ? ' — ' + T('{start} to {end}', { start: fmtDay(trip.start), end: fmtDay(trip.end) }) : '')];
   for (const day of tripDays(trip)) {
     const items = dayItems(trip, day);
     lines.push('', fmtDay(day, { weekday: 'long', month: 'short', day: 'numeric' }));
     const leaving = trip.items.filter(i => stayUntil(i) === day);      // today.js: a stay's check-out day
-    for (const it of leaving) lines.push(`• Check out: ${it.title}`);
-    if (!items.length && !leaving.length) lines.push('• Free day');
+    for (const it of leaving) lines.push('• ' + T('Check out: {name}', { name: it.title }));
+    if (!items.length && !leaving.length) lines.push('• ' + T('Free day'));
     for (const it of items) {
       lines.push(`• ${it.time ? fmtTime(it.time) + ' ' : ''}${it.title}${it.place && it.place !== it.title ? ` (${it.place})` : ''}`);
     }
   }
   const ideas = trip.items.filter(i => !i.date);
-  if (ideas.length) lines.push('', 'Ideas', ...ideas.map(i => `• ${i.title}`));
+  if (ideas.length) lines.push('', T('Ideas'), ...ideas.map(i => `• ${i.title}`));
   return lines.join('\n');
 }
 
@@ -770,9 +770,9 @@ async function shareTrip() {
       return;
     }
     await navigator.clipboard.writeText(text);
-    snackbar('Itinerary copied — paste it anywhere');
+    snackbar(T('Itinerary copied — paste it anywhere'));
   } catch (e) {
-    if (e && e.name !== 'AbortError') snackbar("Couldn't share the itinerary");
+    if (e && e.name !== 'AbortError') snackbar(T('Couldn’t share the itinerary'));
   }
 }
 

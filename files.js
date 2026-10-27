@@ -96,7 +96,7 @@ function renderFormFiles() {
     <li class="file-row">
       ${icon(x.type === 'application/pdf' ? 'picture_as_pdf' : 'image')}
       <span class="file-name">${esc(x.name)}</span><span class="file-size">${fmtSize(x.size)}</span>
-      <button type="button" class="icon-btn ripple" data-file-remove="${esc(x.id)}" aria-label="Remove ${esc(x.name)}">${icon('close')}</button>
+      <button type="button" class="icon-btn ripple" data-file-remove="${esc(x.id)}" aria-label="${T('Remove {name}', { name: esc(x.name) })}">${icon('close')}</button>
     </li>`).join('');
 }
 
@@ -104,9 +104,9 @@ document.getElementById('file-input').addEventListener('change', async (e) => {
   const picked = [...e.target.files];
   e.target.value = '';
   for (const raw of picked) {
-    if (!SAFE_FILE.test(raw.type)) { snackbar(`${raw.name}: only photos and PDFs`); continue; }
+    if (!SAFE_FILE.test(raw.type)) { snackbar(T('{name}: only photos and PDFs', { name: raw.name })); continue; }
     const file = await shrinkImage(raw);
-    if (file.size > MAX_FILE) { snackbar(`${raw.name} is too big (max 15 MB)`); continue; }
+    if (file.size > MAX_FILE) { snackbar(T('{name} is too big (max 15 MB)', { name: raw.name })); continue; }
     tickets.form.added.push({ id: uid(), name: file.name, type: file.type, size: file.size, blob: file });
   }
   renderFormFiles();
@@ -136,7 +136,7 @@ async function saveFormFiles(itemId) {
     render();
   } catch (e) {
     console.warn('Could not save files', e);
-    snackbar('Couldn’t save the files — the device may be out of space');
+    snackbar(T('Couldn’t save the files — the device may be out of space'));
   }
 }
 
@@ -159,7 +159,7 @@ async function openFiles(itemId) {
   if (!found) return;
   openUrls.splice(0).forEach(u => URL.revokeObjectURL(u));
   $('#files-title').textContent = found.item.title;
-  $('#files-body').innerHTML = `<p class="guide-note">${icon('attach_file')}Opening…</p>`;
+  $('#files-body').innerHTML = `<p class="guide-note">${icon('attach_file')}${T('Opening…')}</p>`;
   $('#files-dialog').showModal();
   try {
     const store = await filesStore('readonly');
@@ -169,17 +169,17 @@ async function openFiles(itemId) {
         const url = URL.createObjectURL(f.blob);
         openUrls.push(url);
         // A second way to a file, should it not open from here: a copy in Downloads, for any other app.
-        const save = `<a class="icon-btn tonal ripple" href="${url}" download="${esc(f.name)}" aria-label="Save a copy of ${esc(f.name)} to Downloads" title="Save a copy to Downloads">${icon('download')}</a>`;
+        const save = `<a class="icon-btn tonal ripple" href="${url}" download="${esc(f.name)}" aria-label="${T('Save a copy of {name} to Downloads', { name: esc(f.name) })}" title="${T('Save a copy to Downloads')}">${icon('download')}</a>`;
         // A drawing (SVG) attached before those were refused is shown, but can't be opened on its own.
         return f.type.startsWith('image/')
           ? `<figure class="file-view"><img src="${url}" alt="${esc(f.name)}"><figcaption><span class="file-name">${esc(f.name)}</span>
-              ${SAFE_FILE.test(f.type) ? `<a class="assist-chip ripple" href="${url}" target="_blank" rel="noopener">${icon('open_in_new')}Full screen</a>${save}` : ''}</figcaption></figure>`
+              ${SAFE_FILE.test(f.type) ? `<a class="assist-chip ripple" href="${url}" target="_blank" rel="noopener">${icon('open_in_new')}${T('Full screen')}</a>${save}` : ''}</figcaption></figure>`
           : `<div class="file-line"><a class="file-row file-open ripple" href="${url}" target="_blank" rel="noopener">${icon('picture_as_pdf')}
               <span class="file-name">${esc(f.name)}</span><span class="file-size">${fmtSize(f.size)}</span>${icon('open_in_new')}</a>${save}</div>`;
-      }).join('') || '<p class="supporting">No files.</p>'}
-      <p class="footnote">${icon('attach_file', 'sm')}Saved on this device only, and not shared with anyone. To change them, edit the plan.</p>
-      ${list.length ? `<p class="footnote">${icon('download', 'sm')}A file that won’t open? Save a copy: it goes to Downloads, to open with another app.</p>` : ''}`;
+      }).join('') || `<p class="supporting">${T('No files.')}</p>`}
+      <p class="footnote">${icon('attach_file', 'sm')}${T('Saved on this device only, and not shared with anyone. To change them, edit the plan.')}</p>
+      ${list.length ? `<p class="footnote">${icon('download', 'sm')}${T('A file that won’t open? Save a copy: it goes to Downloads, to open with another app.')}</p>` : ''}`;
   } catch {
-    $('#files-body').innerHTML = '<p class="supporting">Couldn’t open the files.</p>';
+    $('#files-body').innerHTML = `<p class="supporting">${T('Couldn’t open the files.')}</p>`;
   }
 }

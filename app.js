@@ -12,13 +12,13 @@ const COLORS = ['#c62828', '#1565c0', '#2e7d32', '#6a1b9a', '#ef6c00', '#00838f'
 
 // Each type of plan gets its own icon and color hue.
 const CATEGORIES = {
-  sight:     { label: 'Sightseeing',  icon: 'museum',         hue: 255 },
-  food:      { label: 'Food & drink', icon: 'restaurant',     hue: 45 },
-  event:     { label: 'Show / event', icon: 'local_activity', hue: 345 },
-  shopping:  { label: 'Shopping',     icon: 'shopping_bag',   hue: 300 },
-  transport: { label: 'Transport',    icon: 'train',          hue: 205 },
-  stay:      { label: 'Stay',         icon: 'hotel',          hue: 150 },
-  other:     { label: 'Other',        icon: 'push_pin',       hue: 85 },
+  sight:     { label: T('Sightseeing'),  icon: 'museum',         hue: 255 },
+  food:      { label: T('Food & drink'), icon: 'restaurant',     hue: 45 },
+  event:     { label: T('Show / event'), icon: 'local_activity', hue: 345 },
+  shopping:  { label: T('Shopping'),     icon: 'shopping_bag',   hue: 300 },
+  transport: { label: T('Transport'),    icon: 'train',          hue: 205 },
+  stay:      { label: T('Stay'),         icon: 'hotel',          hue: 150 },
+  other:     { label: T('Other'),        icon: 'push_pin',       hue: 85 },
 };
 
 /* ---------- Small helpers ---------- */
@@ -55,9 +55,8 @@ const isDate = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && to
 const isTime = v => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
 // Ids end up in the page and in the names of synced documents: only letters, digits, "-", "_" and ".".
 const isId = v => typeof v === 'string' && /^[\w.-]{1,100}$/.test(v);
-// The app is in English only for now, so dates and times are always written in English, whatever the
-// device's language. The day/month order and the clock are a choice (Settings → Appearance), and start
-// from the device's own habits.
+// Dates and times are written in the app's language (i18n.js), whatever the device's own. In English the
+// day/month order and the clock are a choice (Settings → Appearance), and start from the device's own habits.
 function deviceFormats() {
   const loc = /^en\b/i.test(navigator.language || '') ? navigator.language : 'en-GB';
   try {
@@ -66,10 +65,10 @@ function deviceFormats() {
     return { dateOrder: parts.indexOf('month') < parts.indexOf('day') ? 'mdy' : 'dmy', clock: /^h1/.test(cycle) ? '12' : '24' };
   } catch { return { dateOrder: 'dmy', clock: '24' }; }
 }
-const dateLocale = () => (state.settings.dateOrder === 'mdy' ? 'en-US' : 'en-GB');   // "Oct 31" or "31 Oct"
+const dateLocale = () => LOCALES[LANG] || (state.settings.dateOrder === 'mdy' ? 'en-US' : 'en-GB');   // "Oct 31", "31 Oct" or "31 oct."
 function fmtDay(s, opts = { weekday: 'short', month: 'short', day: 'numeric' }) {
   // Without a month, the American style gives "3 Sat": "Sat 3" is used for both.
-  const locale = opts.weekday && opts.day && !opts.month ? 'en-GB' : dateLocale();
+  const locale = opts.weekday && opts.day && !opts.month ? LOCALES[LANG] || 'en-GB' : dateLocale();
   return parseDate(s).toLocaleDateString(locale, opts);
 }
 // A clock time, "14:30" or "2:30 PM". `tz` shows it in another time zone.
@@ -80,7 +79,8 @@ function fmtTime(t) {
   const [h, m] = t.split(':').map(Number);
   return fmtClock(new Date(2000, 0, 1, h, m));
 }
-const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+// English only: for what stays in English (the details of "Report a problem", the self-check). Texts on screen use Tn().
+const plural =(n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 // Only allow normal web links (blocks tricks like "javascript:").
 function safeUrl(s) {
@@ -251,8 +251,8 @@ function miles(a, b) {
 /* How the trip gets around: "transit" (public transit + walk) or "drive" (drive + walk).
    Each trip has its own, and a day can use the other one. */
 const TRAVEL_MODES = {
-  transit: { label: 'Public transit + walk', short: 'Transit', icon: 'directions_subway' },
-  drive: { label: 'Drive + walk', short: 'Driving', icon: 'directions_car' },
+  transit: { label: T('Public transit + walk'), short: T('Transit'), icon: 'directions_subway' },
+  drive: { label: T('Drive + walk'), short: T('Driving'), icon: 'directions_car' },
 };
 const modeFor = (trip, day) => (day && trip.dayTravel && trip.dayTravel[day]) || trip.travel || 'transit';
 
@@ -264,12 +264,12 @@ function travel(d, mode = 'transit') {
   const dist = d * (1.2 + 0.1 / (1 + d / 20));
   if (d <= (mode === 'drive' ? 0.8 : 1.2)) {
     const mins = Math.max(1, Math.round(dist / 3 * 60));
-    return { icon: 'directions_walk', mode: 'walking', mins, dist, text: `${mins} min walk` };
+    return { icon: 'directions_walk', mode: 'walking', mins, dist, text: T('{mins} min walk', { mins }) };
   }
   if (mode === 'drive') {
     const mph = Math.min(65, 12 + 11 * Math.log(1 + d));
     const mins = Math.round((4 + dist / mph * 60) / 5) * 5;
-    return { icon: 'directions_car', mode: 'driving', mins, dist, text: `${fmtDuration(mins)} drive` };
+    return { icon: 'directions_car', mode: 'driving', mins, dist, text: T('{time} drive', { time: fmtDuration(mins) }) };
   }
   // Door to door: 20 to 30 minutes of walking to the stop, waiting and changing (more changes on a longer
   // way), then a slow ride in town (13 mph over 2 miles) that gets faster with the distance. Logan Airport
@@ -277,21 +277,21 @@ function travel(d, mode = 'transit') {
   // 30 minutes short as well.
   const mph = Math.min(55, 11 + 1.3 * d);
   const mins = Math.round((Math.min(30, 18 + 2.5 * d) + dist / mph * 60) / 5) * 5;
-  return { icon: 'directions_subway', mode: 'transit', mins, dist, text: `${mins < 60 ? '~' : ''}${fmtDuration(mins)} by transit` };
+  return { icon: 'directions_subway', mode: 'transit', mins, dist, text: T('{time} by transit', { time: (mins < 60 ? '~' : '') + fmtDuration(mins) }) };
 }
 
 // Metric or imperial (Settings → Appearance → Units). Distances are worked out in miles.
 const usesImperial = () => /-(US|LR|MM)$/i.test(navigator.language || '');
 const imperial = () => (state.settings.units || (usesImperial() ? 'imperial' : 'metric')) === 'imperial';
 function fmtDist(d) {
-  const n = (v, dec) => (v < 9.95 ? v.toFixed(dec) : Math.round(v).toLocaleString('en-US'));
+  const n = (v, dec) => (v < 9.95 ? fmtNum(v, dec) : Math.round(v).toLocaleString(LOCALES[LANG] || 'en-US'));
   if (imperial()) return d < 0.1 ? '<0.1 mi' : `${n(d, 1)} mi`;
   const km = d * 1.609;
   // Under 975 m: from there it would round to "1000 m".
   if (km < 0.975) return `${Math.max(50, Math.round(km * 20) * 50)} m`;
   return `${n(km, 1)} km`;
 }
-const fmtDuration = m => (m < 60 ? `${m} min` : `~${Math.round(m / 30) / 2} h`);
+const fmtDuration = m => (m < 60 ? `${m} min` : `~${fmtNum(String(Math.round(m / 30) / 2))} h`);
 function directionsUrl(a, b, mode) {
   return `https://www.google.com/maps/dir/?api=1&origin=${a.lat},${a.lng}&destination=${b.lat},${b.lng}&travelmode=${mode}`;
 }
@@ -338,7 +338,7 @@ function planSuggestions(trip, guide, days) {
     const stay = !anchors.length && guide.joined ? baseFor(trip, day, guide) : null;
     const from = anchors.length ? anchors : stay ? [stay] : [];
     if (from.length) {
-      title = anchors.length ? 'Nearby ideas' : 'Ideas near your stay';
+      title = anchors.length ? T('Nearby ideas') : T('Ideas near your stay');
       // With guides near the plans, only their places count: not the city itself as a "destination".
       ranked = pool.filter(p => !guide.joined || p.local).map(p => {
         let best = null;
@@ -355,13 +355,14 @@ function planSuggestions(trip, guide, days) {
       const inArea = guide.places.filter(p => p.area === area);
       const center = { lat: avg(inArea.map(p => p.lat)), lng: avg(inArea.map(p => p.lng)) };
       // A district named after a direction ("North") isn't a place name on its own: "the north of Lisbon".
+      const side = { north: T('north'), south: T('south'), east: T('east'), west: T('west'), centre: T('centre'), center: T('centre') }[area.toLowerCase()];
       title = (guide.dayTitles && guide.dayTitles[area])
-        || (/^(north|south|east|west|centre|center)$/i.test(area) ? `Ideas for the ${area.toLowerCase()} of ${guide.city}`
-          : /^central$/i.test(area) ? `Ideas for central ${guide.city}` : `Ideas for a day in ${area}`);
+        || (side ? T('Ideas for the {side} of {city}', { side, city: guide.city })
+          : /^central$/i.test(area) ? T('Ideas for central {city}', { city: guide.city }) : T('Ideas for a day in {place}', { place: area }));
       ranked = pool.map(p => ({ p, d: miles(center, p) })).sort((x, y) => x.d - y.d);
     } else {
       // A small town, or a country / region's destinations: best known first.
-      title = guide.kind === 'destinations' ? `Places to go in ${guide.city}` : `Ideas for a day in ${guide.city}`;
+      title = guide.kind === 'destinations' ? T('Places to go in {place}', { place: guide.city }) : T('Ideas for a day in {place}', { place: guide.city });
       ranked = pool.filter(p => !p.local).map(p => ({ p }));
     }
 
@@ -370,7 +371,7 @@ function planSuggestions(trip, guide, days) {
       const indoor = ranked.slice(0, 30).filter(r => r.p.tags.includes('rainy'));
       if (indoor.length) {
         ranked = [...indoor, ...ranked.filter(r => !indoor.includes(r))];
-        title = 'Rain likely — indoor ideas';
+        title = T('Rain likely — indoor ideas');
       }
     }
 
@@ -412,7 +413,7 @@ const canAutoFill = (day, guide) => !!guide && day >= todayISO() && guide.source
 // neighborhood suggested for it), then puts the day in the shortest order. Nothing gets a time.
 function autoFillDay(trip, day) {
   const guide = guideFor(trip);
-  if (!canAutoFill(day, guide)) return { error: 'There’s no guide for this day yet.' };
+  if (!canAutoFill(day, guide)) return { error: T('There’s no guide for this day yet.') };
   const items = dayItems(trip, day);
   const visits = items.filter(i => i.category !== 'stay');
   const count = {};
@@ -470,7 +471,7 @@ function autoFillDay(trip, day) {
     minutes += length(best.c.p) + HOP_MINUTES;
   }
   if (!picked.length) {
-    return { error: minutes > DAY_MINUTES - 60 ?'This day already looks full.' : 'No more ideas from the guide near this day’s plans.' };
+    return { error: minutes > DAY_MINUTES - 60 ?T('This day already looks full.') : T('No more ideas from the guide near this day’s plans.') };
   }
   const added = picked.map(({ p }) => ({
     id: uid(), title: p.name, category: p.cat, date: day, time: '',
@@ -494,7 +495,7 @@ function runAutoFill(day) {
   if (result.error) { snackbar(result.error); return; }
   const redraw = () => { save(); render(); if (mapShown()) refreshMap(); };
   redraw();
-  snackbar(`Added ${plural(result.added.length, 'plan')} to ${fmtDay(day, { weekday: 'long' })}`, 'Undo', () => { result.undo(); redraw(); }, 8000);
+  snackbar(Tn(result.added.length, 'Added {n} plan to {day}', 'Added {n} plans to {day}', { day: fmtDay(day, { weekday: 'long' }) }), T('Undo'), () => { result.undo(); redraw(); }, 8000);
 }
 
 /* ---------- Consider booking ahead ---------- */
@@ -514,9 +515,9 @@ function bookingNote(item, trip, guide) {
   // A ticket is attached, or it's the hotel or the flight itself (there because it was booked).
   if (filesOf(item.id).length || ['stay', 'transport'].includes(item.category)) return null;
   const known = sellsOut(item, trip);
-  if (known) return known.ahead ? { text: known.why ? `Book ahead: ${known.why}` : 'Sells out: book ahead' } : null;
+  if (known) return known.ahead ? { text: known.why ? T('Book ahead: {why}', { why: known.why }) : T('Sells out: book ahead') } : null;
   const p = matchPlaces(item, guide)[0];
-  return p && BOOK_TEXT.test([p.about, p.blurb, p.price, p.tip, p.hours].filter(Boolean).join(' ')) ? { text: 'Sells out: book ahead' } : null;
+  return p && BOOK_TEXT.test([p.about, p.blurb, p.price, p.tip, p.hours].filter(Boolean).join(' ')) ? { text: T('Sells out: book ahead') } : null;
 }
 
 /* ---------- Photos of guide places (from Wikimedia, when the guide has one) ---------- */
@@ -542,43 +543,43 @@ function openPlaceInfo(id, day) {
   if (!p) return;
   const cat = CATEGORIES[p.cat] || CATEGORIES.other;
   const added = trip.items.some(i => matchPlaces(i, guide).some(m => m.id === p.id));
-  const over = [cat.label, p.area, p.mins < 360 && fmtDuration(p.mins), p.tags.includes('free') && 'Free'].filter(Boolean).join(' · ');
-  const tags = [whenTag(p), p.tags.includes('rainy') && (p.when === 'morning' || p.when === 'evening') ? `<span class="tag">${icon('umbrella')}Indoors</span>` : ''].join('');
+  const over = [cat.label, p.area, p.mins < 360 && fmtDuration(p.mins), p.tags.includes('free') && T('Free')].filter(Boolean).join(' · ');
+  const tags = [whenTag(p), p.tags.includes('rainy') && (p.when === 'morning' || p.when === 'evening') ? `<span class="tag">${icon('umbrella')}${T('Indoors')}</span>` : ''].join('');
   const dayName = day && fmtDay(day, { weekday: 'long' });
   $('#place-body').innerHTML = `
-    ${p.photo ? `<figure class="pi-figure">${photoImg(p, 'pi-photo')}<figcaption>Photo: Wikimedia Commons</figcaption></figure>` : ''}
+    ${p.photo ? `<figure class="pi-figure">${photoImg(p, 'pi-photo')}<figcaption>${T('Photo: Wikimedia Commons')}</figcaption></figure>` : ''}
     <div class="pi-head">
       <span class="avatar" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}</span>
       <div class="pi-heading">
         <p class="overline">${esc(over)}</p>
         <h2 tabindex="-1" autofocus>${esc(p.name)}</h2>
       </div>
-      <button type="button" class="icon-btn ripple" data-close aria-label="Close">${icon('close')}</button>
+      <button type="button" class="icon-btn ripple" data-close aria-label="${T('Close')}">${icon('close')}</button>
     </div>
     ${tags.trim() ? `<div class="pi-tags">${tags}</div>` : ''}
     <p class="pi-text">${esc(p.about || p.blurb)}</p>
     ${p.hours ? `<p class="pi-hours">${icon('schedule')}<span>${esc(p.hours)}</span></p>` : ''}
-    ${factsHTML([['Price', p.price], ['Getting there', p.tip]])}
+    ${factsHTML([[T('Price'), p.price], [T('Getting there'), p.tip]])}
     <div class="pi-links">
-      <a class="assist-chip ripple" href="${esc(mapsUrl(p.place || p.name, trip, p))}" target="_blank" rel="noopener">${icon('map')}Map</a>
+      <a class="assist-chip ripple" href="${esc(mapsUrl(p.place || p.name, trip, p))}" target="_blank" rel="noopener">${icon('map')}${T('Map')}</a>
       ${safeUrl(p.url) ? `<a class="assist-chip ripple" href="${esc(safeUrl(p.url))}" target="_blank" rel="noopener">${icon('link')}${esc(hostLabel(safeUrl(p.url)))}</a>` : ''}
       ${guide.sourceUrl && !p.local ? `<a class="assist-chip ripple" href="${esc(guide.sourceUrl)}" target="_blank" rel="noopener">${icon('open_in_new')}${esc(guide.source)}</a>` : ''}
     </div>
     <div class="sheet-actions">
       ${added
-        ? `<span class="pi-added">${icon('check')}Already in your trip</span>`
-        : `${day ? `<button type="button" class="btn text ripple" data-action="add-suggestion" data-place="${esc(p.id)}" data-date="">Save to ideas</button>` : ''}
+        ? `<span class="pi-added">${icon('check')}${T('Already in your trip')}</span>`
+        : `${day ? `<button type="button" class="btn text ripple" data-action="add-suggestion" data-place="${esc(p.id)}" data-date="">${T('Save to ideas')}</button>` : ''}
            <span class="spacer"></span>
            <button type="button" class="btn filled lg ripple" data-action="add-suggestion" data-place="${esc(p.id)}" data-date="${day || ''}">
-             ${icon('add')}${day ? `Add to ${esc(dayName)}` : 'Save to ideas'}</button>`}
+             ${icon('add')}${day ? T('Add to {day}', { day: esc(dayName) }) : T('Save to ideas')}</button>`}
     </div>`;
   $('#place-dialog').showModal();
 }
 
 function whenTag(p) {
-  if (p.when === 'morning') return `<span class="tag">${icon('wb_sunny')}Morning</span>`;
-  if (p.when === 'evening') return `<span class="tag">${icon('bedtime')}Evening</span>`;
-  if (p.tags.includes('rainy')) return `<span class="tag">${icon('umbrella')}Indoors</span>`;
+  if (p.when === 'morning') return `<span class="tag">${icon('wb_sunny')}${T('Morning')}</span>`;
+  if (p.when === 'evening') return `<span class="tag">${icon('bedtime')}${T('Evening')}</span>`;
+  if (p.tags.includes('rainy')) return `<span class="tag">${icon('umbrella')}${T('Indoors')}</span>`;
   return '';
 }
 
@@ -586,22 +587,22 @@ function suggestionCard(r, day) {
   const p = r.p;
   const cat = CATEGORIES[p.cat] || CATEGORIES.other;
   const why = r.from
-    ? `${icon('near_me')}<span>${esc(travel(r.d, modeFor(activeTrip(), day)).text)} from ${esc(r.from.title)}</span>`
+    ? `${icon('near_me')}<span>${T('{way} from {place}', { way: esc(travel(r.d, modeFor(activeTrip(), day)).text), place: esc(r.from.title) })}</span>`
     : p.area ? `${icon('location_on')}<span>${esc(p.area)}</span>` : '';
   return `
     <article class="s-card" aria-label="${esc(p.name)}">
-      <button type="button" class="s-body ripple" data-action="place-info" data-place="${esc(p.id)}" data-date="${day}" aria-label="More about ${esc(p.name)}">
+      <button type="button" class="s-body ripple" data-action="place-info" data-place="${esc(p.id)}" data-date="${day}" aria-label="${T('More about {name}', { name: esc(p.name) })}">
         <span class="s-photo" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}${photoImg(p, '')}${whenTag(p)}</span>
         <span class="s-name">${esc(p.name)}</span>
         ${why ? `<span class="s-why">${why}</span>` : ''}
         <span class="s-blurb">${esc(p.blurb)}</span>
-        <span class="more-link">More${icon('arrow_forward')}</span>
+        <span class="more-link">${T('More')}${icon('arrow_forward')}</span>
       </button>
       <div class="s-foot">
         ${p.mins < 360 ? `<span class="tag">${icon('schedule')}${fmtDuration(p.mins)}</span>` : ''}
-        ${p.tags.includes('free') ? '<span class="tag">Free</span>' : ''}
+        ${p.tags.includes('free') ? `<span class="tag">${T('Free')}</span>` : ''}
         <button type="button" class="btn tonal sm ripple" data-action="add-suggestion" data-place="${esc(p.id)}" data-date="${day}"
-          aria-label="Add ${esc(p.name)}">${icon('add')}Add</button>
+          aria-label="${T('Add {name}', { name: esc(p.name) })}">${icon('add')}${T('Add')}</button>
       </div>
     </article>`;
 }
@@ -628,7 +629,7 @@ function hideSnackbar() {
 
 /* ---------- Confirmation dialog for big decisions ---------- */
 
-function askConfirm({ icon: ic, title, text, ok, cancel = 'Cancel' }) {
+function askConfirm({ icon: ic, title, text, ok, cancel = T('Cancel') }) {
   const dlg = $('#confirm-dialog');
   $('#confirm-icon').setAttribute('href', `${SPRITE}#${ic}`);
   $('#confirm-title').textContent = title;
@@ -651,11 +652,11 @@ function defaultState() {
     activeTripId: null,
     trips: [],
     checklist: [
-      check('Phone charger + power bank'),
-      check('Comfortable walking shoes'),
-      check('ID / wallet'),
-      check('Tap-to-pay set up on phone'),
-      check('Light jacket / layers'),
+      check(T('Phone charger + power bank')),
+      check(T('Comfortable walking shoes')),
+      check(T('ID / wallet')),
+      check(T('Tap-to-pay set up on phone')),
+      check(T('Light jacket / layers')),
     ],
     settings: defaultSettings(),
   };
@@ -667,7 +668,8 @@ function defaultSettings() {
 // What this device has already done: the one-time repairs at startup (geoRetry) and the last "Updated to
 // version" message. Kept when the plans are erased or replaced by a backup, or the repairs would run again
 // on the next start and throw away the map positions of every plan with a street address.
-const deviceMarks = () => ({ geoRetry: state.settings.geoRetry, seenVersion: state.settings.seenVersion });
+// The language stays too: the texts on screen were picked in it (i18n.js).
+const deviceMarks = () => ({ geoRetry: state.settings.geoRetry, seenVersion: state.settings.seenVersion, lang: state.settings.lang });
 
 /* ---------- Checking data that comes from outside the app ----------
    The saved copy, the account (sync.js) and backup files all go through these. The fields the app
@@ -681,7 +683,7 @@ function tidyTrip(t, newId = false) {
   const out = {
     ...t,
     id: isId(t.id) ? t.id : uid(),
-    name: (typeof t.name === 'string' && t.name) || 'Trip',
+    name: (typeof t.name === 'string' && t.name) || T('Trip'),
     color: /^#[0-9a-f]{6}$/i.test(t.color) ? t.color : COLORS[0],
     start: !dated ? '' : t.start <= t.end ? t.start : t.end,
     end: !dated ? '' : t.start <= t.end ? t.end : t.start,
@@ -715,7 +717,7 @@ function tidyItem(i, newId = false) {
   const out = {
     ...i,
     id: isId(i.id) ? i.id : uid(),
-    title: text(i.title) || 'Untitled',
+    title: text(i.title) || T('Untitled'),
     category: text(i.category) || 'other',
     date: isDate(i.date) ? i.date : '',
     time: isTime(i.time) ? i.time : '',
@@ -783,7 +785,7 @@ function saveLocal() {
       return;
     } catch (e) { /* full: free the next one */ }
   }
-  snackbar('Could not save — device storage may be full');
+  snackbar(T('Could not save — device storage may be full'));
 }
 
 // Saves on the phone, and sends the change to the account when signed in (sync.js).
@@ -914,7 +916,7 @@ function applyTheme(seed) {
 
 /* ---------- Drawing the screen ---------- */
 
-const TITLES = { plan: '', ideas: '', pack: 'Checklist', more: 'Settings' };
+const TITLES = { plan: '', ideas: '', pack: T('Checklist'), more: T('Settings') };
 
 // Trips made before place search (or saved while offline) get their place looked up once.
 const placeTried = new Set();
@@ -936,7 +938,7 @@ function onGuideReady(place, guide, quiet) {
   renderSoon();
   const trip = activeTrip();
   if (!quiet && trip && trip.place && placeKey(trip.place) === placeKey(place) && ui.view !== 'ideas') {
-    snackbar(`${plural(guide.places.length, 'idea')} for ${place.name} ready`, 'Explore', () => {
+    snackbar(Tn(guide.places.length, '{n} idea for {place} ready', '{n} ideas for {place} ready', { place: place.name }), T('Explore'), () => {
       ui.ideasTab = 'explore';
       showView('ideas', { top: true });
     });
@@ -963,7 +965,7 @@ function render() {
   $('#appbar-title').hidden = tripViews;
   $('#appbar-title').textContent = TITLES[ui.view];
   $('#fab').hidden = $('#ai-fab').hidden = !tripViews || !trip;
-  $('#fab-label').textContent = ui.view === 'ideas' ? 'New idea' : 'New plan';
+  $('#fab-label').textContent = ui.view === 'ideas' ? T('New idea') : T('New plan');
   $('#fab').setAttribute('aria-label', $('#fab-label').textContent);
   try {
     if (tripViews && !trip) renderWelcome();
@@ -993,9 +995,9 @@ function render() {
 function renderFailed(e) {
   console.error(e);
   noteError(`Drawing "${ui.view}": ${(e && e.message) || e}`);
-  $('#view-' + ui.view).innerHTML = emptyState('error', 'This screen can’t be shown',
-    'Your plans are safe on this device. Close the app and open it again. If this stays, save a backup file in Settings, and tell us there with “Report a problem”.',
-    ui.view === 'more' ? '' : `<div class="empty-actions"><button type="button" class="btn tonal ripple" data-go="more">${icon('settings')}Settings</button></div>`);
+  $('#view-' + ui.view).innerHTML = emptyState('error', T('This screen can’t be shown'),
+    T('Your plans are safe on this device. Close the app and open it again. If this stays, save a backup file in Settings, and tell us there with “Report a problem”.'),
+    ui.view === 'more' ? '' : `<div class="empty-actions"><button type="button" class="btn tonal ripple" data-go="more">${icon('settings')}${T('Settings')}</button></div>`);
 }
 
 // On a phone, the Plan tab has the trip's days under the top bar, to jump to one.
@@ -1036,7 +1038,7 @@ function renderSidebar(trip) {
   const days = trip ? tripDays(trip) : [];
   const today = todayISO();
   $('#side-extra').innerHTML = !trip ? '' : `
-    <button type="button" class="side-ai ripple" data-action="assistant">${icon('auto_awesome')}AI Assistant</button>
+    <button type="button" class="side-ai ripple" data-action="assistant">${icon('auto_awesome')}${T('AI Assistant')}</button>
     ${days.length ? `
       <p class="side-label">${esc(trip.name)}</p>
       <ul class="side-days">
@@ -1055,17 +1057,16 @@ function renderWelcome() {
     <section class="hero welcome">
       ${shape(HERO_SHAPE, 'hero-shape')}
       ${icon('flight_takeoff', 'hero-shape-icon')}
-      <p class="hero-overline">${ideas ? 'Ideas for your trip' : 'Plan a trip'}</p>
-      <h1 class="hero-title">Where do you want to go?</h1>
+      <p class="hero-overline">${ideas ? T('Ideas for your trip') : T('Plan a trip')}</p>
+      <h1 class="hero-title">${T('Where do you want to go?')}</h1>
       <button type="button" class="where-btn ripple" data-action="new-trip">
-        ${icon('search')}<span>Search a city or country</span>
+        ${icon('search')}<span>${T('Search a city or country')}</span>
       </button>
     </section>
     <p class="welcome-note">${ideas
-      ? 'Pick a place first. Its sights, food and things to do show up here, to save for later or add to a day.'
-      : `Pick a place and you’ll get ideas for things to do there, day by day.
-      Already planning on another device? Sign in under <b>Settings</b> to bring your trips here.`}</p>
-    ${!ideas && sync.configured ? `<button type="button" class="btn text ripple welcome-join" data-action="join-trip">${icon('group')}Invited to a trip? Join it</button>` : ''}`;
+      ? T('Pick a place first. Its sights, food and things to do show up here, to save for later or add to a day.')
+      : T('Pick a place and you’ll get ideas for things to do there, day by day. Already planning on another device? Sign in under <b>Settings</b> to bring your trips here.')}</p>
+    ${!ideas && sync.configured ? `<button type="button" class="btn text ripple welcome-join" data-action="join-trip">${icon('group')}${T('Invited to a trip? Join it')}</button>` : ''}`;
 }
 
 function renderTripTabs(trip) {
@@ -1075,7 +1076,7 @@ function renderTripTabs(trip) {
         style="--c:${esc(t.color)}" aria-pressed="${t.id === trip.id}">
         <span class="dot"></span>${esc(t.name)}${sharedMark(t)}
       </button>`).join('') +
-    `<button type="button" class="trip-chip add ripple" data-action="new-trip" aria-label="Add a trip">${icon('add', 'sm')}</button>`;
+    `<button type="button" class="trip-chip add ripple" data-action="new-trip" aria-label="${T('Add a trip')}">${icon('add', 'sm')}</button>`;
 }
 
 // drag: can be held and dragged to another day (Plan view). note: opening hours line (hours.js).
@@ -1088,36 +1089,36 @@ function itemHTML(item, trip, { showDate = false, drag = false, note = null, sch
     item.time && fmtTime(item.time),
     showDate && item.date && fmtDay(item.date),
     // today.js: the day a stay begins, and for how long when its check-out day is set
-    !startsStay(item, trip) ? cat.label : stayUntil(item) ? `Check in · ${plural(daysBetween(item.date, item.until), 'night')}` : 'Check in',
+    !startsStay(item, trip) ? cat.label : stayUntil(item) ? `${T('Check in')} · ${Tn(daysBetween(item.date, item.until), '{n} night', '{n} nights')}` : T('Check in'),
   ].filter(Boolean).join(' · ');
   const days = schedule ? tripDays(trip) : [];
   let chips;
   if (schedule && ui.pickDay === item.id) {
     // Picking a day for this idea: one button per trip day.
     chips = days.map(d => `<button type="button" class="assist-chip ripple" data-action="set-day" data-date="${d}">${esc(fmtDay(d, { weekday: 'short', day: 'numeric' }))}</button>`).join('')
-      + `<button type="button" class="assist-chip icon-only ripple" data-action="pick-day" aria-label="Cancel">${icon('close')}</button>`;
+      + `<button type="button" class="assist-chip icon-only ripple" data-action="pick-day" aria-label="${T('Cancel')}">${icon('close')}</button>`;
   } else {
     // "compact": on a phone only the icon shows, so the actions stay on one row.
     const files = filesOf(item.id).length;
-    const filesLabel = files === 1 ? 'Ticket' : `${files} files`;
+    const filesLabel = files === 1 ? T('Ticket') : Tn(files, '{n} file', '{n} files');
     chips = [
-      schedule && days.length && `<button type="button" class="assist-chip primary ripple" data-action="pick-day">${icon('calendar_add_on')}Add to a day</button>`,
-      item.place && `<a class="assist-chip ${schedule ? 'compact ' : ''}ripple" href="${esc(mapsUrl(item.place, trip, coordsOf(item, guideFor(trip)), item.title))}" target="_blank" rel="noopener" title="Directions">${icon('location_on')}<span>Directions</span></a>`,
-      link && `<a class="assist-chip compact ripple" href="${esc(link)}" target="_blank" rel="noopener" title="${esc(hostLabel(link))}" aria-label="Link: ${esc(hostLabel(link))}">${icon('link')}<span>${esc(hostLabel(link))}</span></a>`,
+      schedule && days.length && `<button type="button" class="assist-chip primary ripple" data-action="pick-day">${icon('calendar_add_on')}${T('Add to a day')}</button>`,
+      item.place && `<a class="assist-chip ${schedule ? 'compact ' : ''}ripple" href="${esc(mapsUrl(item.place, trip, coordsOf(item, guideFor(trip)), item.title))}" target="_blank" rel="noopener" title="${T('Directions')}">${icon('location_on')}<span>${T('Directions')}</span></a>`,
+      link && `<a class="assist-chip compact ripple" href="${esc(link)}" target="_blank" rel="noopener" title="${esc(hostLabel(link))}" aria-label="${T('Link: {site}', { site: esc(hostLabel(link)) })}">${icon('link')}<span>${esc(hostLabel(link))}</span></a>`,
       files && `<button type="button" class="assist-chip compact ripple" data-action="files" title="${filesLabel}" aria-label="${filesLabel}">${icon('confirmation_number')}<span>${filesLabel}</span></button>`,
-      hasPlanInfo(item, guideFor(trip)) && `<button type="button" class="assist-chip icon-only ripple" data-action="plan-info" aria-label="About ${esc(item.title)}" title="About this place">${icon('info')}</button>`,
-      item.date && !item.done && `<a class="assist-chip icon-only ripple" href="${esc(calendarUrl(item, trip))}" target="_blank" rel="noopener" aria-label="Add ${esc(item.title)} to Google Calendar" title="Add to Google Calendar">${icon('calendar_add_on')}</a>`,
+      hasPlanInfo(item, guideFor(trip)) && `<button type="button" class="assist-chip icon-only ripple" data-action="plan-info" aria-label="${T('About {name}', { name: esc(item.title) })}" title="${T('About this place')}">${icon('info')}</button>`,
+      item.date && !item.done && `<a class="assist-chip icon-only ripple" href="${esc(calendarUrl(item, trip))}" target="_blank" rel="noopener" aria-label="${T('Add {name} to Google Calendar', { name: esc(item.title) })}" title="${T('Add to Google Calendar')}">${icon('calendar_add_on')}</a>`,
     ].filter(Boolean).join('');
   }
   const check = schedule ? '' : `<button type="button" class="check ripple" data-action="toggle" role="checkbox"
-        aria-checked="${item.done}" aria-label="Done: ${esc(item.title)}" title="Done"><span class="box">${icon('check')}</span></button>`;
+        aria-checked="${item.done}" aria-label="${T('Done: {name}', { name: esc(item.title) })}" title="${T('Done')}"><span class="box">${icon('check')}</span></button>`;
   // The address line is skipped when it only repeats the title.
   const showPlace = item.place && norm(item.place) !== norm(item.title);
   const book = bookingNote(item, trip, guideFor(trip));
   return `
     <li class="item ${item.done ? 'done' : ''}" data-id="${esc(item.id)}" ${drag ? 'data-drag' : ''}>
       <button type="button" class="item-main ripple" data-action="edit">
-        ${num ? `<span class="stop-badge" aria-label="Stop ${num}">${num}</span>` : `<span class="avatar" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}</span>`}
+        ${num ? `<span class="stop-badge" aria-label="${T('Stop {n}', { n: num })}">${num}</span>` : `<span class="avatar" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}</span>`}
         <span class="item-text">
           <span class="overline">${esc(over)}</span>
           <span class="item-title">${esc(item.title)}</span>
@@ -1155,10 +1156,10 @@ function tripStatus(trip) {
   const today = todayISO();
   if (today < trip.start) {
     const n = daysBetween(today, trip.start);
-    return { icon: 'flight_takeoff', text: n === 1 ? 'Starts tomorrow' : `Starts in ${n} days` };
+    return { icon: 'flight_takeoff', text: n === 1 ? T('Starts tomorrow') : T('Starts in {n} days', { n }) };
   }
-  if (today > trip.end) return { icon: 'check', text: 'Trip complete' };
-  return { icon: 'today', text: `Day ${daysBetween(trip.start, today) + 1} of ${daysBetween(trip.start, trip.end) + 1}` };
+  if (today > trip.end) return { icon: 'check', text: T('Trip complete') };
+  return { icon: 'today', text: T('Day {n} of {total}', { n: daysBetween(trip.start, today) + 1, total: daysBetween(trip.start, trip.end) + 1 }) };
 }
 
 function renderPlan(trip) {
@@ -1176,25 +1177,25 @@ function renderPlan(trip) {
       ${shape(HERO_SHAPE, 'hero-shape')}
       ${icon('location_on-fill', 'hero-shape-icon')}
       <p class="hero-overline">${hasDates
-        ? esc(`${fmtDay(trip.start, { month: 'short', day: 'numeric' })} – ${fmtDay(trip.end, { month: 'short', day: 'numeric' })} · ${plural(n, 'day')}`)
-        : 'No dates yet'}</p>
+        ? esc(`${fmtDay(trip.start, { month: 'short', day: 'numeric' })} – ${fmtDay(trip.end, { month: 'short', day: 'numeric' })} · ${Tn(n, '{n} day', '{n} days')}`)
+        : T('No dates yet')}</p>
       <h1 class="hero-title">${esc(trip.name)}</h1>
       <div class="hero-row">
         ${status
           ? `<span class="status-chip">${icon(status.icon, 'sm')}${esc(status.text)}</span>`
-          : `<button type="button" class="btn filled ripple" data-action="edit-trip">${icon('calendar_add_on')}Add dates</button>`}
+          : `<button type="button" class="btn filled ripple" data-action="edit-trip">${icon('calendar_add_on')}${T('Add dates')}</button>`}
         ${planned.length ? `
           <div class="hero-progress">
-            <span>${done} of ${plural(planned.length, 'plan')} done</span>
-            ${progressBar(done / planned.length, 'Plans done')}
+            <span>${Tn(planned.length, '{done} of {n} plan done', '{done} of {n} plans done', { done })}</span>
+            ${progressBar(done / planned.length, T('Plans done'))}
           </div>` : ''}
       </div>
       <div class="hero-actions">
-        ${planned.length ? `<button type="button" class="hero-btn ripple" data-action="trip-map">${icon('map')}Trip map</button>` : ''}
-        ${trip.place ? `<button type="button" class="hero-btn ripple" data-action="essentials">${icon('info')}Essentials</button>` : ''}
+        ${planned.length ? `<button type="button" class="hero-btn ripple" data-action="trip-map">${icon('map')}${T('Trip map')}</button>` : ''}
+        ${trip.place ? `<button type="button" class="hero-btn ripple" data-action="essentials">${icon('info')}${T('Essentials')}</button>` : ''}
         ${shareButtonHTML(trip) /* share.js: with other people, or as text */}
       </div>
-      <button type="button" class="icon-btn hero-edit ripple" data-action="edit-trip" aria-label="Edit trip">${icon('edit')}</button>
+      <button type="button" class="icon-btn hero-edit ripple" data-action="edit-trip" aria-label="${T('Edit trip')}">${icon('edit')}</button>
     </section>`;
 
   html += nowCardHTML(trip);   // today.js: on a trip day, what's on now and what's next
@@ -1204,16 +1205,16 @@ function renderPlan(trip) {
   // Suggestions are open for the first day from today that has some; the rest open with a tap.
   const focusDay = days.find(d => d >= today && suggestions.get(d) && suggestions.get(d).cards.length);
   if (!guide && guideState(trip) === 'loading' && state.settings.suggestions) {
-    html += `<p class="guide-note" role="status">${icon('auto_awesome')}Finding things to do in ${esc(trip.place.name)}…</p>`;
+    html += `<p class="guide-note" role="status">${icon('auto_awesome')}${T('Finding things to do in {place}…', { place: esc(trip.place.name) })}</p>`;
   }
 
   let noDays = '';
   if (!days.length) {
-    noDays = emptyState('event_available', 'Your days will appear here',
-      `Add the dates for ${esc(trip.name)} and you'll see the trip day by day.`,
+    noDays = emptyState('event_available', T('Your days will appear here'),
+      T('Add the dates for {trip} and you’ll see the trip day by day.', { trip: esc(trip.name) }),
       `<div class="empty-actions">
-        ${ideas ? `<button type="button" class="btn tonal ripple" data-action="open-ideas" data-tab="mine">${icon('lightbulb')}See ${plural(ideas, 'idea')}</button>` : ''}
-        ${guide ? `<button type="button" class="btn tonal ripple" data-action="open-ideas" data-tab="explore">${icon('explore')}Explore ${esc(guide.city)}</button>` : ''}
+        ${ideas ? `<button type="button" class="btn tonal ripple" data-action="open-ideas" data-tab="mine">${icon('lightbulb')}${Tn(ideas, 'See {n} idea', 'See {n} ideas')}</button>` : ''}
+        ${guide ? `<button type="button" class="btn tonal ripple" data-action="open-ideas" data-tab="explore">${icon('explore')}${T('Explore {place}', { place: esc(guide.city) })}</button>` : ''}
       </div>`);
   }
 
@@ -1221,8 +1222,8 @@ function renderPlan(trip) {
   const unplanned = trip.items.filter(i => !i.date);
   if (days.length && unplanned.length) {
     html += `
-      <section class="idea-tray" aria-label="Ideas to schedule">
-        <p class="tray-head">${icon('lightbulb')}<span><b>Ideas</b> · <span class="touch-only">hold one and drag it onto a day</span><span class="mouse-only">drag one onto a day</span></span></p>
+      <section class="idea-tray" aria-label="${T('Ideas to schedule')}">
+        <p class="tray-head">${icon('lightbulb')}<span><b>${T('Ideas')}</b> · <span class="touch-only">${T('hold one and drag it onto a day')}</span><span class="mouse-only">${T('drag one onto a day')}</span></span></p>
         <ul class="tray-row">
           ${unplanned.map((it) => {
             const cat = CATEGORIES[it.category] || CATEGORIES.other;
@@ -1245,9 +1246,9 @@ function renderPlan(trip) {
     const inRange = hasDates && day >= trip.start && day <= trip.end;
     const isToday = day === today;
     const sub = [
-      isToday && '<b>Today</b>',
-      inRange ? `Day ${daysBetween(trip.start, day) + 1}` : 'Outside trip dates',
-      items.length && plural(items.length, 'plan'),
+      isToday && `<b>${T('Today')}</b>`,
+      inRange ? T('Day {n}', { n: daysBetween(trip.start, day) + 1 }) : T('Outside trip dates'),
+      items.length && Tn(items.length, '{n} plan', '{n} plans'),
     ].filter(Boolean).join(' · ');
     const list = dayListHTML(day, items, trip, guide);     // on a day without plans: only a stay's check-out
     html += `
@@ -1259,11 +1260,11 @@ function renderPlan(trip) {
           </div>
           ${weatherHTML(trip, day)}
           <button type="button" class="icon-btn tonal ripple" data-action="add-on-day" data-date="${day}"
-            aria-label="Add a plan on ${esc(fmtDay(day, { weekday: 'long', month: 'long', day: 'numeric' }))}">${icon('add')}</button>
+            aria-label="${T('Add a plan on {day}', { day: esc(fmtDay(day, { weekday: 'long', month: 'long', day: 'numeric' })) })}">${icon('add')}</button>
         </div>
         ${dayToolsHTML(trip, day, items, guide)}
         ${list ? `<ul class="group plans">${list}</ul>` : ''}
-        ${items.length ? '' : `<button type="button" class="empty-day ripple" data-action="add-on-day" data-date="${day}">${icon('add')}Free day — tap to add a plan</button>`}
+        ${items.length ? '' : `<button type="button" class="empty-day ripple" data-action="add-on-day" data-date="${day}">${icon('add')}${T('Free day — tap to add a plan')}</button>`}
         ${suggestionsHTML(suggestions.get(day), day, ui.suggest[day] ?? day === focusDay)}
       </section>`;
   }
@@ -1284,7 +1285,7 @@ function legHTML(a, b, mode, label = '') {
   const t = legTravel(a, b, mode);      // routes.js: by car the real road, once it is known
   return `
     <li class="leg"><a class="leg-link ripple${label ? ' labelled' : ''}" href="${esc(directionsUrl(a, b, t.mode))}" target="_blank" rel="noopener"
-      aria-label="Directions ${label ? esc(label.toLowerCase()) : ''} ${esc(t.text)}, ${fmtDist(t.dist)}">${label ? `${icon('hotel')}<span class="leg-base">${esc(label)}:</span>` : ''}${icon(t.icon)}<span>${esc(t.text)} · ${fmtDist(t.dist)}</span><span class="leg-go">Directions</span></a></li>`;
+      aria-label="${T('Directions')} ${label ? esc(label.toLowerCase()) : ''} ${esc(t.text)}, ${fmtDist(t.dist)}">${label ? `${icon('hotel')}<span class="leg-base">${T('{label}:', { label: esc(label) })}</span>` : ''}${icon(t.icon)}<span>${esc(t.text)} · ${fmtDist(t.dist)}</span><span class="leg-go">${T('Directions')}</span></a></li>`;
 }
 
 // A day's plans, with the travel time between each pair of stops, and to and from the home base (today.js).
@@ -1298,7 +1299,7 @@ function dayListHTML(day, items, trip, guide) {
   const end = located.length ? ends.end : null;
   let html = start ? `
     <li class="stay-pill"><button type="button" class="ripple" data-action="edit" data-id="${esc(start.item.id)}"
-      aria-label="${out ? 'Check out of' : 'Your stay:'} ${esc(start.item.title)}">${icon('hotel')}<span>${out ? '<b>Check out</b> · ' : ''}${esc(start.item.title)}</span></button></li>` : '';
+      aria-label="${out ? T('Check out of') : T('Your stay:')} ${esc(start.item.title)}">${icon('hotel')}<span>${out ? `<b>${T('Check out')}</b> · ` : ''}${esc(start.item.title)}</span></button></li>` : '';
   let prev = start ? start.c : null;
   let num = 0;
   for (const item of items) {
@@ -1308,7 +1309,7 @@ function dayListHTML(day, items, trip, guide) {
     html += itemHTML(item, trip, { drag: true, note: hoursNote(item, guide), num: c && item.category !== 'stay' ? ++num : 0, photo: planPhoto(item, guide) });
     if (c) prev = c;
   }
-  if (end && prev) html += legHTML(prev, end.c, mode, 'Back to your stay');
+  if (end && prev) html += legHTML(prev, end.c, mode, T('Back to your stay'));
   return html;
 }
 
@@ -1319,33 +1320,33 @@ function suggestionsHTML(s, day, open) {
   if (!open) {
     return `
       <button type="button" class="suggest-toggle ripple" data-action="toggle-suggest" data-date="${day}" aria-expanded="false">
-        ${icon('auto_awesome')}<span>${esc(s.title)}</span><small>${plural(s.cards.length, 'idea')}</small>${icon('arrow_forward', 'sm turn')}
+        ${icon('auto_awesome')}<span>${esc(s.title)}</span><small>${Tn(s.cards.length, '{n} idea', '{n} ideas')}</small>${icon('arrow_forward', 'sm turn')}
       </button>`;
   }
   return `
     <div class="suggest">
       <div class="suggest-head">
         <button type="button" class="suggest-title ripple" data-action="toggle-suggest" data-date="${day}" aria-expanded="true">${icon('auto_awesome')}${esc(s.title)}</button>
-        <button type="button" class="icon-btn ripple" data-action="shuffle" data-date="${day}" aria-label="Show other suggestions">${icon('shuffle')}</button>
+        <button type="button" class="icon-btn ripple" data-action="shuffle" data-date="${day}" aria-label="${T('Show other suggestions')}">${icon('shuffle')}</button>
       </div>
       <div class="suggest-row">${s.cards.map(r => suggestionCard(r, day)).join('')}</div>
     </div>`;
 }
 
 const FILTERS = [
-  ['all', 'All', () => true],
-  ['sight', 'Sights', p => p.cat === 'sight'],
-  ['food', 'Food & drink', p => p.cat === 'food'],
-  ['event', 'Shows & sports', p => p.cat === 'event'],
-  ['shopping', 'Shopping', p => p.cat === 'shopping'],
-  ['free', 'Free', p => p.tags.includes('free'), 'money_off'],
-  ['rainy', 'Rainy day', p => p.tags.includes('rainy'), 'umbrella'],
-  ['evening', 'Evening', p => p.when === 'evening', 'bedtime'],
+  ['all', T('All'), () => true],
+  ['sight', T('Sights'), p => p.cat === 'sight'],
+  ['food', T('Food & drink'), p => p.cat === 'food'],
+  ['event', T('Shows & sports'), p => p.cat === 'event'],
+  ['shopping', T('Shopping'), p => p.cat === 'shopping'],
+  ['free', T('Free'), p => p.tags.includes('free'), 'money_off'],
+  ['rainy', T('Rainy day'), p => p.tags.includes('rainy'), 'umbrella'],
+  ['evening', T('Evening'), p => p.when === 'evening', 'bedtime'],
 ];
 
 function placeHTML(p, added, trip) {
   const cat = CATEGORIES[p.cat] || CATEGORIES.other;
-  const over = [p.area, p.mins < 360 && fmtDuration(p.mins), p.tags.includes('free') && 'Free'].filter(Boolean).join(' · ');
+  const over = [p.area, p.mins < 360 && fmtDuration(p.mins), p.tags.includes('free') && T('Free')].filter(Boolean).join(' · ');
   return `
     <li class="item place">
       <button type="button" class="item-main ripple" data-action="place-info" data-place="${esc(p.id)}" data-date="">
@@ -1354,12 +1355,12 @@ function placeHTML(p, added, trip) {
           <span class="overline">${esc(over)}</span>
           <span class="item-title">${esc(p.name)}</span>
           <span class="item-notes">${esc(p.blurb)}</span>
-          <span class="more-link">More${icon('arrow_forward')}</span>
+          <span class="more-link">${T('More')}${icon('arrow_forward')}</span>
         </span>
       </button>
       <button type="button" class="icon-btn tonal add-btn ripple ${added ? 'added' : ''}"
         data-action="${added ? 'noop' : 'add-suggestion'}" data-place="${esc(p.id)}" data-date=""
-        aria-label="${added ? `${esc(p.name)} is already in your trip` : `Save ${esc(p.name)} to your ideas`}">${icon(added ? 'check' : 'add')}</button>
+        aria-label="${added ? T('{name} is already in your trip', { name: esc(p.name) }) : T('Save {name} to your ideas', { name: esc(p.name) })}">${icon(added ? 'check' : 'add')}</button>
     </li>`;
 }
 
@@ -1368,72 +1369,73 @@ function renderIdeas(trip) {
   const ideas = trip.items.filter(i => !i.date);
   const tab = ui.ideasTab;
   let html = `
-    <h1 class="headline">Ideas</h1>
-    <div class="segmented" role="group" aria-label="Ideas view">
-      <button type="button" class="ripple" data-action="ideas-tab" data-tab="mine" aria-pressed="${tab === 'mine'}">${icon('lightbulb')}My ideas${ideas.length ? ` (${ideas.length})` : ''}</button>
-      <button type="button" class="ripple" data-action="ideas-tab" data-tab="explore" aria-pressed="${tab === 'explore'}">${icon('explore')}Explore</button>
+    <h1 class="headline">${T('Ideas')}</h1>
+    <div class="segmented" role="group" aria-label="${T('Ideas view')}">
+      <button type="button" class="ripple" data-action="ideas-tab" data-tab="mine" aria-pressed="${tab === 'mine'}">${icon('lightbulb')}${T('My ideas')}${ideas.length ? ` (${ideas.length})` : ''}</button>
+      <button type="button" class="ripple" data-action="ideas-tab" data-tab="explore" aria-pressed="${tab === 'explore'}">${icon('explore')}${T('Explore')}</button>
     </div>`;
 
   if (tab === 'mine') {
     html += `
-      <p class="supporting">Things you might do in ${esc(trip.name)}. Add one to a day when you're ready, or tap it to edit.</p>
+      <p class="supporting">${T('Things you might do in {trip}. Add one to a day when you’re ready, or tap it to edit.', { trip: esc(trip.name) })}</p>
       ${ideas.length
         ? `<ul class="group plans">${ideas.map(it => itemHTML(it, trip, { schedule: true })).join('')}</ul>`
-        : emptyState('travel_explore', 'No ideas yet', 'Save places you hear about here, then schedule them later.',
-            guide ? `<button type="button" class="btn tonal ripple" data-action="ideas-tab" data-tab="explore">${icon('explore')}Explore ${esc(guide.city)}</button>` : '')}`;
+        : emptyState('travel_explore', T('No ideas yet'), T('Save places you hear about here, then schedule them later.'),
+            guide ? `<button type="button" class="btn tonal ripple" data-action="ideas-tab" data-tab="explore">${icon('explore')}${T('Explore {place}', { place: esc(guide.city) })}</button>` : '')}`;
   } else if (!guide) {
-    const googleIdeas = `<a class="btn tonal ripple" href="https://www.google.com/maps/search/${encodeURIComponent('things to do in ' + placeLabel(trip))}" target="_blank" rel="noopener">${icon('map')}Things to do on Google Maps</a>`;
-    const changePlace = `<button type="button" class="btn tonal ripple" data-action="edit-trip">${icon('search')}Change place</button>`;
+    const googleIdeas = `<a class="btn tonal ripple" href="https://www.google.com/maps/search/${encodeURIComponent(T('things to do in {place}', { place: placeLabel(trip) }))}" target="_blank" rel="noopener">${icon('map')}${T('Things to do on Google Maps')}</a>`;
+    const changePlace = `<button type="button" class="btn tonal ripple" data-action="edit-trip">${icon('search')}${T('Change place')}</button>`;
     const status = guideState(trip);
     if (status === 'loading') {
-      html += emptyState('travel_explore', `Finding things to do in ${esc(trip.place.name)}…`,
-        'Looking up sights, food and more in the Wikivoyage travel guide.');
+      html += emptyState('travel_explore', `${T('Finding things to do in {place}…', { place: esc(trip.place.name) })}`,
+        T('Looking up sights, food and more in the Wikivoyage travel guide.'));
     } else if (!trip.place && !navigator.onLine) {
-      html += emptyState('cloud_off', `Ideas for ${esc(trip.name)} need a connection`,
-        'Connect to the internet once, and the guide is saved on your device for later.');
+      html += emptyState('cloud_off', T('Ideas for {trip} need a connection', { trip: esc(trip.name) }),
+        T('Connect to the internet once, and the guide is saved on your device for later.'));
     } else if (!trip.place) {
-      html += emptyState('location_off', `Couldn’t find ${esc(trip.name)} on the map`,
-        'Edit the trip and pick the city or country from the list to get ideas for it.',
+      html += emptyState('location_off', T('Couldn’t find {trip} on the map', { trip: esc(trip.name) }),
+        T('Edit the trip and pick the city or country from the list to get ideas for it.'),
         `<div class="empty-actions">${changePlace}${googleIdeas}</div>`);
     } else if (status === 'failed') {
-      html += emptyState('travel_explore', `No guide found for ${esc(trip.place.label)}`,
-        'The travel guide may not cover it, or the connection dropped. You can still look for ideas on Google Maps.',
+      html += emptyState('travel_explore', T('No guide found for {place}', { place: esc(trip.place.label) }),
+        T('The travel guide may not cover it, or the connection dropped. You can still look for ideas on Google Maps.'),
         `<div class="empty-actions">
-          <button type="button" class="btn tonal ripple" data-action="retry-guide">${icon('restart_alt')}Try again</button>
+          <button type="button" class="btn tonal ripple" data-action="retry-guide">${icon('restart_alt')}${T('Try again')}</button>
           ${changePlace}${googleIdeas}
         </div>`);
     } else {
-      html += emptyState('cloud_off', `Ideas for ${esc(trip.place.name)} need a connection`,
-        'Connect to the internet once, and the guide is saved on your device for later.');
+      html += emptyState('cloud_off', T('Ideas for {trip} need a connection', { trip: esc(trip.place.name) }),
+        T('Connect to the internet once, and the guide is saved on your device for later.'));
     }
   } else {
     const taken = new Set(trip.items.flatMap(i => matchPlaces(i, guide).map(p => p.id)));
     const destinations = guide.kind === 'destinations' && !guide.joined;
     const filter = destinations ? FILTERS[0] : FILTERS.find(f => f[0] === ui.filter) || FILTERS[0];
     const list = guide.places.filter(filter[2]);
-    const intro = guide.joined ? `${guide.places.length} places near your plans and in ${esc(guide.city)}, from ${guide.source}.`
-      : !guide.source ? `${guide.places.length} hand-picked places in ${esc(guide.city)}.`
-      : destinations ? `${guide.places.length} cities and destinations in ${esc(guide.city)}, from the ${guide.source} travel guide.`
-      : `${guide.places.length} places in ${esc(guide.city)}, from ${guide.source}.`;
+    const count = { n: guide.places.length, place: esc(guide.city), source: guide.source };
+    const intro = guide.joined ? T('{n} places near your plans and in {place}, from {source}.', count)
+      : !guide.source ? T('{n} hand-picked places in {place}.', count)
+      : destinations ? T('{n} cities and destinations in {place}, from the {source} travel guide.', count)
+      : T('{n} places in {place}, from {source}.', count);
     html += `
-      <p class="supporting">${intro} Tap + to save one to your ideas.</p>
+      <p class="supporting">${intro} ${T('Tap + to save one to your ideas.')}</p>
       ${trip.place && guide.source ? `
         <div class="place-row">
           <span class="place-pin">${icon('location_on')}<span>${esc(trip.place.label)}</span></span>
-          <button type="button" class="btn text ripple" data-action="near-me">${icon('my_location')}Near me</button>
-          <button type="button" class="btn text ripple" data-action="edit-trip">Change</button>
+          <button type="button" class="btn text ripple" data-action="near-me">${icon('my_location')}${T('Near me')}</button>
+          <button type="button" class="btn text ripple" data-action="edit-trip">${T('Change')}</button>
         </div>` : ''}
       ${destinations ? '' : `
-        <div class="filter-row" role="group" aria-label="Filter places">
+        <div class="filter-row" role="group" aria-label="${T('Filter places')}">
           ${FILTERS.map(([key, label, , ic]) => `
             <button type="button" class="filter-chip ripple" data-action="filter" data-filter="${key}" aria-pressed="${filter[0] === key}">${ic ? icon(ic) : ''}${label}</button>`).join('')}
         </div>`}
       ${list.length
         ? `<ul class="group">${list.map(p => placeHTML(p, taken.has(p.id), trip)).join('')}</ul>`
-        : emptyState('travel_explore', 'Nothing here', 'Try another filter.')}
-      <p class="footnote">${icon('schedule', 'sm')}Opening hours change — check before you go.</p>
-      ${guide.source === 'Wikivoyage' ? `<p class="footnote"><span>Places and descriptions: <a href="${esc(guide.sourceUrl)}" target="_blank" rel="noopener">Wikivoyage</a>, CC BY-SA.</span></p>` : ''}
-      ${guide.source === 'Wikipedia' ? '<p class="footnote">Places and descriptions: Wikipedia, CC BY-SA.</p>' : ''}`;
+        : emptyState('travel_explore', T('Nothing here'), T('Try another filter.'))}
+      <p class="footnote">${icon('schedule', 'sm')}${T('Opening hours change — check before you go.')}</p>
+      ${guide.source === 'Wikivoyage' ? `<p class="footnote"><span>${T('Places and descriptions:')} <a href="${esc(guide.sourceUrl)}" target="_blank" rel="noopener">Wikivoyage</a>, CC BY-SA.</span></p>` : ''}
+      ${guide.source === 'Wikipedia' ? `<p class="footnote">${T('Places and descriptions:')} Wikipedia, CC BY-SA.</p>` : ''}`;
   }
   $('#view-ideas').innerHTML = html;
 }
@@ -1442,9 +1444,9 @@ function taskHTML(c) {
   return `
     <li class="task ${c.done ? 'done' : ''}" data-check="${esc(c.id)}" data-drag>
       <button type="button" class="check ripple" data-action="toggle-check" role="checkbox"
-        aria-checked="${c.done}" aria-label="Done: ${esc(c.text)}"><span class="box">${icon('check')}</span></button>
+        aria-checked="${c.done}" aria-label="${T('Done: {name}', { name: esc(c.text) })}"><span class="box">${icon('check')}</span></button>
       <span class="task-text">${esc(c.text)}</span>
-      <button type="button" class="icon-btn ripple" data-action="del-check" aria-label="Remove ${esc(c.text)}">${icon('close')}</button>
+      <button type="button" class="icon-btn ripple" data-action="del-check" aria-label="${T('Remove {name}', { name: esc(c.text) })}">${icon('close')}</button>
     </li>`;
 }
 
@@ -1455,16 +1457,16 @@ function tripListHTML(trip, typed) {
   const todos = trip.todos || [];
   const done = todos.filter(c => c.done);
   return `
-    <section class="trip-list" data-list="trip" aria-label="List for everyone on ${esc(trip.name)}">
+    <section class="trip-list" data-list="trip" aria-label="${T('List for everyone on {trip}', { trip: esc(trip.name) })}">
       <div class="label-row">
-        <h2 class="group-label">${icon('group', 'sm')}${esc(trip.name)}${trip.shared ? ', together' : ''}${todos.length ? ` · ${done.length}/${todos.length}` : ''}</h2>
-        ${done.length ? `<button type="button" class="btn text ripple" data-action="clear-checked">Clear done</button>` : ''}
+        <h2 class="group-label">${icon('group', 'sm')}${esc(trip.name)}${trip.shared ? T(', together') : ''}${todos.length ? ` · ${done.length}/${todos.length}` : ''}</h2>
+        ${done.length ? `<button type="button" class="btn text ripple" data-action="clear-checked">${T('Clear done')}</button>` : ''}
       </div>
-      ${trip.shared ? `<p class="supporting">Everyone on this trip sees this list, adds to it and ticks things off.
-        <span class="touch-only">Hold an item and drag it</span><span class="mouse-only">Drag an item</span> to move it between this list and yours.</p>` : ''}
+      ${trip.shared ? `<p class="supporting">${T('Everyone on this trip sees this list, adds to it and ticks things off.')}
+        ${T('{how} to move it between this list and yours.', { how: `<span class="touch-only">${T('Hold an item and drag it')}</span><span class="mouse-only">${T('Drag an item')}</span>` })}</p>` : ''}
       <form class="add-bar" data-form="todo">
-        <input name="text" value="${esc(typed)}" placeholder="Add something for everyone" maxlength="200" autocomplete="off" aria-label="New item for everyone on the trip">
-        <button type="submit" class="icon-btn filled ripple" aria-label="Add">${icon('add')}</button>
+        <input name="text" value="${esc(typed)}" placeholder="${T('Add something for everyone')}" maxlength="200" autocomplete="off" aria-label="${T('New item for everyone on the trip')}">
+        <button type="submit" class="icon-btn filled ripple" aria-label="${T('Add')}">${icon('add')}</button>
       </form>
       ${todos.length ? `<ul class="group tasks">${[...todos.filter(c => !c.done), ...done].map(taskHTML).join('')}</ul>` : ''}
     </section>`;
@@ -1490,28 +1492,28 @@ function renderChecklist() {
   const together = tripListHTML(activeTrip(), typedIn('todo'));
   // The two lists are the places a row can be dragged to (drag.js): data-list, and "tasks" for the open items.
   $('#view-pack').innerHTML = `
-    <h1 class="headline">Checklist</h1>
-    <p class="supporting">Packing and to-dos for the whole trip.</p>
+    <h1 class="headline">${T('Checklist')}</h1>
+    <p class="supporting">${T('Packing and to-dos for the whole trip.')}</p>
     ${together}
-    <section class="own-list" data-list="own" aria-label="Your own checklist">
-    ${together ? '<h2 class="group-label">Just for you</h2>' : ''}
+    <section class="own-list" data-list="own" aria-label="${T('Your own checklist')}">
+    ${together ? `<h2 class="group-label">${T('Just for you')}</h2>` : ''}
     ${list.length ? `
       <div class="progress-card">
         <div><span class="big">${done.length}</span><span class="of"> / ${list.length}</span></div>
-        <p>${done.length === list.length ? "All done — you're ready to go!" : 'packed & done'}</p>
-        ${progressBar(done.length / list.length, 'Checklist progress')}
+        <p>${done.length === list.length ? T('All done — you’re ready to go!') : T('packed & done')}</p>
+        ${progressBar(done.length / list.length, T('Checklist progress'))}
       </div>` : ''}
     <form class="add-bar" data-form="check">
-      <input name="text" value="${esc(typed)}" placeholder="Add something to pack or do" maxlength="200" autocomplete="off" aria-label="New checklist item">
-      <button type="submit" class="icon-btn filled ripple" aria-label="Add">${icon('add')}</button>
+      <input name="text" value="${esc(typed)}" placeholder="${T('Add something to pack or do')}" maxlength="200" autocomplete="off" aria-label="${T('New checklist item')}">
+      <button type="submit" class="icon-btn filled ripple" aria-label="${T('Add')}">${icon('add')}</button>
     </form>
     ${todo.length ? `<ul class="group tasks">${todo.map(taskHTML).join('')}</ul>` : ''}
-    ${!list.length ? emptyState('luggage', 'Nothing to pack yet', 'Add chargers, tickets, snacks — anything you don’t want to forget.') : ''}
+    ${!list.length ? emptyState('luggage', T('Nothing to pack yet'), T('Add chargers, tickets, snacks — anything you don’t want to forget.')) : ''}
     ${packingHTML(activeTrip())}
     ${done.length ? `
       <div class="label-row">
-        <h2 class="group-label">Completed (${done.length})</h2>
-        <button type="button" class="btn text ripple" data-action="clear-checked">Clear</button>
+        <h2 class="group-label">${T('Completed ({n})', { n: done.length })}</h2>
+        <button type="button" class="btn text ripple" data-action="clear-checked">${T('Clear')}</button>
       </div>
       <ul class="group">${done.map(taskHTML).join('')}</ul>` : ''}
     </section>`;
@@ -1525,15 +1527,15 @@ function renderMore() {
     account = `
       <li><div class="row">
         <span class="row-icon">${icon('sync')}</span>
-        <span class="row-text"><span class="row-title">Sync between devices</span>
-          <span class="row-sub">Not set up yet — see “Sync between devices” in the README</span></span>
+        <span class="row-text"><span class="row-title">${T('Sync between devices')}</span>
+          <span class="row-sub">${T('Not set up yet — see “Sync between devices” in the README')}</span></span>
       </div></li>`;
   } else if (!signedIn) {
     account = `
       <li><button type="button" class="row accent ripple" data-action="sign-in">
         <span class="row-icon">${icon('login')}</span>
-        <span class="row-text"><span class="row-title">Sign in to sync</span>
-          <span class="row-sub">See your trips on all your devices, and plan them with other people</span></span>
+        <span class="row-text"><span class="row-title">${T('Sign in to sync')}</span>
+          <span class="row-sub">${T('See your trips on all your devices, and plan them with other people')}</span></span>
       </button></li>`;
   } else {
     account = `
@@ -1544,58 +1546,61 @@ function renderMore() {
       </div></li>
       ${sync.saved.verified === false ? `<li><button type="button" class="row accent ripple" data-action="verify-email">
         <span class="row-icon">${icon('send')}</span>
-        <span class="row-text"><span class="row-title">Confirm your email</span>
-          <span class="row-sub">Tap the link we emailed you, so “Forgot password?” can reach you. Tap here if you did, or to get a new link.</span></span>
+        <span class="row-text"><span class="row-title">${T('Confirm your email')}</span>
+          <span class="row-sub">${T('Tap the link we emailed you, so “Forgot password?” can reach you. Tap here if you did, or to get a new link.')}</span></span>
       </button></li>` : ''}
       <li><button type="button" class="row ripple" data-action="change-password">
         <span class="row-icon">${icon('shield')}</span>
-        <span class="row-text"><span class="row-title">Change password</span></span>
+        <span class="row-text"><span class="row-title">${T('Change password')}</span></span>
       </button></li>
       <li><button type="button" class="row ripple" data-action="sign-out">
         <span class="row-icon">${icon('logout')}</span>
-        <span class="row-text"><span class="row-title">Sign out</span><span class="row-sub">Plans stay on this device but stop syncing</span></span>
+        <span class="row-text"><span class="row-title">${T('Sign out')}</span><span class="row-sub">${T('Plans stay on this device but stop syncing')}</span></span>
       </button></li>
       <li><button type="button" class="row danger ripple" data-action="delete-account">
         <span class="row-icon">${icon('delete')}</span>
-        <span class="row-text"><span class="row-title">Delete account</span><span class="row-sub">Removes the login and the trips stored in it</span></span>
+        <span class="row-text"><span class="row-title">${T('Delete account')}</span><span class="row-sub">${T('Removes the login and the trips stored in it')}</span></span>
       </button></li>`;
   }
 
   $('#view-more').innerHTML = `
-    <h1 class="headline">Settings</h1>
+    <h1 class="headline">${T('Settings')}</h1>
 
-    <h2 class="group-label">Account</h2>
+    <h2 class="group-label">${T('Account')}</h2>
     <ul class="group">${account}</ul>
 
-    <h2 class="group-label">Trips</h2>
+    <h2 class="group-label">${T('Trips')}</h2>
     <ul class="group">
       ${state.trips.map(t => `
         <li><button type="button" class="row ripple" data-action="edit-trip" data-trip-id="${esc(t.id)}">
           <span class="trip-avatar" style="--c:${esc(t.color)}">${esc(t.name.charAt(0).toUpperCase())}</span>
           <span class="row-text">
             <span class="row-title">${esc(t.name)}</span>
-            <span class="row-sub">${t.start && t.end ? esc(fmtDay(t.start, { month: 'short', day: 'numeric' }) + ' – ' + fmtDay(t.end, { month: 'short', day: 'numeric' })) : 'No dates'} · ${plural(t.items.length, 'plan')}${t.shared && signedIn ? ' · shared' : ''}</span>
+            <span class="row-sub">${t.start && t.end ? esc(fmtDay(t.start, { month: 'short', day: 'numeric' }) + ' – ' + fmtDay(t.end, { month: 'short', day: 'numeric' })) : T('No dates')} · ${Tn(t.items.length, '{n} plan', '{n} plans')}${t.shared && signedIn ? ` · ${T('shared')}` : ''}</span>
           </span>
           <span class="row-trail">${icon('edit')}</span>
         </button></li>`).join('')}
       <li><button type="button" class="row ripple" data-action="new-trip">
         <span class="row-icon">${icon('add')}</span>
-        <span class="row-text"><span class="row-title">Add a trip</span></span>
+        <span class="row-text"><span class="row-title">${T('Add a trip')}</span></span>
       </button></li>
       ${sync.configured ? `<li><button type="button" class="row ripple" data-action="join-trip">
         <span class="row-icon">${icon('group')}</span>
-        <span class="row-text"><span class="row-title">Join a trip</span><span class="row-sub">With the invitation link someone sent you</span></span>
+        <span class="row-text"><span class="row-title">${T('Join a trip')}</span><span class="row-sub">${T('With the invitation link someone sent you')}</span></span>
       </button></li>` : ''}
     </ul>
 
-    <h2 class="group-label">Appearance</h2>
+    <h2 class="group-label">${T('Appearance')}</h2>
     <ul class="group">
       ${[
-        ['Theme', 'theme', [['auto', 'Auto', 'brightness_auto'], ['light', 'Light', 'light_mode'], ['dark', 'Dark', 'dark_mode']], state.settings.theme],
-        ['Units', 'units', [['metric', 'km · °C'], ['imperial', 'mi · °F']], imperial() ? 'imperial' : 'metric'],
-        ['Date', 'date-order', [['dmy', '31 Oct'], ['mdy', 'Oct 31']], state.settings.dateOrder],
-        ['Time', 'clock', [['24', '14:30'], ['12', '2:30 PM']], state.settings.clock],
-      ].map(([name, action, options, chosen]) => `
+        // The language: what the device uses when the app has it (i18n.js). Changing it starts the app again.
+        [T('Language'), 'lang', Object.entries(LANGS), LANG],
+        [T('Theme'), 'theme', [['auto', T('Auto'), 'brightness_auto'], ['light', T('Light'), 'light_mode'], ['dark', T('Dark'), 'dark_mode']], state.settings.theme],
+        [T('Units'), 'units', [['metric', 'km · °C'], ['imperial', 'mi · °F']], imperial() ? 'imperial' : 'metric'],
+        // French writes the day first, always.
+        !LOCALES[LANG] && [T('Date'), 'date-order', [['dmy', '31 Oct'], ['mdy', 'Oct 31']], state.settings.dateOrder],
+        [T('Time'), 'clock', [['24', '14:30'], ['12', '2:30 PM']], state.settings.clock],
+      ].filter(Boolean).map(([name, action, options, chosen]) => `
         <li><div class="row pick">
           <span class="pick-label">${name}</span>
           <div class="segmented" role="group" aria-label="${name}">
@@ -1605,94 +1610,94 @@ function renderMore() {
         </div></li>`).join('')}
     </ul>
 
-    <h2 class="group-label">Planning help</h2>
+    <h2 class="group-label">${T('Planning help')}</h2>
     <ul class="group">
       <li><button type="button" class="row ripple" data-action="toggle-suggestions" role="switch" aria-checked="${state.settings.suggestions}">
         <span class="row-icon">${icon('auto_awesome')}</span>
-        <span class="row-text"><span class="row-title">Day suggestions</span><span class="row-sub">Ideas under each day, from the city’s travel guide</span></span>
+        <span class="row-text"><span class="row-title">${T('Day suggestions')}</span><span class="row-sub">${T('Ideas under each day, from the city’s travel guide')}</span></span>
         <span class="switch ${state.settings.suggestions ? 'on' : ''}" aria-hidden="true"></span>
       </button></li>
       <li><button type="button" class="row ripple" data-action="toggle-lookup" role="switch" aria-checked="${state.settings.lookup}">
         <span class="row-icon">${icon('pin_drop')}</span>
-        <span class="row-text"><span class="row-title">Find addresses and opening hours</span><span class="row-sub">And the way by road. Sends where your plans are (not what you plan there) to OpenStreetMap</span></span>
+        <span class="row-text"><span class="row-title">${T('Find addresses and opening hours')}</span><span class="row-sub">${T('And the way by road. Sends where your plans are (not what you plan there) to OpenStreetMap')}</span></span>
         <span class="switch ${state.settings.lookup ? 'on' : ''}" aria-hidden="true"></span>
       </button></li>
       ${aiReady() ? `<li><button type="button" class="row ripple" data-action="toggle-booking" role="switch" aria-checked="${state.settings.booking !== false}">
         <span class="row-icon">${icon('confirmation_number')}</span>
-        <span class="row-text"><span class="row-title">Flag plans that sell out</span><span class="row-sub">Sends the names of your plans to Google Gemini (free service)</span></span>
+        <span class="row-text"><span class="row-title">${T('Flag plans that sell out')}</span><span class="row-sub">${T('Sends the names of your plans to Google Gemini (free service)')}</span></span>
         <span class="switch ${state.settings.booking !== false ? 'on' : ''}" aria-hidden="true"></span>
       </button></li>` : ''}
     </ul>
 
-    <h2 class="group-label">App</h2>
+    <h2 class="group-label">${T('App')}</h2>
     <ul class="group">
       ${installPrompt ? `
         <li><button type="button" class="row accent ripple" data-action="install">
           <span class="row-icon">${icon('install_mobile')}</span>
-          <span class="row-text"><span class="row-title">Install app</span><span class="row-sub">Add Dotted Line to your home screen</span></span>
+          <span class="row-text"><span class="row-title">${T('Install app')}</span><span class="row-sub">${T('Add Dotted Line to your home screen')}</span></span>
         </button></li>` : onIOS && !installed() ? `
         <li><div class="row">
           <span class="row-icon">${icon('install_mobile')}</span>
-          <span class="row-text"><span class="row-title">Install app</span><span class="row-sub">Tap your browser’s Share button, then “Add to Home Screen”</span></span>
+          <span class="row-text"><span class="row-title">${T('Install app')}</span><span class="row-sub">${T('Tap your browser’s Share button, then “Add to Home Screen”')}</span></span>
         </div></li>` : ''}
       <li><div class="row">
         <span class="row-icon">${icon('offline_pin')}</span>
-        <span class="row-text"><span class="row-title">Works offline</span>
-          <span class="row-sub">${offlineReady ? '<span class="ok">Ready</span> — saved on this device' : 'Open the app once while online'}</span></span>
+        <span class="row-text"><span class="row-title">${T('Works offline')}</span>
+          <span class="row-sub">${offlineReady ? T('<span class="ok">Ready</span> — saved on this device') : T('Open the app once while online')}</span></span>
       </div></li>
       <li><div class="row">
         <span class="row-icon">${icon('shield')}</span>
-        <span class="row-text"><span class="row-title">Data protected</span>
-          <span class="row-sub">${storagePersisted ? '<span class="ok">On</span> — your device won’t clear it' : 'Installing the app usually turns this on'}</span></span>
+        <span class="row-text"><span class="row-title">${T('Data protected')}</span>
+          <span class="row-sub">${storagePersisted ? T('<span class="ok">On</span> — your device won’t clear it') : T('Installing the app usually turns this on')}</span></span>
       </div></li>
     </ul>
 
-    <h2 class="group-label">Backup &amp; calendar</h2>
+    <h2 class="group-label">${T('Backup &amp; calendar')}</h2>
     <ul class="group">
       ${activeTrip() ? `<li><button type="button" class="row ripple" data-action="trip-calendar">
         <span class="row-icon">${icon('calendar_add_on')}</span>
-        <span class="row-text"><span class="row-title">Calendar file for ${esc(activeTrip().name)}</span><span class="row-sub">Every plan with a day, for any calendar app (in Google Calendar: Settings → Import)</span></span>
+        <span class="row-text"><span class="row-title">${T('Calendar file for {trip}', { trip: esc(activeTrip().name) })}</span><span class="row-sub">${T('Every plan with a day, for any calendar app (in Google Calendar: Settings → Import)')}</span></span>
       </button></li>` : ''}
       <li><button type="button" class="row ripple" data-action="export">
         <span class="row-icon">${icon('download')}</span>
-        <span class="row-text"><span class="row-title">Save backup file</span><span class="row-sub">Goes to your Downloads folder</span></span>
+        <span class="row-text"><span class="row-title">${T('Save backup file')}</span><span class="row-sub">${T('Goes to your Downloads folder')}</span></span>
       </button></li>
       <li><button type="button" class="row ripple" data-action="import">
         <span class="row-icon">${icon('upload')}</span>
-        <span class="row-text"><span class="row-title">Restore from backup</span><span class="row-sub">Replaces what's in the app now</span></span>
+        <span class="row-text"><span class="row-title">${T('Restore from backup')}</span><span class="row-sub">${T('Replaces what’s in the app now')}</span></span>
       </button></li>
       <li><button type="button" class="row danger ripple" data-action="reset">
         <span class="row-icon">${icon('restart_alt')}</span>
-        <span class="row-text"><span class="row-title">Erase everything</span><span class="row-sub">Start over with a clean slate</span></span>
+        <span class="row-text"><span class="row-title">${T('Erase everything')}</span><span class="row-sub">${T('Start over with a clean slate')}</span></span>
       </button></li>
     </ul>
     <input type="file" id="import-file" accept=".json,application/json" hidden>
 
-    <h2 class="group-label">About</h2>
+    <h2 class="group-label">${T('About')}</h2>
     <ul class="group">
       ${sync.configured ? `<li><button type="button" class="row accent ripple" data-action="feature-votes">
         <span class="row-icon">${icon('lightbulb')}</span>
-        <span class="row-text"><span class="row-title">What should come next?</span><span class="row-sub">Vote for new features, or suggest your own</span></span>
+        <span class="row-text"><span class="row-title">${T('What should come next?')}</span><span class="row-sub">${T('Vote for new features, or suggest your own')}</span></span>
       </button></li>` : ''}
       <li><button type="button" class="row ripple" data-action="privacy">
         <span class="row-icon">${icon('shield')}</span>
-        <span class="row-text"><span class="row-title">Privacy</span><span class="row-sub">Where your plans are kept, and what is sent where</span></span>
+        <span class="row-text"><span class="row-title">${T('Privacy')}</span><span class="row-sub">${T('Where your plans are kept, and what is sent where')}</span></span>
       </button></li>
       <li><button type="button" class="row ripple" data-action="report-problem">
         <span class="row-icon">${icon('error')}</span>
-        <span class="row-text"><span class="row-title">Report a problem</span><span class="row-sub">Write what went wrong. The app’s version goes with it, never your plans</span></span>
+        <span class="row-text"><span class="row-title">${T('Report a problem')}</span><span class="row-sub">${T('Write what went wrong. The app’s version goes with it, never your plans')}</span></span>
       </button></li>
       <li><button type="button" class="row ripple" data-action="whats-new">
         <span class="row-icon">${icon('info')}</span>
-        <span class="row-text"><span class="row-title">What’s new</span>
-          <span class="row-sub">Version ${esc(APP_VERSION)} · ${esc(fmtDay(CHANGELOG[0].date, { day: 'numeric', month: 'short', year: 'numeric' }))}</span></span>
+        <span class="row-text"><span class="row-title">${T('What’s new')}</span>
+          <span class="row-sub">${T('Version {v}', { v: esc(APP_VERSION) })} · ${esc(fmtDay(CHANGELOG[0].date, { day: 'numeric', month: 'short', year: 'numeric' }))}</span></span>
       </button></li>
     </ul>
 
     <p class="footnote">${icon('shield', 'sm')}${signedIn
-      ? 'Your plans are stored on this device and in your account.'
-      : 'Your plans are stored only on this device.'}</p>
-    <p class="footnote">Maps, address and place search: © OpenStreetMap contributors. City guides: Wikivoyage and Wikipedia, CC BY-SA.</p>`;
+      ? T('Your plans are stored on this device and in your account.')
+      : T('Your plans are stored only on this device.')}</p>
+    <p class="footnote">${T('Maps, address and place search: © OpenStreetMap contributors. City guides: Wikivoyage and Wikipedia, CC BY-SA.')}</p>`;
 }
 
 /* ---------- Plan form (add / edit) ---------- */
@@ -1709,19 +1714,21 @@ $('#item-category').insertAdjacentHTML('beforeend', Object.entries(CATEGORIES).m
 // (a sight in Lisbon → "e.g. Visit Praça do Comércio"). Plain wording when there's no guide yet.
 function planExamples(trip, category) {
   const city = trip ? (trip.place ? trip.place.name : trip.name) : '';
-  const inCity = city ? ` in ${city}` : '';
-  if (category === 'transport') return { title: 'e.g. Train to the airport', place: `e.g. the main station${inCity}` };
-  if (category === 'stay') return { title: 'e.g. Hotel check-in', place: 'The address of your hotel or apartment' };
+  if (category === 'transport') return { title: T('e.g. Train to the airport'), place: city ? T('e.g. the main station in {city}', { city }) : T('e.g. the main station') };
+  if (category === 'stay') return { title: T('e.g. Hotel check-in'), place: T('The address of your hotel or apartment') };
   const guide = trip && guideFor(trip);
   const taken = guide ? new Set(trip.items.flatMap(i => matchPlaces(i, guide).map(p => p.id))) : new Set();
   const pool = guide ? guide.places.filter(p => !taken.has(p.id)) : [];
   const p = pool.find(x => x.cat === category) || (category === 'other' ? pool[0] : null);
   if (!p) {
-    const generic = { sight: 'Visit the old town', food: 'Dinner out', event: 'Concert or show', shopping: 'Browse the market', other: 'Meet friends' };
-    return { title: `e.g. ${generic[category] || generic.sight}`, place: `A place name or an address${inCity}` };
+    const generic = { sight: T('e.g. Visit the old town'), food: T('e.g. Dinner out'), event: T('e.g. Concert or show'), shopping: T('e.g. Browse the market'), other: T('e.g. Meet friends') };
+    return { title: generic[category] || generic.sight, place: city ? T('A place name or an address in {city}', { city }) : T('A place name or an address') };
   }
-  const verb = guide.kind === 'destinations' ? 'Day trip to ' : { sight: 'Visit ', food: 'Eat at ', shopping: 'Shopping at ' }[category] || '';
-  return { title: `e.g. ${verb}${p.name}`, place: `e.g. ${p.place || p.name}` };
+  const name = { name: p.name };
+  const title = guide.kind === 'destinations' ? T('e.g. Day trip to {name}', name)
+    : category === 'sight' ? T('e.g. Visit {name}', name) : category === 'food' ? T('e.g. Eat at {name}', name)
+    : category === 'shopping' ? T('e.g. Shopping at {name}', name) : T('e.g. {name}', name);
+  return { title, place: T('e.g. {name}', { name: p.place || p.name }) };
 }
 
 function setPlanExamples() {
@@ -1785,7 +1792,7 @@ async function findMatches(trip, q, signal, by) {
     name: p.name, place: p.place || p.name, sub: p.area || guide.city || '', cat: p.cat, lat: p.lat, lng: p.lng, guideId: p.id,
   })) : [];
   if (!navigator.onLine) return fromGuide;
-  const params = new URLSearchParams({ q, limit: '8', lang: 'en' });
+  const params = new URLSearchParams({ q, limit: '8', lang: LANG === 'fr' ? 'fr' : 'en' });
   // Results close to the plan come first.
   if (by) { params.set('lat', by.lat); params.set('lon', by.lng); }
   const res = await fetch('https://photon.komoot.io/api/?' + params, { signal });
@@ -1887,7 +1894,7 @@ function openItemForm(item, defaults = {}) {
   showMatches('', []);
   editingItemId = item ? item.id : null;
   const v = item || { title: '', category: 'sight', date: '', time: '', place: '', link: '', notes: '', ...defaults };
-  $('#item-dialog-title').textContent = item ? 'Edit plan' : (v.date ? 'New plan' : 'New idea');
+  $('#item-dialog-title').textContent = item ? T('Edit plan') : (v.date ? T('New plan') : T('New idea'));
   for (const f of ['title', 'category', 'date', 'time', 'place', 'link', 'notes', 'until']) {
     itemForm.elements[f].value = v[f] || '';
   }
@@ -1920,7 +1927,7 @@ function showStayFields() {
   const stay = f.category.value === 'stay';
   $('#item-until').hidden = !stay;
   f.until.disabled = !stay;        // a field that isn't shown must not stop the form from saving
-  $('#item-day-label').textContent = stay ? 'Check-in day' : 'Day';
+  $('#item-day-label').textContent = stay ? T('Check-in day') : T('Day');
   const first = isDate(f.date.value) ? parseDate(f.date.value) : null;
   if (first) first.setDate(first.getDate() + 1);
   f.until.min = first ? toISO(first) : '';
@@ -1975,7 +1982,7 @@ itemForm.addEventListener('submit', (e) => {
   save();
   itemDialog.close();
   render();
-  snackbar(data.date ? `Saved to ${fmtDay(data.date, { weekday: 'long', month: 'short', day: 'numeric' })}` : 'Saved to Ideas');
+  snackbar(data.date ? T('Saved to {day}', { day: fmtDay(data.date, { weekday: 'long', month: 'short', day: 'numeric' }) }) : T('Saved to Ideas'));
 });
 
 $('#item-delete').addEventListener('click', () => {
@@ -1987,7 +1994,7 @@ $('#item-delete').addEventListener('click', () => {
   save();
   itemDialog.close();
   render();
-  snackbar('Plan deleted', 'Undo', () => {
+  snackbar(T('Plan deleted'), T('Undo'), () => {
     trip.items.splice(index, 0, item);
     save();
     render();
@@ -2001,7 +2008,7 @@ const tripForm = $('#trip-form');
 let editingTripId = null;
 
 $('#trip-colors').insertAdjacentHTML('beforeend', COLORS.map(c => `
-  <label><input type="radio" name="color" value="${c}" aria-label="Color ${c}">
+  <label><input type="radio" name="color" value="${c}" aria-label="${T('Color {c}', { c })}">
     <span class="ripple" style="--c:${c}">${icon('check')}</span></label>`).join(''));
 
 $('#trip-travel').insertAdjacentHTML('beforeend', Object.entries(TRAVEL_MODES).map(([k, m]) => `
@@ -2018,8 +2025,8 @@ function showChosenPlace() {
   if (!p) return;
   // A trip keeps its place under another name ("USA with Sam"): the form says so.
   const kept = !norm(tripForm.elements.name.value).includes(norm(p.name));
-  const how = navigator.onLine ? 'To change it, pick another from the list.' : 'Go online to pick another.';
-  $('#place-chosen').innerHTML = `${icon('location_on')}<span>${esc(p.label)}${kept ? `<small>Still the trip’s place. ${how}</small>` : ''}</span><span class="kind">${KIND_LABEL[p.kind]}</span>`;
+  const how = navigator.onLine ? T('To change it, pick another from the list.') : T('Go online to pick another.');
+  $('#place-chosen').innerHTML = `${icon('location_on')}<span>${esc(p.label)}${kept ? `<small>${T('Still the trip’s place.')} ${how}</small>` : ''}</span><span class="kind">${KIND_LABEL[p.kind]}</span>`;
 }
 
 function showPlaceResults(results, note = '') {
@@ -2047,7 +2054,7 @@ function onTripNameInput() {
     const ctl = placeSearch.ctl = new AbortController();
     try {
       const results = await searchPlaces(q, ctl.signal);
-      showPlaceResults(results, results.length ? '' : 'No matching city or country found');
+      showPlaceResults(results, results.length ? '' : T('No matching city or country found'));
     } catch (err) {
       if (err.name !== 'AbortError') showPlaceResults([]);
     }
@@ -2067,7 +2074,7 @@ $('#place-list').addEventListener('click', (e) => {
 
 function openTripForm(trip) {
   editingTripId = trip ? trip.id : null;
-  $('#trip-dialog-title').textContent = trip ? 'Edit trip' : state.trips.length ? 'New trip' : 'Where to?';
+  $('#trip-dialog-title').textContent = trip ? T('Edit trip') : state.trips.length ? T('New trip') : T('Where to?');
   const f = tripForm.elements;
   f.name.value = trip ? trip.name : '';
   f.start.value = trip ? trip.start : '';
@@ -2104,7 +2111,7 @@ tripForm.addEventListener('submit', async (e) => {
   if (!place && navigator.onLine) {
     const btn = tripForm.querySelector('[type="submit"]');
     btn.disabled = true;
-    showPlaceResults([], `Finding ${data.name}…`);
+    showPlaceResults([], T('Finding {place}…', { place: data.name }));
     place = await findPlace(data.name);
     btn.disabled = false;
     showPlaceResults([]);
@@ -2133,8 +2140,8 @@ tripForm.addEventListener('submit', async (e) => {
   save();
   tripDialog.close();
   render();
-  if (place && !guideFor(trip) && guideState(trip) === 'loading') snackbar(`Found ${place.label} — getting ideas…`);
-  else if (!place && navigator.onLine) snackbar(`Couldn’t find ${data.name} on the map — no suggestions for it`);
+  if (place && !guideFor(trip) && guideState(trip) === 'loading') snackbar(T('Found {place} — getting ideas…', { place: place.label }));
+  else if (!place && navigator.onLine) snackbar(T('Couldn’t find {place} on the map — no suggestions for it', { place: data.name }));
 });
 
 $('#trip-delete').addEventListener('click', async () => {
@@ -2147,9 +2154,9 @@ $('#trip-delete').addEventListener('click', async () => {
   }
   const ok = await askConfirm({
     icon: 'delete',
-    title: `Delete ${trip.name}?`,
-    text: `This removes the trip and its ${plural(trip.items.length, 'plan')} from this device.`,
-    ok: 'Delete',
+    title: T('Delete {trip}?', { trip: trip.name }),
+    text: Tn(trip.items.length, 'This removes the trip and its {n} plan from this device.', 'This removes the trip and its {n} plans from this device.'),
+    ok: T('Delete'),
   });
   if (!ok) return;
   state.trips = state.trips.filter(t => t.id !== trip.id);
@@ -2158,7 +2165,7 @@ $('#trip-delete').addEventListener('click', async () => {
   save();
   tripDialog.close();
   render();
-  snackbar(`${trip.name} deleted`);
+  snackbar(T('{trip} deleted', { trip: trip.name }));
 });
 
 /* ---------- Sign in (for sync between phones) ---------- */
@@ -2178,14 +2185,14 @@ function openAuthForm() {
 // The same sheet signs in or creates an account. What was typed stays when switching.
 function setAuthMode(create) {
   authCreate = create;
-  $('#auth-title').textContent = create ? 'Create account' : 'Sign in to sync';
+  $('#auth-title').textContent = create ? T('Create account') : T('Sign in to sync');
   $('#auth-text').textContent = create
-    ? 'Choose an email and a password. You’ll use them on each of your devices, to see your trips there too.'
-    : 'Use the same email and password on each of your devices: they all show the same trips.';
+    ? T('Choose an email and a password. You’ll use them on each of your devices, to see your trips there too.')
+    : T('Use the same email and password on each of your devices: they all show the same trips.');
   $('#auth-repeat-field').hidden = !create;
   authForm.elements.password.autocomplete = create ? 'new-password' : 'current-password';
-  $('#auth-submit').textContent = create ? 'Create account' : 'Sign in';
-  $('#auth-switch').textContent = create ? 'I have an account' : 'Create account';
+  $('#auth-submit').textContent = create ? T('Create account') : T('Sign in');
+  $('#auth-switch').textContent = create ? T('I have an account') : T('Create account');
   $('#auth-forgot').hidden = create;
   authError('');
 }
@@ -2200,15 +2207,15 @@ async function runAuth() {
   const f = authForm.elements;
   const email = f.email.value.trim();
   const password = f.password.value;
-  if (!email || !password) return authError('Enter the email and password.');
-  if (create && password.length < 6) return authError('Use at least 6 characters for the password.');
-  if (create && password !== f.repeat.value) return authError('The two passwords don’t match.');
+  if (!email || !password) return authError(T('Enter the email and password.'));
+  if (create && password.length < 6) return authError(T('Use at least 6 characters for the password.'));
+  if (create && password !== f.repeat.value) return authError(T('The two passwords don’t match.'));
   authError('');
   authForm.querySelectorAll('button').forEach(b => { b.disabled = true; });
   try {
     await signIn(email, password, create);
     authDialog.close();
-    snackbar(create ? 'Account created — we emailed you a link to confirm your address' : 'Signed in — connecting…');
+    snackbar(create ? T('Account created — we emailed you a link to confirm your address') : T('Signed in — connecting…'));
   } catch (err) {
     authError(syncErrorText(err));
   } finally {
@@ -2224,11 +2231,11 @@ $('#auth-switch').addEventListener('click', () => {
 });
 $('#auth-forgot').addEventListener('click', async () => {
   const email = authForm.elements.email.value.trim();
-  if (!email) return authError('Enter your email first, then tap “Forgot password?” again.');
+  if (!email) return authError(T('Enter your email first, then tap “Forgot password?” again.'));
   try {
     await resetPassword(email);
     authError('');
-    snackbar(`If ${email} has an account, a reset link is on its way`);
+    snackbar(T('If {email} has an account, a reset link is on its way', { email }));
   } catch (err) {
     authError(syncErrorText(err));
   }
@@ -2251,14 +2258,14 @@ function openAccountForm(mode) {
   accountMode = mode;
   const del = mode === 'delete';
   accountForm.reset();
-  $('#account-title').textContent = del ? 'Delete account?' : 'Change password';
+  $('#account-title').textContent = del ? T('Delete account?') : T('Change password');
   $('#account-text').textContent = del
-    ? `This deletes the account ${sync.saved.email} and the trips stored in it, for good. Other devices signed in lose their copy. ` +
-      (Object.values(sharing.roots).some(r => ownsShare(r) && r.members.length > 1) ? 'The people you invited to a trip lose that trip too. ' : '') +
-      'The trips stay on this device. Enter your password to confirm.'
-    : 'Other devices signed in to this account will have to sign in again with the new password.';
+    ? T('This deletes the account {email} and the trips stored in it, for good. Other devices signed in lose their copy.', { email: sync.saved.email }) + ' ' +
+      (Object.values(sharing.roots).some(r => ownsShare(r) && r.members.length > 1) ? T('The people you invited to a trip lose that trip too.') + ' ' : '') +
+      T('The trips stay on this device. Enter your password to confirm.')
+    : T('Other devices signed in to this account will have to sign in again with the new password.');
   accountForm.querySelectorAll('[data-new-password]').forEach((el) => { el.hidden = del; });
-  $('#account-submit').textContent = del ? 'Delete account' : 'Change password';
+  $('#account-submit').textContent = del ? T('Delete account') : T('Change password');
   $('#account-submit').classList.toggle('danger', del);
   accountError('');
   accountDialog.showModal();
@@ -2275,29 +2282,29 @@ accountForm.addEventListener('submit', async (e) => {
   const f = accountForm.elements;
   const current = f.current.value;
   const next = f.next.value;
-  if (!current) return accountError('Enter your current password.');
+  if (!current) return accountError(T('Enter your current password.'));
   if (accountMode === 'password') {
-    if (next.length < 6) return accountError('Use at least 6 characters for the new password.');
-    if (next !== f.repeat.value) return accountError('The two new passwords don’t match.');
-    if (next === current) return accountError('That’s the password you already have.');
+    if (next.length < 6) return accountError(T('Use at least 6 characters for the new password.'));
+    if (next !== f.repeat.value) return accountError(T('The two new passwords don’t match.'));
+    if (next === current) return accountError(T('That’s the password you already have.'));
   }
-  if (!navigator.onLine) return accountError('No connection. Try again when you’re online.');
+  if (!navigator.onLine) return accountError(T('No connection. Try again when you’re online.'));
   accountError('');
   accountForm.querySelectorAll('button').forEach(b => { b.disabled = true; });
   try {
     if (accountMode === 'password') {
       await changePassword(current, next);
       accountDialog.close();
-      snackbar('Password changed');
+      snackbar(T('Password changed'));
     } else {
       await deleteAccount(current);
       accountDialog.close();
       render();
-      snackbar('Account deleted — your trips are still on this device');
+      snackbar(T('Account deleted — your trips are still on this device'));
     }
   } catch (err) {
     const wrong = /wrong-password|invalid-credential|invalid-login-credentials/.test((err && err.code) || '');
-    accountError(wrong ? 'The current password is wrong.' : syncErrorText(err));
+    accountError(wrong ? T('The current password is wrong.') : syncErrorText(err));
   } finally {
     accountForm.querySelectorAll('button').forEach(b => { b.disabled = false; });
   }
@@ -2309,13 +2316,13 @@ accountForm.addEventListener('submit', async (e) => {
 // device's Back), they ask first when something in them was changed since they opened.
 const DRAFTS = new Map([
   [itemDialog, { form: itemForm, ask: () => editingItemId
-    ? { title: 'Discard your changes?', text: 'The plan stays as it was.' }
-    : { title: 'Discard this plan?', text: 'What you entered hasn’t been saved.' } }],
+    ? { title: T('Discard your changes?'), text: T('The plan stays as it was.') }
+    : { title: T('Discard this plan?'), text: T('What you entered hasn’t been saved.') } }],
   [tripDialog, { form: tripForm, ask: () => editingTripId
-    ? { title: 'Discard your changes?', text: 'The trip stays as it was.' }
-    : { title: 'Discard this trip?', text: 'What you entered hasn’t been saved.' } }],
-  [$('#report-dialog'), { form: $('#report-form'), ask: () => ({ title: 'Discard your message?', text: 'It hasn’t been sent.' }) }],
-  [$('#vote-dialog'), { form: $('#vote-form'), ask: () => ({ title: 'Discard your idea?', text: 'It hasn’t been sent.' }) }],
+    ? { title: T('Discard your changes?'), text: T('The trip stays as it was.') }
+    : { title: T('Discard this trip?'), text: T('What you entered hasn’t been saved.') } }],
+  [$('#report-dialog'), { form: $('#report-form'), ask: () => ({ title: T('Discard your message?'), text: T('It hasn’t been sent.') }) }],
+  [$('#vote-dialog'), { form: $('#vote-form'), ask: () => ({ title: T('Discard your idea?'), text: T('It hasn’t been sent.') }) }],
 ]);
 
 // What a sheet's form holds (in the plan form, with the files attached or removed).
@@ -2339,7 +2346,7 @@ function draftChanged(dlg) {
 // Closes a sheet, unless something typed in it would be lost and the user keeps it.
 async function closeSheet(dlg) {
   if (draftChanged(dlg)) {
-    const ok = await askConfirm({ icon: 'edit', ...DRAFTS.get(dlg).ask(), ok: 'Discard', cancel: 'Keep editing' });
+    const ok = await askConfirm({ icon: 'edit', ...DRAFTS.get(dlg).ask(), ok: T('Discard'), cancel: T('Keep editing') });
     if (!ok) return;
   }
   if (dlg.open) dlg.close();
@@ -2509,7 +2516,7 @@ document.addEventListener('click', async (e) => {
       const [removed] = list.get().splice(index, 1);
       save();
       render();
-      snackbar('Item removed', 'Undo', () => {
+      snackbar(T('Item removed'), T('Undo'), () => {
         // Back where it was, unless the list changed meanwhile (someone else on the trip): then at the end.
         const now = list.get().slice();
         if (now.some(x => x.id === removed.id)) return;
@@ -2526,7 +2533,7 @@ document.addEventListener('click', async (e) => {
       list.set(list.get().filter(x => !x.done));
       save();
       render();
-      snackbar(`Cleared ${plural(cleared.length, 'item')}`, 'Undo', () => {
+      snackbar(Tn(cleared.length, 'Cleared {n} item', 'Cleared {n} items'), T('Undo'), () => {
         const now = list.get();
         list.set([...now, ...cleared.filter(c => !now.some(x => x.id === c.id))]);
         save();
@@ -2549,7 +2556,7 @@ document.addEventListener('click', async (e) => {
       render();
       if ($('#place-dialog').open) $('#place-dialog').close();
       if (navigator.vibrate) navigator.vibrate(12);
-      snackbar(item.date ? `Added to ${fmtDay(item.date, { weekday: 'long' })}` : 'Saved to your ideas', 'Undo', () => {
+      snackbar(item.date ? T('Added to {day}', { day: fmtDay(item.date, { weekday: 'long' }) }) : T('Saved to your ideas'), T('Undo'), () => {
         trip.items = trip.items.filter(i => i !== item);
         save();
         render();
@@ -2573,7 +2580,7 @@ document.addEventListener('click', async (e) => {
       ui.pickDay = null;
       save();
       render();
-      snackbar(`Added to ${fmtDay(item.date, { weekday: 'long' })}`, 'Undo', () => {
+      snackbar(T('Added to {day}', { day: fmtDay(item.date, { weekday: 'long' }) }), T('Undo'), () => {
         item.date = '';
         save();
         render();
@@ -2615,6 +2622,13 @@ document.addEventListener('click', async (e) => {
       state.settings.clock = el.dataset.value;
       save();
       render();
+      break;
+    case 'lang':
+      // Every text is picked when the app starts (i18n.js): it starts again in the new language.
+      if (el.dataset.value === LANG) break;
+      state.settings.lang = el.dataset.value;
+      saveLocal();
+      location.reload();
       break;
     case 'day-travel': {
       // Switches this day to the other way of getting around (or back to the trip's own).
@@ -2736,10 +2750,10 @@ document.addEventListener('click', async (e) => {
       openAuthForm();
       break;
     case 'verify-email':
-      if (!navigator.onLine) { snackbar('No connection. Try again when you’re online.'); break; }
+      if (!navigator.onLine) { snackbar(T('No connection. Try again when you’re online.')); break; }
       try {
         const done = await verifyEmail();
-        snackbar(done ? 'Email confirmed' : `Link sent to ${sync.saved.email} — look in your spam folder too`);
+        snackbar(done ? T('Email confirmed') : T('Link sent to {email} — look in your spam folder too', { email: sync.saved.email }));
       } catch (err) {
         snackbar(syncErrorText(err));
       }
@@ -2785,14 +2799,14 @@ document.addEventListener('click', async (e) => {
     case 'sign-out': {
       const ok = await askConfirm({
         icon: 'logout',
-        title: 'Sign out?',
-        text: 'Your plans stay on this device, but changes will no longer sync with other devices until you sign in again.',
-        ok: 'Sign out',
+        title: T('Sign out?'),
+        text: T('Your plans stay on this device, but changes will no longer sync with other devices until you sign in again.'),
+        ok: T('Sign out'),
       });
       if (ok) {
         await signOut();
         render();
-        snackbar('Signed out');
+        snackbar(T('Signed out'));
       }
       break;
     }
@@ -2813,13 +2827,13 @@ document.addEventListener('click', async (e) => {
       const shared = !!sync.saved && (state.trips.some(t => t.shared) || Object.keys(sharing.roots).length > 0);
       const ok = await askConfirm({
         icon: 'restart_alt',
-        title: 'Erase everything?',
+        title: T('Erase everything?'),
         text: (sync.saved
-          ? 'All trips, plans and checklist items will be deleted — on this device and on every device signed in to your account.'
-          : 'All trips, plans and checklist items on this device will be deleted.')
-          + (shared ? ' Trips you invited people to are deleted for them too, and you leave the trips you were invited to.' : '')
-          + ' Save a backup first if you might want them back.',
-        ok: 'Erase',
+          ? T('All trips, plans and checklist items will be deleted — on this device and on every device signed in to your account.')
+          : T('All trips, plans and checklist items on this device will be deleted.'))
+          + (shared ? ' ' + T('Trips you invited people to are deleted for them too, and you leave the trips you were invited to.') : '')
+          + ' ' + T('Save a backup first if you might want them back.'),
+        ok: T('Erase'),
       });
       if (ok) {
         if (shared) {
@@ -2828,7 +2842,7 @@ document.addEventListener('click', async (e) => {
             await quitSharing(sync.saved.uid);
           } catch (err) {
             console.warn('Erase', err);
-            snackbar(`Nothing was erased. ${syncErrorText(err)}`);
+            snackbar(`${T('Nothing was erased.')} ${syncErrorText(err)}`);
             break;
           }
         }
@@ -2839,7 +2853,7 @@ document.addEventListener('click', async (e) => {
         save();
         scrollAt = {};
         showView('plan', { top: true });
-        snackbar('Started fresh');
+        snackbar(T('Started fresh'));
       }
       break;
     }
@@ -2939,7 +2953,7 @@ function exportBackup() {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  snackbar('Backup saved to Downloads');
+  snackbar(T('Backup saved to Downloads'));
 }
 
 // Checks a backup file and keeps only the fields the app understands.
@@ -2977,7 +2991,7 @@ function cleanBackup(data) {
   };
   const trips = data.trips.filter(t => t && typeof t === 'object').map(t => ({
     id: tripIds.set(t.id, id(t.id)).get(t.id),
-    name: str(t.name, 40) || 'Trip',
+    name: str(t.name, 40) || T('Trip'),
     color: /^#[0-9a-f]{6}$/i.test(t.color) ? t.color : COLORS[0],
     start: span(t)[0],
     end: span(t)[1],
@@ -2986,7 +3000,7 @@ function cleanBackup(data) {
     ...(t.dayTravel && typeof t.dayTravel === 'object' ? { dayTravel: Object.fromEntries(Object.entries(t.dayTravel).filter(([d, m]) => date(d) && TRAVEL_MODES[m])) } : {}),
     items: (Array.isArray(t.items) ? t.items : []).filter(i => i && typeof i === 'object').map(i => ({
       id: id(i.id),
-      title: str(i.title, 120) || 'Untitled',
+      title: str(i.title, 120) || T('Untitled'),
       category: CATEGORIES[i.category] ? i.category : 'other',
       date: date(i.date),
       time: time(i.time),
@@ -3016,6 +3030,7 @@ function cleanBackup(data) {
     units: ['metric', 'imperial'].includes(s.units) ? s.units : defaultSettings().units,
     dateOrder: ['dmy', 'mdy'].includes(s.dateOrder) ? s.dateOrder : defaultSettings().dateOrder,
     clock: ['24', '12'].includes(s.clock) ? s.clock : defaultSettings().clock,
+    ...(LANGS[s.lang] ? { lang: s.lang } : {}),
   };
   return { version: 1, activeTripId, trips, checklist, settings };
 }
@@ -3029,18 +3044,18 @@ document.addEventListener('change', async (e) => {
   try {
     restored = cleanBackup(JSON.parse(await file.text()));
   } catch {
-    snackbar("That file isn't a Dotted Line backup");
+    snackbar(T('That file isn’t a Dotted Line backup'));
     return;
   }
   const n = restored.trips.reduce((sum, t) => sum + t.items.length, 0);
   const sharedNow = () => (sync.saved ? state.trips.filter(t => t.shared) : []);
   const ok = await askConfirm({
     icon: 'upload',
-    title: 'Restore this backup?',
-    text: `It has ${plural(restored.trips.length, 'trip')} and ${plural(n, 'plan')}. It will replace everything currently in the app` +
-      (sync.saved ? ' — also on the other devices signed in to your account.' : '.') +
-      (sharedNow().length ? ' The trips you plan with other people stay as they are.' : ''),
-    ok: 'Restore',
+    title: T('Restore this backup?'),
+    text: T('It has {trips} and {plans}.', { trips: Tn(restored.trips.length, '{n} trip', '{n} trips'), plans: Tn(n, '{n} plan', '{n} plans') }) + ' ' +
+      (sync.saved ? T('It will replace everything currently in the app — also on the other devices signed in to your account.') : T('It will replace everything currently in the app.')) +
+      (sharedNow().length ? ' ' + T('The trips you plan with other people stay as they are.') : ''),
+    ok: T('Restore'),
   });
   if (!ok) return;
   Object.assign(restored.settings, deviceMarks());
@@ -3052,7 +3067,7 @@ document.addEventListener('change', async (e) => {
   save();
   scrollAt = {};
   showView('plan', { top: true });
-  snackbar('Backup restored');
+  snackbar(T('Backup restored'));
 });
 
 /* ---------- Privacy note & reporting a problem ---------- */
@@ -3063,32 +3078,32 @@ function openPrivacy() {
       <h3>${icon(ic)}${title}</h3>
       ${lines.filter(Boolean).map(l => `<p>${l}</p>`).join('')}
     </section>`;
-  $('#about-title').textContent = 'Privacy';
+  $('#about-title').textContent = T('Privacy');
   $('#about-body').innerHTML = [
-    part('offline_pin', 'On this device', [
-      'Your trips, plans and checklist are saved on this device. Tickets you attach and your settings are kept here only.',
+    part('offline_pin', T('On this device'), [
+      T('Your trips, plans and checklist are saved on this device. Tickets you attach and your settings are kept here only.'),
     ]),
-    sync.configured && part('sync', 'In your account', [
-      'If you sign in, your email address, trips, plans and checklist are also stored with Google Firebase, so that your devices share them.',
-      'The person who runs this copy of the app can see them there. Your password is stored scrambled: nobody can read it.',
-      'A trip you plan with other people is stored there once, for all of you. Everyone on it sees its plans, the list for everyone in the Checklist, and the email addresses of the others. Your own checklist and your other trips stay yours. Tickets and other files can’t be shared: they never leave the device.',
-      'Your votes for new features, and the suggestions you send, are stored there too. Everyone who is signed in can read the suggestions, without your name or email.',
+    sync.configured && part('sync', T('In your account'), [
+      T('If you sign in, your email address, trips, plans and checklist are also stored with Google Firebase, so that your devices share them.'),
+      T('The person who runs this copy of the app can see them there. Your password is stored scrambled: nobody can read it.'),
+      T('A trip you plan with other people is stored there once, for all of you. Everyone on it sees its plans, the list for everyone in the Checklist, and the email addresses of the others. Your own checklist and your other trips stay yours. Tickets and other files can’t be shared: they never leave the device.'),
+      T('Your votes for new features, and the suggestions you send, are stored there too. Everyone who is signed in can read the suggestions, without your name or email.'),
     ]),
-    part('public', 'Sent to other services', [
-      'To do its job, the app asks free outside services. They get only what the question needs, never your account.',
-      '<b>OpenStreetMap services</b> (Photon, Nominatim, Overpass): the places you search for, and the names and addresses of your plans, to put them on the map and find opening hours. On a day by car, <b>OpenStreetMap’s routing server</b> (run by FOSSGIS) gets the map positions of that day’s stops, your stay included, for the real distance and time by road. “Find addresses and opening hours” in Settings switches these automatic lookups off.',
-      '<b>Wikivoyage, Wikipedia and Wikidata</b>: your destination and the area around your plans, for guides, photos and essentials. <b>Open-Meteo</b>: your destination, or the area of a day’s stay and plans, for the weather.',
-      '<b>The map</b> (OpenFreeMap, CARTO or OpenStreetMap): the part of the map you look at.',
-      aiReady() && '<b>Google Gemini</b>: when you send a message to the AI Assistant, the message and that trip’s plans. “Flag plans that sell out” in Settings sends the names of your plans. Google’s reCAPTCHA checks that these requests really come from the app.',
-      window.REPORT_KEY && '<b>Web3Forms</b> (an email service): when you send “Report a problem”, what you wrote, your email if you gave it, the app’s version and the kind of device. It reaches the person who runs this copy of the app.',
-      'Your location (“Near me”) is used on this device only.',
-      'Like any website, the app’s host (GitHub) sees your device’s internet address when the app loads.',
+    part('public', T('Sent to other services'), [
+      T('To do its job, the app asks free outside services. They get only what the question needs, never your account.'),
+      T('<b>OpenStreetMap services</b> (Photon, Nominatim, Overpass): the places you search for, and the names and addresses of your plans, to put them on the map and find opening hours. On a day by car, <b>OpenStreetMap’s routing server</b> (run by FOSSGIS) gets the map positions of that day’s stops, your stay included, for the real distance and time by road. “Find addresses and opening hours” in Settings switches these automatic lookups off.'),
+      T('<b>Wikivoyage, Wikipedia and Wikidata</b>: your destination and the area around your plans, for guides, photos and essentials. <b>Open-Meteo</b>: your destination, or the area of a day’s stay and plans, for the weather.'),
+      T('<b>The map</b> (OpenFreeMap, CARTO or OpenStreetMap): the part of the map you look at.'),
+      aiReady() && T('<b>Google Gemini</b>: when you send a message to the AI Assistant, the message and that trip’s plans. “Flag plans that sell out” in Settings sends the names of your plans. Google’s reCAPTCHA checks that these requests really come from the app.'),
+      window.REPORT_KEY && T('<b>Web3Forms</b> (an email service): when you send “Report a problem”, what you wrote, your email if you gave it, the app’s version and the kind of device. It reaches the person who runs this copy of the app.'),
+      T('Your location (“Near me”) is used on this device only.'),
+      T('Like any website, the app’s host (GitHub) sees your device’s internet address when the app loads.'),
     ]),
-    part('shield', 'No ads, no tracking', [
-      'The app has no ads and no visitor statistics, and your plans are not sold or shared.',
+    part('shield', T('No ads, no tracking'), [
+      T('The app has no ads and no visitor statistics, and your plans are not sold or shared.'),
     ]),
-    part('delete', 'Removing your data', [
-      '<b>Erase everything</b> (Settings) clears this device' + (sync.configured ? ', and your account’s trips when you are signed in. <b>Delete account</b> removes your login and everything stored in it.' : '.'),
+    part('delete', T('Removing your data'), [
+      sync.configured ? T('<b>Erase everything</b> (Settings) clears this device, and your account’s trips when you are signed in. <b>Delete account</b> removes your login and everything stored in it.') : T('<b>Erase everything</b> (Settings) clears this device.'),
     ]),
   ].filter(Boolean).join('');
   $('#about-dialog').showModal();
@@ -3099,14 +3114,14 @@ function openPrivacy() {
 // what is new. Only the latest few show at first; the rest open with "Earlier versions".
 const VERSIONS_SHOWN = 5;
 function openChangelog() {
-  $('#about-title').textContent = 'What’s new';
+  $('#about-title').textContent = T('What’s new');
   $('#about-body').innerHTML = CHANGELOG.map((c, i) => `
     <section class="tip version" ${i < VERSIONS_SHOWN ? '' : 'hidden'}>
-      <h3>Version ${esc(c.v)}</h3>
-      <p class="version-when">${esc(fmtDay(c.date, { day: 'numeric', month: 'short', year: 'numeric' }))}${i ? '' : ' · <span class="ok">on this device</span>'}</p>
-      <ul>${c.items.map(t => `<li>${esc(t)}</li>`).join('')}</ul>
+      <h3>${T('Version {v}', { v: esc(c.v) })}</h3>
+      <p class="version-when">${esc(fmtDay(c.date, { day: 'numeric', month: 'short', year: 'numeric' }))}${i ? '' : ` · <span class="ok">${T('on this device')}</span>`}</p>
+      <ul>${c.items.map(t => `<li>${esc(T(t))}</li>`).join('')}</ul>
     </section>`).join('')
-    + (CHANGELOG.length > VERSIONS_SHOWN ? `<button type="button" class="btn tonal ripple older-versions" data-action="older-versions">Earlier versions</button>` : '');
+    + (CHANGELOG.length > VERSIONS_SHOWN ? `<button type="button" class="btn tonal ripple older-versions" data-action="older-versions">${T('Earlier versions')}</button>` : '');
   $('#about-dialog').showModal();
   $('#about-body').scrollTop = 0;
 }
@@ -3132,7 +3147,7 @@ function openPad() {
   const stick = 'M12 -2.5 L70 -6.5 L340 -6.5 L340 6.5 L70 6.5 L12 2.5 Z';
   $('#about-body').innerHTML = `
     <div class="pad-wrap">
-      <svg class="pad" viewBox="0 0 320 320" role="img" aria-label="A practice pad and a drumstick">
+      <svg class="pad" viewBox="0 0 320 320" role="img" aria-label="${T('A practice pad and a drumstick')}">
         <polygon points="${octagon(152)}" fill="#000" opacity=".18" transform="translate(0 5)"/>
         <polygon data-pad="rim" points="${octagon(152)}" fill="#d8b384"/>
         <polygon data-pad="rim" points="${octagon(147)}" fill="#c59c68"/>
@@ -3148,7 +3163,7 @@ function openPad() {
           </g></g>
         </g>
       </svg>
-      <p class="pad-note">You found it. Go on, play.</p>
+      <p class="pad-note">${T('You found it. Go on, play.')}</p>
     </div>`;
   $('#about-body').scrollTop = 0;
 }
@@ -3250,6 +3265,7 @@ window.addEventListener('unhandledrejection', (e) => {
 });
 
 // What goes with the user's words. Counts and settings, never the plans themselves.
+// They stay in English, whatever the app's language: they are for the person who looks after the app.
 function problemDetails() {
   const plans = state.trips.reduce((n, t) => n + t.items.length, 0);
   const account = !sync.configured ? 'sync not set up'
@@ -3259,7 +3275,7 @@ function problemDetails() {
   return [
     `Version: ${APP_VERSION}`,
     `Device: ${navigator.userAgent}`,
-    `Window: ${innerWidth}×${innerHeight}, ${installed() ? 'installed' : 'in the browser'}, ${navigator.onLine ? 'online' : 'offline'}, language ${navigator.language || '?'}`,
+    `Window: ${innerWidth}×${innerHeight}, ${installed() ? 'installed' : 'in the browser'}, ${navigator.onLine ? 'online' : 'offline'}, language ${navigator.language || '?'}, app in ${LANG}`,
     `App: section "${ui.view}", ${plural(state.trips.length, 'trip')}, ${plural(plans, 'plan')}, theme ${state.settings.theme}, ${state.settings.units}`,
     `Account: ${account}`,
     `Recent errors: ${recentErrors.length ? '\n  ' + recentErrors.join('\n  ') : 'none'}`,
@@ -3277,11 +3293,11 @@ function openReport() {
   // The reply address is theirs to give: filled in from the account, and they can clear it.
   reportForm.elements.email.value = sync.saved ? sync.saved.email : '';
   $('#report-details').textContent = problemDetails();
-  $('#report-send').textContent = window.REPORT_KEY ? 'Send' : 'Share report';
+  $('#report-send').textContent = window.REPORT_KEY ? T('Send') : T('Share report');
   $('#report-other').hidden = true;
   $('#report-how').textContent = window.REPORT_KEY
-    ? 'Your message goes by email to the person who looks after this copy of the app.'
-    : 'Your message is handed to the Share menu: send it to the person who shared the app with you.';
+    ? T('Your message goes by email to the person who looks after this copy of the app.')
+    : T('Your message is handed to the Share menu: send it to the person who shared the app with you.');
   reportDialog.showModal();
   draftStart(reportDialog);
   reportForm.elements.message.focus();
@@ -3301,11 +3317,11 @@ async function shareReport() {
       await navigator.share({ title: `Dotted Line ${APP_VERSION}: a problem`, text });
     } else {
       await navigator.clipboard.writeText(text);
-      snackbar('Report copied — paste it in a message to the person who shared the app with you');
+      snackbar(T('Report copied — paste it in a message to the person who shared the app with you'));
     }
     reportDialog.close();
   } catch (err) {
-    if (!err || err.name !== 'AbortError') reportError('Couldn’t share it from here. Copy your text and send it yourself, with the version: ' + APP_VERSION + '.');
+    if (!err || err.name !== 'AbortError') reportError(T('Couldn’t share it from here. Copy your text and send it yourself, with the version: {v}.', { v: APP_VERSION }));
   }
 }
 
@@ -3314,12 +3330,12 @@ reportForm.addEventListener('submit', async (e) => {
   const f = reportForm.elements;
   const message = f.message.value.trim();
   const email = f.email.value.trim();
-  if (message.length < 10) return reportError('Say a little more about what went wrong: what you did, and what happened.');
-  if (email && !/^\S+@\S+\.\S+$/.test(email)) return reportError('That email address doesn’t look right. Fix it, or leave it empty.');
+  if (message.length < 10) return reportError(T('Say a little more about what went wrong: what you did, and what happened.'));
+  if (email && !/^\S+@\S+\.\S+$/.test(email)) return reportError(T('That email address doesn’t look right. Fix it, or leave it empty.'));
   reportError('');
   if (!window.REPORT_KEY) return shareReport();
-  if (!navigator.onLine) return reportError('No connection. Your message stays here: try again when you’re online.');
-  if (Date.now() - reportSentAt < 30000) return reportError('You just sent one. Wait half a minute before the next.');
+  if (!navigator.onLine) return reportError(T('No connection. Your message stays here: try again when you’re online.'));
+  if (Date.now() - reportSentAt < 30000) return reportError(T('You just sent one. Wait half a minute before the next.'));
 
   const buttons = reportForm.querySelectorAll('button');
   buttons.forEach((b) => { b.disabled = true; });
@@ -3340,10 +3356,10 @@ reportForm.addEventListener('submit', async (e) => {
     if (!res.ok || !answer.success) throw new Error((answer.body && answer.body.message) || answer.message || `HTTP ${res.status}`);
     reportSentAt = Date.now();
     reportDialog.close();
-    snackbar('Sent — thank you');
+    snackbar(T('Sent — thank you'));
   } catch (err) {
     console.warn('Report not sent', err);
-    reportError('Couldn’t send it just now. Try again in a moment, or use “Send another way”.');
+    reportError(T('Couldn’t send it just now. Try again in a moment, or use “Send another way”.'));
     $('#report-other').hidden = false;
   } finally {
     buttons.forEach((b) => { b.disabled = false; });
@@ -3366,7 +3382,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
 });
 window.addEventListener('appinstalled', () => {
   installPrompt = null;
-  snackbar('Installed! Find Dotted Line on your home screen.');
+  snackbar(T('Installed! Find Dotted Line on your home screen.'));
 });
 
 function updateOnlineBadge() { $('#offline-badge').hidden = navigator.onLine; }
@@ -3400,7 +3416,7 @@ if ('serviceWorker' in navigator) {
     })
     .catch(err => console.warn('Offline mode unavailable', err));
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (hadOldVersion) snackbar('A new version is ready', 'Reload', () => location.reload(), 15000);
+    if (hadOldVersion) snackbar(T('A new version is ready'), T('Reload'), () => location.reload(), 15000);
   });
 }
 
@@ -3417,6 +3433,7 @@ if (navigator.storage && navigator.storage.persist) {
 // Scrolling is handled per section (showView). After a reload, open the section that was showing.
 history.scrollRestoration = 'manual';
 ui.view = pageView();
+translatePage();   // i18n.js: the page's own texts, in the app's language
 render();
 startSync();
 loadFileIndex();   // files.js: which plans have tickets attached
@@ -3427,7 +3444,7 @@ if (state.settings.seenVersion !== APP_VERSION) {
   const updated = !!state.settings.seenVersion;
   state.settings.seenVersion = APP_VERSION;
   saveLocal();
-  if (updated) snackbar(`Updated to version ${APP_VERSION}`, 'What’s new', openChangelog, 10000);
+  if (updated) snackbar(T('Updated to version {v}', { v: APP_VERSION }), T('What’s new'), openChangelog, 10000);
 }
 
 // "?selfcheck" in the address: test the parts that must not break (selfcheck.js), and show the result.

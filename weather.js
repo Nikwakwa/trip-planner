@@ -14,16 +14,16 @@ const FORECAST_DAYS = 16;
 // Open-Meteo's weather codes (WMO), grouped. A day's code is its worst moment: "drizzle" with a
 // 10% chance of rain is a dry day, so rain only shows from a 30% chance (rain: the chance, when known).
 function weatherLook(code, rain) {
-  if (typeof rain === 'number' && rain < 30 && ((code >= 51 && code <= 67) || (code >= 80 && code <= 82))) return { icon: 'cloud', text: 'Cloudy' };
-  if (code === 0) return { icon: 'sunny', text: 'Clear' };
-  if (code <= 2) return { icon: 'partly_cloudy_day', text: 'Partly cloudy' };
-  if (code === 3) return { icon: 'cloud', text: 'Cloudy' };
-  if (code === 45 || code === 48) return { icon: 'foggy', text: 'Fog' };
-  if (code >= 51 && code <= 57) return { icon: 'rainy', text: 'Drizzle', wet: true };
-  if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82)) return { icon: 'rainy', text: code >= 80 ? 'Showers' : 'Rain', wet: true };
-  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return { icon: 'weather_snowy', text: 'Snow', wet: true };
-  if (code >= 95) return { icon: 'thunderstorm', text: 'Storms', wet: true };
-  return { icon: 'cloud', text: 'Cloudy' };
+  if (typeof rain === 'number' && rain < 30 && ((code >= 51 && code <= 67) || (code >= 80 && code <= 82))) return { icon: 'cloud', text: T('Cloudy') };
+  if (code === 0) return { icon: 'sunny', text: T('Clear') };
+  if (code <= 2) return { icon: 'partly_cloudy_day', text: T('Partly cloudy') };
+  if (code === 3) return { icon: 'cloud', text: T('Cloudy') };
+  if (code === 45 || code === 48) return { icon: 'foggy', text: T('Fog') };
+  if (code >= 51 && code <= 57) return { icon: 'rainy', text: T('Drizzle'), wet: true };
+  if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82)) return { icon: 'rainy', text: code >= 80 ? T('Showers') : T('Rain'), wet: true };
+  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return { icon: 'weather_snowy', text: T('Snow'), wet: true };
+  if (code >= 95) return { icon: 'thunderstorm', text: T('Storms'), wet: true };
+  return { icon: 'cloud', text: T('Cloudy') };
 }
 
 const weather = {
@@ -126,7 +126,7 @@ function weatherHTML(trip, day) {
   const w = dayWeather(trip, day);
   if (!w) return '';
   const rain = w.rain >= 30 ? `<span class="wx-rain">${icon('water_drop')}${w.rain}%</span>` : '';
-  const label = `${w.text}, high ${temp(w.hi)}, low ${temp(w.lo)}${w.rain >= 30 ? `, ${w.rain}% chance of rain` : ''}`;
+  const label = T('{weather}, high {hi}, low {lo}', { weather: w.text, hi: temp(w.hi), lo: temp(w.lo) }) + (w.rain >= 30 ? ', ' + T('{n}% chance of rain', { n: w.rain }) : '');
   return `
     <span class="wx ${w.wet ? 'wet' : ''}" role="img" aria-label="${esc(label)}" title="${esc(label)}">
       ${icon(w.icon)}<span class="wx-t"><b>${temp(w.hi)}</b><small>${temp(w.lo)}</small></span>${rain}

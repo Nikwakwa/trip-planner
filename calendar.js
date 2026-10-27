@@ -91,7 +91,7 @@ function icsLine(line) {
 function downloadTripCalendar(trip) {
   const guide = guideFor(trip);
   const plans = trip.items.filter(i => i.date);
-  if (!plans.length) { snackbar('No plans with a day yet'); return; }
+  if (!plans.length) { snackbar(T('No plans with a day yet')); return; }
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
   const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Dotted Line//EN', 'CALSCALE:GREGORIAN', `X-WR-CALNAME:${icsText(trip.name)}`];
   for (const item of plans) {
@@ -112,5 +112,5 @@ function downloadTripCalendar(trip) {
   a.download = `${trip.name.replace(/[^\w\- ]+/g, '').trim() || 'trip'}.ics`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
-  snackbar(`Calendar file saved — ${plural(plans.length, 'plan')}`);
+  snackbar(Tn(plans.length, 'Calendar file saved — {n} plan', 'Calendar file saved — {n} plans'));
 }

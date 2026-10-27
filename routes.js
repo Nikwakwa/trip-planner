@@ -34,7 +34,7 @@ function legTravel(a, b, mode) {
   const road = t.mode === 'driving' && roadRoutes.saved[roadKey(a, b)];
   if (!road || road.none) return t;
   const mins = Math.max(5, Math.round(road.s / 60 / 5) * 5);
-  return { ...t, mins, dist: road.m / 1609.34, road: true, text: `${fmtRoadTime(mins)} drive` };
+  return { ...t, mins, dist: road.m / 1609.34, road: true, text: T('{time} drive', { time: fmtRoadTime(mins) }) };
 }
 
 // The server's answer for a row of stops → what to save for each leg between them.

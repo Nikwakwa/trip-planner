@@ -25,7 +25,7 @@ const SHARE_MAX = 20;        // people on one trip (firestore.rules says the sam
 const SHARED_BATCH = 10;
 const CODE_LETTERS = 'abcdefghijkmnpqrstuvwxyz23456789';     // 32 of them: no "l" or "o", which read like 1 and 0
 const INVITE = /\b([a-z2-9]{20})\.([a-z2-9]{12})\b/;
-const SHARE_OFF = 'Planning together isn’t switched on for this copy of the app yet.';
+const SHARE_OFF = T('Planning together isn’t switched on for this copy of the app yet.');
 
 const sharing = {
   uid: null,            // the account signed in
@@ -124,7 +124,7 @@ function onRoots(snap) {
     // Started or joined here a moment ago, and never named by the list: it may not have caught up yet.
     if (rec && !rec.seen && Date.now() - (rec.at || 0) < 60000) continue;
     const trip = dropShare(id);
-    if (trip && rec && !sharing.quiet.has(id)) snackbar(`“${trip.name}” is no longer shared with you`);
+    if (trip && rec && !sharing.quiet.has(id)) snackbar(T('“{trip}” is no longer shared with you', { trip: trip.name }));
   }
   writeSyncInfo();
   refreshShare();
@@ -198,7 +198,7 @@ function onSharedSnapshot(snap, id) {
     saveLocal();
     scrollAt = {};
     showView('plan', { top: true });
-    snackbar(`You’re on ${trip.name} now`);
+    snackbar(T('You’re on {trip} now', { trip: trip.name }));
   }
   // Ours, a day old and with nothing in it: what an "Invite" or a "Delete" that was cut short left behind.
   const root = sharing.roots[id];
@@ -246,7 +246,7 @@ async function startShare(trip) {
     docs = stateDocs({ trips: [{ ...trip, shared: id }], checklist: [] }, id);
     await writeDocs(ref.collection('docs'), docs);
     // Deleted here while it was being sent, or signed out: take it back.
-    if (!state.trips.includes(trip) || trip.shared || !sync.saved || sync.saved.uid !== user.uid) throw new Error('The trip changed meanwhile. Try again.');
+    if (!state.trips.includes(trip) || trip.shared || !sync.saved || sync.saved.uid !== user.uid) throw new Error(T('The trip changed meanwhile. Try again.'));
   } catch (err) {
     deleteSharedRemote({ id, members: [] }, user.uid).catch(() => {});
     throw err;
@@ -279,9 +279,9 @@ async function joinShare({ id, code }) {
     if (copy) {
       const ok = await askConfirm({
         icon: 'group',
-        title: `You already have ${copy.name}`,
-        text: 'This device has its own copy of this trip. Joining replaces it with the shared one: what you changed only in your copy is lost.',
-        ok: 'Join',
+        title: T('You already have {trip}', { trip: copy.name }),
+        text: T('This device has its own copy of this trip. Joining replaces it with the shared one: what you changed only in your copy is lost.'),
+        ok: T('Join'),
       });
       if (!ok) {
         await leaveRemote(id, user.uid);
@@ -366,19 +366,19 @@ function checkInviteLink() {
   const invite = readInvite(location.hash);
   try { history.replaceState(history.state, '', location.pathname + location.search); } catch { /* the address keeps it */ }
   if (invite) offerInvite(invite);
-  else snackbar('That invitation link isn’t complete. Ask for it again.');
+  else snackbar(T('That invitation link isn’t complete. Ask for it again.'));
 }
 window.addEventListener('hashchange', checkInviteLink);
 
 async function offerInvite(invite) {
-  if (!sync.configured) return snackbar('This copy of the app has no accounts, so trips can’t be shared.');
+  if (!sync.configured) return snackbar(T('This copy of the app has no accounts, so trips can’t be shared.'));
   sharing.invite = invite;
   if (!sync.saved) {
     const ok = await askConfirm({
       icon: 'group',
-      title: 'You’re invited to a trip',
-      text: 'Sign in to join it. No account yet? Creating one is free and takes a minute.',
-      ok: 'Sign in',
+      title: T('You’re invited to a trip'),
+      text: T('Sign in to join it. No account yet? Creating one is free and takes a minute.'),
+      ok: T('Sign in'),
     });
     if (ok) openAuthForm();
     else sharing.invite = null;
@@ -386,7 +386,7 @@ async function offerInvite(invite) {
   }
   if (!navigator.onLine) {
     sharing.invite = null;
-    return snackbar('You’re offline. Open the invitation again when you’re online.');
+    return snackbar(T('You’re offline. Open the invitation again when you’re online.'));
   }
   retrySharing();     // if the database still says no, that answer clears the invitation (startSharing)
   resumeInvite();
@@ -409,27 +409,27 @@ async function acceptInvite(invite) {
       scrollAt = {};
       showView('plan', { top: true });
     }
-    return snackbar('You’re already on this trip');
+    return snackbar(T('You’re already on this trip'));
   }
   sharing.busy = true;
   try {
     const ok = await askConfirm({
       icon: 'group',
-      title: 'Join this trip?',
-      text: 'You’ll plan it together: everyone on the trip can change its plans, and sees the email address of the others.',
-      ok: 'Join',
+      title: T('Join this trip?'),
+      text: T('You’ll plan it together: everyone on the trip can change its plans, and sees the email address of the others.'),
+      ok: T('Join'),
     });
     if (!ok) return;
     const root = await joinShare(invite);
     if (!root) return;
     sharing.show = root.id;
     attachShare(root.id);
-    snackbar('Joined — getting the trip…');
+    snackbar(T('Joined — getting the trip…'));
   } catch (err) {
     console.warn('Joining', err);
     const code = (err && err.code) || '';
     // A wrong or replaced code, a deleted trip, a full one: the database only says no.
-    snackbar(code === 'permission-denied' || code === 'not-found' ? 'This invitation doesn’t work any more. Ask for a new link.' : syncErrorText(err));
+    snackbar(code === 'permission-denied' || code === 'not-found' ? T('This invitation doesn’t work any more. Ask for a new link.') : syncErrorText(err));
   } finally {
     sharing.busy = false;
     refreshShare();
@@ -442,7 +442,7 @@ async function acceptInvite(invite) {
 function shareButtonHTML(trip) {
   const root = shareOf(trip);
   const n = root ? root.members.length : 0;
-  return `<button type="button" class="hero-btn ripple" data-action="share-trip">${n > 1 ? `${icon('group')}${n} people` : `${icon('share')}Share`}</button>`;
+  return `<button type="button" class="hero-btn ripple" data-action="share-trip">${n > 1 ? `${icon('group')}${T('{n} people', { n })}` : `${icon('share')}${T('Share')}`}</button>`;
 }
 // A small sign next to the name of a shared trip.
 const sharedMark = trip => (trip.shared && sync.saved ? icon('group', 'sm') : '');
@@ -450,7 +450,7 @@ const sharedMark = trip => (trip.shared && sync.saved ? icon('group', 'sm') : ''
 // What the trip form's red button does to a shared trip.
 function tripEndLabel(trip) {
   const root = shareOf(trip);
-  return root && !ownsShare(root) ? 'Leave trip' : 'Delete trip';
+  return root && !ownsShare(root) ? T('Leave trip') : T('Delete trip');
 }
 
 // The database said no to shared trips. Its rules may have been published since: ask again.
@@ -479,61 +479,61 @@ function renderShare() {
   if (!$('#share-dialog').open) return;
   const trip = activeTrip();
   if (!trip) return $('#share-dialog').close();
-  $('#share-title').textContent = `Share ${trip.name}`;
+  $('#share-title').textContent = T('Share {trip}', { trip: trip.name });
   const root = shareOf(trip);
   const note = (ic, text, more = '', bad = false) => `<p class="vote-note ${bad ? 'bad' : ''}">${icon(ic)}<span>${text}</span>${more}</p>`;
-  const intro = '<p>Invite people to this trip. They see it and change it from their own account: its days, plans and ideas, and a list for everyone in the Checklist.</p>';
-  const notFiles = '<p class="share-hint">Tickets and other files you attach to a plan can’t be shared in the app: they stay on your device. Your own checklist stays yours too.</p>';
+  const intro = `<p>${T('Invite people to this trip. They see it and change it from their own account: its days, plans and ideas, and a list for everyone in the Checklist.')}</p>`;
+  const notFiles = `<p class="share-hint">${T('Tickets and other files you attach to a plan can’t be shared in the app: they stay on your device. Your own checklist stays yours too.')}</p>`;
 
   let together;
   if (!sync.configured) {
     together = '';
   } else if (!sync.saved) {
-    together = intro + note('login', 'Sign in first. Everyone joins with an account of their own.',
-      '<button type="button" class="btn tonal ripple" data-action="share-sign-in">Sign in</button>');
+    together = intro + note('login', T('Sign in first. Everyone joins with an account of their own.'),
+      `<button type="button" class="btn tonal ripple" data-action="share-sign-in">${T('Sign in')}</button>`);
   } else if (sharing.off) {
     together = intro + note('error', SHARE_OFF, '', true);
   } else if (!navigator.onLine) {
-    together = note('cloud_off', trip.shared ? 'You’re offline. Your changes reach the others when you’re back online.' : 'You’re offline. Connect to invite people.');
+    together = note('cloud_off', trip.shared ? T('You’re offline. Your changes reach the others when you’re back online.') : T('You’re offline. Connect to invite people.'));
   } else if (!root) {
     together = trip.shared || !sharing.ready
-      ? note('sync', 'Asking your account who is on this trip…')
+      ? note('sync', T('Asking your account who is on this trip…'))
       : `${intro}${notFiles}<button type="button" class="btn filled ripple" data-action="share-start" ${sharing.busy ? 'disabled' : ''}>
-          ${icon('person_add')}${sharing.busy ? 'Getting the link…' : 'Invite people'}</button>`;
+          ${icon('person_add')}${sharing.busy ? T('Getting the link…') : T('Invite people')}</button>`;
   } else {
     const mine = ownsShare(root);
     const link = root.code ? inviteLink(root) : '';
     together = `
       <ul class="share-people">${root.members.map((m) => {
         const me = m.uid === sharing.uid;
-        const role = m.uid === root.owner ? 'Started the trip' : m.at ? `Joined ${fmtDay(toISO(new Date(m.at)), { day: 'numeric', month: 'short' })}` : 'On the trip';
+        const role = m.uid === root.owner ? T('Started the trip') : m.at ? T('Joined {day}', { day: fmtDay(toISO(new Date(m.at)), { day: 'numeric', month: 'short' }) }) : T('On the trip');
         return `<li>
           <span class="row-icon">${icon('person')}</span>
-          <span class="row-text"><span class="row-title">${esc(m.email || 'Someone')}</span>
-            <span class="row-sub">${me ? 'You · ' : ''}${esc(role)}</span></span>
-          ${mine && !me ? `<button type="button" class="btn text danger ripple" data-action="share-remove" data-uid="${esc(m.uid)}">Remove</button>` : ''}
+          <span class="row-text"><span class="row-title">${esc(m.email || T('Someone'))}</span>
+            <span class="row-sub">${me ? `${T('You')} · ` : ''}${esc(role)}</span></span>
+          ${mine && !me ? `<button type="button" class="btn text danger ripple" data-action="share-remove" data-uid="${esc(m.uid)}">${T('Remove')}</button>` : ''}
         </li>`;
       }).join('')}</ul>
-      ${root.members.length >= SHARE_MAX ? `<p>A trip takes ${SHARE_MAX} people at most.</p>` : link ? `
+      ${root.members.length >= SHARE_MAX ? `<p>${T('A trip takes {n} people at most.', { n: SHARE_MAX })}</p>` : link ? `
         <p class="share-url">${esc(link)}</p>
         <div class="share-actions">
-          ${navigator.share ? `<button type="button" class="btn filled ripple" data-action="share-send">${icon('send')}Send the link</button>` : ''}
-          <button type="button" class="btn ${navigator.share ? 'tonal' : 'filled'} ripple" data-action="share-copy">${icon('content_copy')}Copy</button>
+          ${navigator.share ? `<button type="button" class="btn filled ripple" data-action="share-send">${icon('send')}${T('Send the link')}</button>` : ''}
+          <button type="button" class="btn ${navigator.share ? 'tonal' : 'filled'} ripple" data-action="share-copy">${icon('content_copy')}${T('Copy')}</button>
         </div>
-        <p class="share-hint">Whoever opens this link and signs in joins the trip and can change it. They show up here${mine ? ', and you can take them off again' : ''}.</p>` : ''}
+        <p class="share-hint">${mine ? T('Whoever opens this link and signs in joins the trip and can change it. They show up here, and you can take them off again.') : T('Whoever opens this link and signs in joins the trip and can change it. They show up here.')}</p>` : ''}
       ${notFiles}
-      ${mine ? '' : `<button type="button" class="btn text danger ripple share-leave" data-action="share-leave">${icon('logout')}Leave this trip</button>`}`;
+      ${mine ? '' : `<button type="button" class="btn text danger ripple share-leave" data-action="share-leave">${icon('logout')}${T('Leave this trip')}</button>`}`;
   }
 
   $('#share-body').innerHTML = `
     ${together ? `<section class="tip share-together">
-      <h3>${icon('group')}${root && root.members.length > 1 ? 'On this trip' : 'Plan it together'}</h3>
+      <h3>${icon('group')}${root && root.members.length > 1 ? T('On this trip') : T('Plan it together')}</h3>
       ${together}
     </section>` : ''}
     <section class="tip">
-      <h3>${icon('send')}Just show the plan</h3>
-      <p>Send the days and their plans as text, to read in any app. Nobody can change anything.</p>
-      <button type="button" class="btn tonal ripple" data-action="share-text">${icon('share')}Send as text</button>
+      <h3>${icon('send')}${T('Just show the plan')}</h3>
+      <p>${T('Send the days and their plans as text, to read in any app. Nobody can change anything.')}</p>
+      <button type="button" class="btn tonal ripple" data-action="share-text">${icon('share')}${T('Send as text')}</button>
     </section>`;
 }
 
@@ -563,13 +563,13 @@ async function sendInvite(copy) {
   const url = inviteLink(root);
   try {
     if (!copy && navigator.share) {
-      await navigator.share({ title: `Plan ${trip.name} with me`, text: `Join my trip to ${trip.name} in Dotted Line:`, url });
+      await navigator.share({ title: T('Plan {trip} with me', { trip: trip.name }), text: T('Join my trip to {trip} in Dotted Line:', { trip: trip.name }), url });
       return;
     }
     await navigator.clipboard.writeText(url);
-    snackbar('Link copied — send it to the people you want on the trip');
+    snackbar(T('Link copied — send it to the people you want on the trip'));
   } catch (err) {
-    if (!err || err.name !== 'AbortError') snackbar('Couldn’t copy it from here. Hold the link to select it.');
+    if (!err || err.name !== 'AbortError') snackbar(T('Couldn’t copy it from here. Hold the link to select it.'));
   }
 }
 
@@ -580,12 +580,12 @@ async function removeFromTrip(uid) {
   if (!who || !ownsShare(root) || uid === root.owner) return;
   const ok = await askConfirm({
     icon: 'delete',
-    title: `Take ${who.email || 'this person'} off the trip?`,
-    text: `${trip.name} goes away from their devices. The invitation link changes too: the old one stops working.`,
-    ok: 'Remove',
+    title: who.email ? T('Take {email} off the trip?', { email: who.email }) : T('Take this person off the trip?'),
+    text: T('{trip} goes away from their devices. The invitation link changes too: the old one stops working.', { trip: trip.name }),
+    ok: T('Remove'),
   });
   if (!ok) return;
-  if (!navigator.onLine) return snackbar('No connection. Try again when you’re online.');
+  if (!navigator.onLine) return snackbar(T('No connection. Try again when you’re online.'));
   removeRemote(root.id, uid).catch(err => snackbar(syncErrorText(err)));
 }
 
@@ -593,22 +593,22 @@ async function removeFromTrip(uid) {
 async function endSharedTrip(trip) {
   const root = shareOf(trip);
   if (!root || !navigator.onLine) {
-    snackbar('This trip is shared: connect to the internet to leave or delete it.');
+    snackbar(T('This trip is shared: connect to the internet to leave or delete it.'));
     return false;
   }
   const mine = ownsShare(root);
   const others = root.members.length - 1;
   const ok = await askConfirm(mine ? {
     icon: 'delete',
-    title: others ? `Delete ${trip.name} for everyone?` : `Delete ${trip.name}?`,
-    text: `This removes the trip and its ${plural(trip.items.length, 'plan')}` +
-      (others ? `, also for the ${others === 1 ? 'other person' : `${others} other people`} on it.` : ' from your devices.'),
-    ok: 'Delete',
+    title: others ? T('Delete {trip} for everyone?', { trip: trip.name }) : T('Delete {trip}?', { trip: trip.name }),
+    text: Tn(trip.items.length, 'This removes the trip and its {n} plan.', 'This removes the trip and its {n} plans.') + ' ' +
+      (others ? Tn(others, 'It goes for the other person on it too.', 'It goes for the {n} other people on it too.') : T('It goes away from your devices.')),
+    ok: T('Delete'),
   } : {
     icon: 'logout',
-    title: `Leave ${trip.name}?`,
-    text: 'It goes away from your devices. The others keep it, and can invite you again.',
-    ok: 'Leave',
+    title: T('Leave {trip}?', { trip: trip.name }),
+    text: T('It goes away from your devices. The others keep it, and can invite you again.'),
+    ok: T('Leave'),
   });
   if (!ok) return false;
   const id = root.id;
@@ -626,7 +626,7 @@ async function endSharedTrip(trip) {
   }
   dropShare(id);
   render();
-  snackbar(mine ? `${trip.name} deleted` : `You left ${trip.name}`);
+  snackbar(mine ? T('{trip} deleted', { trip: trip.name }) : T('You left {trip}', { trip: trip.name }));
   return true;
 }
 
@@ -648,7 +648,7 @@ function joinError(text) {
 document.getElementById('join-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const invite = readInvite(e.currentTarget.elements.link.value);
-  if (!invite) return joinError('That isn’t an invitation link. Paste the whole link you were sent.');
+  if (!invite) return joinError(T('That isn’t an invitation link. Paste the whole link you were sent.'));
   document.getElementById('join-dialog').close();
   offerInvite(invite);
 });

@@ -16,11 +16,11 @@ const ESSENTIALS_MAX_AGE = 60 * 864e5;
 const ESSENTIALS_VERSION = 2;     // 2: the country's main languages, and summaries that keep their sentences whole. Older saved ones are fetched again.
 
 const ESSENTIAL_SECTIONS = [
-  { key: 'around', title: 'Getting around', icon: 'directions_bus', heads: ['Get around'] },
-  { key: 'safe', title: 'Staying safe', icon: 'health_and_safety', heads: ['Stay safe', 'Stay healthy'] },
-  { key: 'talk', title: 'Language', icon: 'translate', heads: ['Talk'] },
-  { key: 'respect', title: 'Customs', icon: 'handshake', heads: ['Respect'] },
-  { key: 'connect', title: 'Staying connected', icon: 'wifi', heads: ['Connect'] },
+  { key: 'around', title: T('Getting around'), icon: 'directions_bus', heads: ['Get around'] },
+  { key: 'safe', title: T('Staying safe'), icon: 'health_and_safety', heads: ['Stay safe', 'Stay healthy'] },
+  { key: 'talk', title: T('Language'), icon: 'translate', heads: ['Talk'] },
+  { key: 'respect', title: T('Customs'), icon: 'handshake', heads: ['Respect'] },
+  { key: 'connect', title: T('Staying connected'), icon: 'wifi', heads: ['Connect'] },
 ];
 
 // Wikidata's names for plug standards → the letters printed on travel adapters.
@@ -40,14 +40,17 @@ function essentialsFor(trip) {
   if (!trip.place) return null;
   const key = placeKey(trip.place);
   const had = essentials.saved[key];
-  if (!had || had.v !== ESSENTIALS_VERSION || Date.now() - had.t > ESSENTIALS_MAX_AGE) loadEssentials(trip.place);
+  if (!had || had.v !== ESSENTIALS_VERSION || (had.lang || 'en') !== factsLang() || Date.now() - had.t > ESSENTIALS_MAX_AGE) loadEssentials(trip.place);
   return had || null;
 }
 
 /* ---------- Fetching ---------- */
 
+// The facts' names come in the app's language (i18n.js), when Wikidata has them in it.
+const factsLang = () => (LANG === 'fr' ? 'fr' : 'en');
+
 async function countryFacts(qid) {
-  // Names are in English, or in Wikidata's "mul" (same in every language, e.g. "euro").
+  // Names are in the app's language, or in Wikidata's "mul" (same in every language, e.g. "euro").
   // Official languages come with "applies to part" (?part) when they are official in one region only.
   const query = `SELECT ?country ?prop ?val ?label ?mul ?part WHERE {
     wd:${qid} wdt:P17 ?country .
@@ -60,7 +63,7 @@ async function countryFacts(qid) {
       BIND(wdt:P37 AS ?prop)
       OPTIONAL { ?official pq:P518 ?part }
     }
-    OPTIONAL { ?val rdfs:label ?label . FILTER(LANG(?label) = "en") }
+    OPTIONAL { ?val rdfs:label ?label . FILTER(LANG(?label) = "${factsLang()}") }
     OPTIONAL { ?val rdfs:label ?mul . FILTER(LANG(?mul) = "mul") }
   }`;
   const data = await getJSON('https://query.wikidata.org/sparql', { format: 'json', query });
@@ -91,7 +94,7 @@ async function countryFacts(qid) {
 
   const plugs = all('P2853').map((name) => {
     const letter = PLUG_LETTERS[name.toLowerCase()];
-    return letter ? `Type ${letter} (${name})` : name;
+    return letter ? T('Type {letter} ({name})', { letter, name }) : name;
   }).sort();
   return {
     country,
@@ -105,11 +108,11 @@ async function countryFacts(qid) {
   };
 }
 
-// The main languages spoken in a country (Wikidata's "language used"), in English.
+// The main languages spoken in a country (Wikidata's "language used"), in the app's language.
 async function languagesSpoken(country) {
   const query = `SELECT DISTINCT ?label WHERE {
     wd:${country} wdt:P2936 ?val .
-    ?val rdfs:label ?label . FILTER(LANG(?label) = "en")
+    ?val rdfs:label ?label . FILTER(LANG(?label) = "${factsLang()}")
   } LIMIT 40`;
   const data = await getJSON('https://query.wikidata.org/sparql', { format: 'json', query });
   return data.results.bindings.map(b => b.label.value);
@@ -183,7 +186,7 @@ function loadEssentials(place) {
     }
 
     if (!facts && !sections.length && !tz) throw new Error('nothing found');
-    essentials.saved[key] = { v: ESSENTIALS_VERSION, t: Date.now(), facts, tz, sections, name: place.name };
+    essentials.saved[key] = { v: ESSENTIALS_VERSION, lang: factsLang(), t: Date.now(), facts, tz, sections, name: place.name };
     const keys = Object.keys(essentials.saved).sort((a, b) => essentials.saved[b].t - essentials.saved[a].t);
     for (const old of keys.slice(10)) delete essentials.saved[old];
     try { localStorage.setItem(ESSENTIALS_KEY, JSON.stringify(essentials.saved)); } catch { /* storage full */ }
@@ -204,7 +207,8 @@ function localTime(tz) {
     const time = fmtClock(now, tz);
     const wall = zone => new Date(now.toLocaleString('en-US', zone ? { timeZone: zone } : {}));
     const diff = Math.round((wall(tz) - wall()) / 18e5) / 2;
-    const rel = !diff ? 'same time as you' : `${Math.abs(diff)} h ${diff > 0 ? 'ahead of' : 'behind'} you`;
+    const n = fmtNum(String(Math.abs(diff)));
+    const rel = !diff ? T('same time as you') : diff > 0 ? T('{n} h ahead of you', { n }) : T('{n} h behind you', { n });
     return { time, rel };
   } catch { return null; }
 }
@@ -221,20 +225,20 @@ function renderEssentials() {
   const trip = state.trips.find(t => t.id === essentials.tripId);
   const body = $('#info-body');
   if (!trip) return;
-  $('#info-title').textContent = `Essentials · ${trip.place ? trip.place.name : trip.name}`;
+  $('#info-title').textContent = `${T('Essentials')} · ${trip.place ? trip.place.name : trip.name}`;
   const e = essentialsFor(trip);
   const key = trip.place && placeKey(trip.place);
   const status = key && essentials.status.get(key);
 
   if (!e) {
     body.innerHTML = !trip.place
-      ? emptyState('location_off', 'No place picked yet', 'Edit the trip and pick the city or country from the list to see its essentials.')
+      ? emptyState('location_off', T('No place picked yet'), T('Edit the trip and pick the city or country from the list to see its essentials.'))
       : status === 'loading'
-        ? emptyState('info', `Getting the essentials for ${esc(trip.place.name)}…`, 'Emergency number, plugs, local time and tips from the travel guide.')
+        ? emptyState('info', T('Getting the essentials for {place}…', { place: esc(trip.place.name) }), T('Emergency number, plugs, local time and tips from the travel guide.'))
         : !navigator.onLine
-          ? emptyState('cloud_off', 'Needs a connection once', 'Open this while online, and the essentials are saved on your device for the trip.')
-          : emptyState('info', 'Nothing found', 'The travel guide may not cover this place, or the connection dropped.',
-              `<button type="button" class="btn tonal ripple" data-action="retry-essentials">${icon('restart_alt')}Try again</button>`);
+          ? emptyState('cloud_off', T('Needs a connection once'), T('Open this while online, and the essentials are saved on your device for the trip.'))
+          : emptyState('info', T('Nothing found'), T('The travel guide may not cover this place, or the connection dropped.'),
+              `<button type="button" class="btn tonal ripple" data-action="retry-essentials">${icon('restart_alt')}${T('Try again')}</button>`);
     return;
   }
 
@@ -245,13 +249,13 @@ function renderEssentials() {
   const t = zone && localTime(zone);
   const emergency = (f.emergency || [])[0];
   const tiles = [
-    factTile('emergency', 'Emergency', (f.emergency || []).join(' · '), emergency && `tel:${emergency.replace(/\D/g, '')}`),
-    t && factTile('schedule', 'Local time', `${t.time} · ${t.rel}`),
-    factTile('translate', (f.languages || []).length > 1 ? 'Languages' : 'Language', (f.languages || []).join(', ')),
-    factTile('payments', 'Currency', (f.currency || []).join(', ')),
-    factTile('power', 'Plugs', [(f.plugs || []).join(', '), f.voltage].filter(Boolean).join(' · ')),
-    factTile('directions_car', 'Driving', f.driving ? `On the ${f.driving}` : ''),
-    factTile('call', 'Calling code', f.calling),
+    factTile('emergency', T('Emergency'), (f.emergency || []).join(' · '), emergency && `tel:${emergency.replace(/\D/g, '')}`),
+    t && factTile('schedule', T('Local time'), `${t.time} · ${t.rel}`),
+    factTile('translate', (f.languages || []).length > 1 ? T('Languages') : T('Language'), (f.languages || []).join(', ')),
+    factTile('payments', T('Currency'), (f.currency || []).join(', ')),
+    factTile('power', T('Plugs'), [(f.plugs || []).join(', '), f.voltage].filter(Boolean).join(' · ')),
+    factTile('directions_car', T('Driving'), f.driving ? T('On the {side}', { side: f.driving }) : ''),
+    factTile('call', T('Calling code'), f.calling),
   ].filter(Boolean).join('');
 
   const sections = e.sections.map((s) => {
@@ -261,7 +265,7 @@ function renderEssentials() {
         <h3>${icon(def.icon)}${def.title}</h3>
         ${s.text ? `<p>${esc(s.text)}</p>` : ''}
         <div class="tip-links">
-          ${s.url ? `<a class="assist-chip ripple" href="${esc(s.url)}" target="_blank" rel="noopener">${icon('open_in_new')}More on Wikivoyage</a>` : ''}
+          ${s.url ? `<a class="assist-chip ripple" href="${esc(s.url)}" target="_blank" rel="noopener">${icon('open_in_new')}${T('More on Wikivoyage')}</a>` : ''}
           ${s.phrasebook ? `<a class="assist-chip ripple" href="${esc(s.phrasebook.url)}" target="_blank" rel="noopener">${icon('translate')}${esc(s.phrasebook.title)}</a>` : ''}
         </div>
       </section>`;
@@ -270,7 +274,7 @@ function renderEssentials() {
   body.innerHTML = `
     ${tiles ? `<div class="facts">${tiles}</div>` : ''}
     ${sections}
-    <p class="footnote">Facts: Wikidata. Tips: Wikivoyage, CC BY-SA. Saved on your device ${esc(new Date(e.t).toLocaleDateString(dateLocale(), { month: 'short', day: 'numeric' }))}.</p>`;
+    <p class="footnote">${T('Facts: Wikidata. Tips: Wikivoyage, CC BY-SA. Saved on your device {day}.', { day: esc(new Date(e.t).toLocaleDateString(dateLocale(), { month: 'short', day: 'numeric' })) })}</p>`;
 }
 
 function openEssentials(trip) {

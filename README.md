@@ -25,6 +25,8 @@ the same address shows a desktop layout on a wide screen, by itself.
 - **Photos** of places, **packing suggestions** from the forecast and your plans, **Add to calendar**,
   **tickets & bookings** attached to plans, and **booking emails** turned into plans by the AI Assistant.
 - Works offline once it has been opened one time.
+- In **English or French** (**Settings → Appearance → Language**). A device set to French opens it in
+  French by itself; everything else starts in English. See "Languages" below.
 
 ## Files
 
@@ -60,11 +62,28 @@ the same address shows a desktop layout on a wide screen, by itself.
 | `sw.js` | The "service worker": keeps a copy of the app so it opens offline. |
 | `vote.js` | Voting for new features, and suggesting your own (Settings → About). |
 | `version.js` | The app's version number and the list of what changed in each version ("What's new"). |
+| `i18n.js` | Picks the app's language and swaps each text for its translation. |
+| `lang/fr.js` | The French translation: each English text of the app, and its French. |
 | `selfcheck.js` | A self-check of the parts that must not break (see "Updating the app later"). |
 | `icons/` | The logo and the app icons for the home screen. |
 | `serve.ps1` | A tiny local web server for testing on this computer. |
 | `tools/make-icons.ps1` | Draws the logo (`icons/logo.svg`) and the app icons from it (needs Microsoft Edge). |
 | `tools/fake-firebase.js` | A pretend Firebase, to test sign-in, sync and shared trips on this computer without real accounts. The app never loads it. |
+
+## Languages
+
+The app speaks English and French. Each device picks for itself:
+
+- **Settings → Appearance → Language**: English or Français. The app restarts in that language.
+- Until someone picks, it follows the device: French on a phone or computer set to French, English otherwise.
+- Translated: every button, message and screen of the app, the dates ("mardi 27 oct."), "What's new",
+  and the Essentials facts (language, currency…). The AI Assistant answers in the app's language.
+- Not translated: what comes from the travel guides (Wikivoyage and Wikipedia are read in English), and
+  what people type themselves (plan names, notes, checklist items).
+- **Adding a text or a version later**: every new text needs its French in `lang/fr.js`. The self-check
+  ("?selfcheck", see "Updating the app later") lists any text without one, and any French left over.
+- **Another language** (Spanish, German…): a new file next to `lang/fr.js` with every text translated,
+  and its name added to the list at the top of `i18n.js`. Nothing else in the app has to change.
 
 ## Try it on this computer
 

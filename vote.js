@@ -13,18 +13,17 @@
    ========================================================= */
 
 // The app's own proposals. Keep an id for good once it has shipped: votes are kept by id.
-// Built since, so off the list (don't use these ids again): share-trip.
+// Built since, so off the list (don't use these ids again): share-trip, languages (French, 2026-10).
 const FEATURE_IDEAS = [
-  { id: 'offline-maps', title: 'Maps without a connection', text: 'Download a trip’s map before leaving, for when there is no signal.' },
-  { id: 'meals', title: 'Lunch and dinner ideas', text: 'Places to eat near each day’s plans, from the travel guide.' },
-  { id: 'budget', title: 'Trip budget', text: 'Note what each plan costs, and see the total for a day and for the whole trip.' },
-  { id: 'journal', title: 'Trip journal', text: 'Add a photo and a few words to a plan once it’s done, and look back on the trip.' },
-  { id: 'print', title: 'Print the plan', text: 'A clean page of the whole trip, to print or keep as a PDF.' },
-  { id: 'copy-trip', title: 'Copy a trip', text: 'Start a new trip from one you already made.' },
-  { id: 'idea-hearts', title: 'Hearts on ideas', text: 'Everyone on a trip marks the ideas they like, so the group sees what to do first.' },
-  { id: 'packing-lists', title: 'Packing lists to keep', text: 'Save your checklist and use it again for the next trip.' },
-  { id: 'languages', title: 'The app in other languages', text: 'Today everything is in English.' },
-  { id: 'change-email', title: 'Change your email', text: 'Move your account to another email address.' },
+  { id: 'offline-maps', title: T('Maps without a connection'), text: T('Download a trip’s map before leaving, for when there is no signal.') },
+  { id: 'meals', title: T('Lunch and dinner ideas'), text: T('Places to eat near each day’s plans, from the travel guide.') },
+  { id: 'budget', title: T('Trip budget'), text: T('Note what each plan costs, and see the total for a day and for the whole trip.') },
+  { id: 'journal', title: T('Trip journal'), text: T('Add a photo and a few words to a plan once it’s done, and look back on the trip.') },
+  { id: 'print', title: T('Print the plan'), text: T('A clean page of the whole trip, to print or keep as a PDF.') },
+  { id: 'copy-trip', title: T('Copy a trip'), text: T('Start a new trip from one you already made.') },
+  { id: 'idea-hearts', title: T('Hearts on ideas'), text: T('Everyone on a trip marks the ideas they like, so the group sees what to do first.') },
+  { id: 'packing-lists', title: T('Packing lists to keep'), text: T('Save your checklist and use it again for the next trip.') },
+  { id: 'change-email', title: T('Change your email'), text: T('Move your account to another email address.') },
 ];
 const VOTE_MAX_IDEAS = 5;
 
@@ -89,7 +88,7 @@ async function startVoting() {
     stopVoting();
     voting.status = 'error';
     // The database rules for voting aren't published yet (see README).
-    voting.error = err && err.code === 'permission-denied' ? 'Voting isn’t switched on for this copy of the app yet.' : syncErrorText(err);
+    voting.error = err && err.code === 'permission-denied' ? T('Voting isn’t switched on for this copy of the app yet.') : syncErrorText(err);
     renderVoting();
   };
   try {
@@ -162,13 +161,13 @@ async function suggestFeature(form) {
   if (voting.status !== 'ready') return;
   if (!title) {
     form.elements.title.focus();
-    return voteError('Write your idea first. Your votes are saved already.');
+    return voteError(T('Write your idea first. Your votes are saved already.'));
   }
   const mine = voting.ideas.filter(i => i.uid === voting.uid);
-  if (mine.length >= VOTE_MAX_IDEAS) return voteError(`You have ${VOTE_MAX_IDEAS} suggestions in the list. Remove one to send another.`);
-  if (votingFeatures().some(f => norm(f.title) === norm(title))) return voteError('That one is in the list already. Vote for it!');
+  if (mine.length >= VOTE_MAX_IDEAS) return voteError(T('You have {n} suggestions in the list. Remove one to send another.', { n: VOTE_MAX_IDEAS }));
+  if (votingFeatures().some(f => norm(f.title) === norm(title))) return voteError(T('That one is in the list already. Vote for it!'));
   // Offline, the account's answer would never come, and the form would stay waiting.
-  if (!navigator.onLine) return voteError('No connection. Try again when you’re online.');
+  if (!navigator.onLine) return voteError(T('No connection. Try again when you’re online.'));
   voteError('');
   const taken = new Set(mine.map(i => i.doc));
   const doc = [0, 1, 2, 3, 4].map(n => `${voting.uid}_${n}`).find(d => !taken.has(d));
@@ -182,7 +181,7 @@ async function suggestFeature(form) {
     batch.set(sync.db.collection('featureVotes').doc(voting.uid), { ids: [...(voting.votes[voting.uid] || []), `${doc}.${at}`].slice(-300) });
     await batch.commit();
     suggesting(false);
-    snackbar('Suggestion sent');
+    snackbar(T('Suggestion sent'));
   } catch (err) {
     voteError(syncErrorText(err));
   } finally {
@@ -193,7 +192,7 @@ async function suggestFeature(form) {
 async function removeIdea(doc) {
   const idea = voting.ideas.find(i => i.doc === doc && i.uid === voting.uid);
   if (!idea) return;
-  const ok = await askConfirm({ icon: 'delete', title: 'Remove your suggestion?', text: `“${idea.title}” and its votes will be gone for everyone.`, ok: 'Remove' });
+  const ok = await askConfirm({ icon: 'delete', title: T('Remove your suggestion?'), text: T('“{name}” and its votes will be gone for everyone.', { name: idea.title }), ok: T('Remove') });
   if (!ok) return;
   sync.db.collection('featureIdeas').doc(doc).delete().catch(err => snackbar(syncErrorText(err)));
 }
@@ -211,8 +210,8 @@ async function eraseVoting(uid) {
 
 // The line at the bottom of the sheet: a vote needs no "send", so it says the votes are in.
 function voteStatus(count, online) {
-  if (!count) return 'Tap an idea to vote for it';
-  return `${plural(count, 'vote')} ${online ? 'saved' : 'kept for when you’re online'}`;
+  if (!count) return T('Tap an idea to vote for it');
+  return online ? Tn(count, '{n} vote saved', '{n} votes saved') : Tn(count, '{n} vote kept for when you’re online', '{n} votes kept for when you’re online');
 }
 
 function renderVoting() {
@@ -224,11 +223,11 @@ function renderVoting() {
   if (voting.order.length) list.sort((a, b) => place(a.key) - place(b.key) || a.pos - b.pos);
 
   const note = !sync.saved
-    ? `<p class="vote-note">${icon('login')}<span>Sign in to vote, and to suggest features of your own.</span>
-        <button type="button" class="btn tonal ripple" data-action="vote-sign-in">Sign in</button></p>`
-    : voting.status === 'loading' ? `<p class="vote-note">${icon('sync')}<span>Getting the votes…</span></p>`
+    ? `<p class="vote-note">${icon('login')}<span>${T('Sign in to vote, and to suggest features of your own.')}</span>
+        <button type="button" class="btn tonal ripple" data-action="vote-sign-in">${T('Sign in')}</button></p>`
+    : voting.status === 'loading' ? `<p class="vote-note">${icon('sync')}<span>${T('Getting the votes…')}</span></p>`
     : voting.status === 'error' ? `<p class="vote-note bad">${icon('error')}<span>${esc(voting.error)}</span></p>`
-    : !navigator.onLine ? `<p class="vote-note">${icon('cloud_off')}<span>Offline — your votes are sent when you’re back online.</span></p>`
+    : !navigator.onLine ? `<p class="vote-note">${icon('cloud_off')}<span>${T('Offline — your votes are sent when you’re back online.')}</span></p>`
     : '';
 
   // The list is drawn again after each vote: the button that was in use keeps the keyboard's place.
@@ -242,15 +241,15 @@ function renderVoting() {
     return `
       <li class="vote-item${f.voted ? ' voted' : ''}" ${ready ? `data-action="vote" data-key="${esc(f.key)}"` : ''}>
         <button type="button" class="vote-btn ripple" data-action="vote" data-key="${esc(f.key)}" aria-pressed="${f.voted}"
-          aria-label="${f.voted ? 'Take back your vote for' : 'Vote for'} ${esc(f.title)}${ready ? `, ${plural(f.votes, 'vote')}` : ''}" ${ready ? '' : 'disabled'}>
+          aria-label="${f.voted ? T('Take back your vote for {name}', { name: esc(f.title) }) : T('Vote for {name}', { name: esc(f.title) })}${ready ? `, ${Tn(f.votes, '{n} vote', '{n} votes')}` : ''}" ${ready ? '' : 'disabled'}>
           ${icon(f.voted ? 'check' : 'arrow_forward')}<span>${ready ? f.votes : '–'}</span>
         </button>
         <div class="vote-text">
           <span class="vote-title">${esc(f.title)}</span>
           ${f.text ? `<span class="vote-sub">${esc(f.text)}</span>` : ''}
-          ${f.voted ? '<span class="vote-tag">You voted for this</span>' : ''}
-          ${f.uid ? `<span class="vote-tag">${mine ? 'Your suggestion' : 'Suggested by someone using the app'}
-            ${mine ? `<button type="button" class="btn text ripple" data-action="vote-remove" data-doc="${esc(f.doc)}">Remove</button>` : ''}</span>` : ''}
+          ${f.voted ? `<span class="vote-tag">${T('You voted for this')}</span>` : ''}
+          ${f.uid ? `<span class="vote-tag">${mine ? T('Your suggestion') : T('Suggested by someone using the app')}
+            ${mine ? `<button type="button" class="btn text ripple" data-action="vote-remove" data-doc="${esc(f.doc)}">${T('Remove')}</button>` : ''}</span>` : ''}
         </div>
       </li>`;
   }).join('');

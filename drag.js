@@ -213,8 +213,8 @@ function dropOnList(target) {
   save();
   render();
   if (navigator.vibrate) navigator.vibrate(10);
-  const message = !crossing ? 'Moved' : there === 'trip' ? 'Moved to the list for everyone' : 'Moved to your own list';
-  snackbar(message, 'Undo', () => {
+  const message = !crossing ? T('Moved') : there === 'trip' ? T('Moved to the list for everyone') : T('Moved to your own list');
+  snackbar(message, T('Undo'), () => {
     // Back to its list and its spot there, whatever else changed meanwhile.
     to.set(to.get().filter(c => c.id !== line.id));
     const back = from.get().filter(c => c.id !== line.id);
@@ -238,7 +238,7 @@ function dropOn(target) {
   if (target.kind === 'ideas') {
     item.date = '';
     delete item.slot;
-    message = 'Moved back to ideas';
+    message = T('Moved back to ideas');
   } else {
     const fromDay = item.date;
     const was = fromDay === target.day ? dayItems(trip, target.day) : null;
@@ -260,11 +260,11 @@ function dropOn(target) {
     } else if (fromDay === target.day) {
       // A timed plan dropped on the wrong side of another timed plan: it can't go there.
       render();
-      snackbar(`Stays at ${fmtTime(item.time)}, in time order with the day’s other timed plans`);
+      snackbar(T('Stays at {time}, in time order with the day’s other timed plans', { time: fmtTime(item.time) }));
       return;
     }
-    message = fromDay === target.day ? 'Moved'
-      : `Moved to ${fmtDay(target.day, { weekday: 'long' })}${item.time ? `, ${fmtTime(item.time)}` : ''}`;
+    message = fromDay === target.day ? T('Moved')
+      : T('Moved to {day}', { day: fmtDay(target.day, { weekday: 'long' }) }) + (item.time ? `, ${fmtTime(item.time)}` : '');
   }
 
   const changed = before.some(([i, date, slot]) => i.date !== date || i.slot !== slot);
@@ -278,7 +278,7 @@ function dropOn(target) {
   if (!changed) return;
   save();
   if (navigator.vibrate) navigator.vibrate(10);
-  snackbar(message, 'Undo', () => {
+  snackbar(message, T('Undo'), () => {
     for (const [i, date, slot] of before) {
       i.date = date;
       if (slot === undefined) delete i.slot; else i.slot = slot;

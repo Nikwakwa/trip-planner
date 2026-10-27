@@ -321,11 +321,11 @@ async function askHowToLink() {
     const names = list => list.map(t => t.name).join(', ');
     const ok = await askConfirm({
       icon: 'sync',
-      title: 'Add this device’s trips?',
-      text: `Your account already has ${names(remoteTrips.sort((a, b) => a.pos - b.pos))}. This device also has ${names(phoneTrips)}. ` +
-        'Add them to the account? If not, this device switches to the account’s plans.',
-      ok: 'Add them',
-      cancel: 'Don’t add',
+      title: T('Add this device’s trips?'),
+      text: T('Your account already has {theirs}. This device also has {mine}.', { theirs: names(remoteTrips.sort((a, b) => a.pos - b.pos)), mine: names(phoneTrips) }) + ' ' +
+        T('Add them to the account? If not, this device switches to the account’s plans.'),
+      ok: T('Add them'),
+      cancel: T('Don’t add'),
     });
     sync.asking = false;
     if (!sync.saved) return;                   // Signed out meanwhile.
@@ -337,7 +337,7 @@ async function askHowToLink() {
   sync.firstSnap = null;
   dropSameChecks(keep, local, latest);
   mergeRemote(latest, pending, keep);
-  snackbar(`Signed in — plans sync with ${sync.saved.email}`);
+  snackbar(T('Signed in — plans sync with {email}', { email: sync.saved.email }));
   resumeInvite();     // share.js: an invitation that was waiting for the sign-in
 }
 
@@ -393,7 +393,7 @@ function startSync() {
   if (!sync.configured) return;
   if (sync.saved) setSyncStatus('connecting');
   // Only load Firebase right away if this phone is signed in.
-  if (sync.saved) loadFirebase().catch(() => setSyncStatus('error', 'Couldn’t load sync. Check your connection.'));
+  if (sync.saved) loadFirebase().catch(() => setSyncStatus('error', T('Couldn’t load sync. Check your connection.')));
 }
 
 function onUser(user) {
@@ -533,26 +533,26 @@ async function signOut() {
 function syncErrorText(err) {
   const code = (err && err.code) || '';
   const texts = {
-    'auth/invalid-credential': 'Email or password is wrong.',
-    'auth/wrong-password': 'Email or password is wrong.',
-    'auth/user-not-found': 'Email or password is wrong.',
-    'auth/invalid-login-credentials': 'Email or password is wrong.',
-    'auth/email-already-in-use': 'There’s already an account with this email. Sign in instead.',
-    'auth/weak-password': 'Use at least 6 characters for the password.',
-    'auth/invalid-email': 'That email address doesn’t look right.',
-    'auth/missing-password': 'Enter the password.',
-    'auth/network-request-failed': 'No connection. Try again when you’re online.',
-    'auth/too-many-requests': 'Too many tries. Wait a few minutes and try again.',
-    'auth/user-token-expired': 'This device was signed out. Sign in again first.',
-    'auth/requires-recent-login': 'Sign out, sign in again, then retry.',
-    'auth/operation-not-allowed': 'Email sign-in isn’t turned on in Firebase yet (see README).',
-    'permission-denied': 'The account’s database won’t allow this. Check the Firestore rules (see README).',
-    'unavailable': 'Can’t reach the account right now. Changes will be sent later.',
+    'auth/invalid-credential': T('Email or password is wrong.'),
+    'auth/wrong-password': T('Email or password is wrong.'),
+    'auth/user-not-found': T('Email or password is wrong.'),
+    'auth/invalid-login-credentials': T('Email or password is wrong.'),
+    'auth/email-already-in-use': T('There’s already an account with this email. Sign in instead.'),
+    'auth/weak-password': T('Use at least 6 characters for the password.'),
+    'auth/invalid-email': T('That email address doesn’t look right.'),
+    'auth/missing-password': T('Enter the password.'),
+    'auth/network-request-failed': T('No connection. Try again when you’re online.'),
+    'auth/too-many-requests': T('Too many tries. Wait a few minutes and try again.'),
+    'auth/user-token-expired': T('This device was signed out. Sign in again first.'),
+    'auth/requires-recent-login': T('Sign out, sign in again, then retry.'),
+    'auth/operation-not-allowed': T('Email sign-in isn’t turned on in Firebase yet (see README).'),
+    'permission-denied': T('The account’s database won’t allow this. Check the Firestore rules (see README).'),
+    'unavailable': T('Can’t reach the account right now. Changes will be sent later.'),
   };
   if (code.startsWith('auth/api-key-not-valid') || code === 'auth/invalid-api-key') {
-    return 'The Firebase settings in firebase-config.js look wrong (see README).';
+    return T('The Firebase settings in firebase-config.js look wrong (see README).');
   }
-  return texts[code] || (err && err.message) || 'Something went wrong.';
+  return texts[code] || (err && err.message) || T('Something went wrong.');
 }
 
 // How many changes made on this phone the account hasn't confirmed yet (counted per trip, plan or checklist item).
@@ -576,21 +576,21 @@ function lastSyncText() {
   if (!at) return '';
   const d = new Date(at);
   const day = toISO(d);
-  return day === todayISO() ? `today at ${fmtClock(d)}` : `on ${fmtDay(day, { month: 'short', day: 'numeric' })}`;
+  return day === todayISO() ? T('today at {time}', { time: fmtClock(d) }) : T('on {day}', { day: fmtDay(day, { month: 'short', day: 'numeric' }) });
 }
 
 function syncStatusText() {
   const n = waitingCount();
-  const waiting = `${plural(n, 'change')} waiting`;
+  const waiting = Tn(n, '{n} change waiting', '{n} changes waiting');
   const last = lastSyncText();
   if (!navigator.onLine) {
-    if (n) return `${waiting} — sent when you’re back online`;
-    return last ? `Offline — everything was saved ${last}` : 'Offline — changes will sync when you’re back online';
+    if (n) return T('{waiting} — sent when you’re back online', { waiting });
+    return last ? T('Offline — everything was saved {when}', { when: last }) : T('Offline — changes will sync when you’re back online');
   }
   switch (sync.status) {
-    case 'connecting': return n ? `Connecting… ${waiting}` : 'Connecting…';
-    case 'sending': return n ? `Sending ${plural(n, 'change')}…` : 'Sending changes…';
-    case 'synced': return `<span class="ok">All changes saved</span>${last ? ` · last synced ${last}` : ''}`;
+    case 'connecting': return n ? `${T('Connecting…')} ${waiting}` : T('Connecting…');
+    case 'sending': return n ? Tn(n, 'Sending {n} change…', 'Sending {n} changes…') : T('Sending changes…');
+    case 'synced': return `<span class="ok">${T('All changes saved')}</span>${last ? ` · ${T('last synced {when}', { when: last })}` : ''}`;
     case 'error': return esc(sync.error) + (n ? ` · ${waiting}` : '');
     default: return '';
   }

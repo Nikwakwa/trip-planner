@@ -25,36 +25,36 @@ function packingIdeas(trip) {
   const out = [];
   const add = (key, item, match, why) => out.push({ key, text: item, match, why });
 
-  if (wet.length) add('rain', 'Umbrella or rain jacket', /umbrella|\brain/, `Rain likely on ${plural(wet.length, 'day')}`);
+  if (wet.length) add('rain', T('Umbrella or rain jacket'), /umbrella|\brain|parapluie|imperm/, Tn(wet.length, 'Rain likely on {n} day', 'Rain likely on {n} days'));
   if (hiC !== null && hiC >= 27) {
-    add('sun', 'Sunscreen and sunglasses', /sunscreen|sun ?cream|sunglasses/, `Up to ${temp(hiC)}`);
-    add('water', 'Refillable water bottle', /water bottle|bottle/, `Up to ${temp(hiC)}`);
+    add('sun', T('Sunscreen and sunglasses'), /sunscreen|sun ?cream|sunglasses|solaire|lunettes de soleil/, T('Up to {temp}', { temp: temp(hiC) }));
+    add('water', T('Refillable water bottle'), /water bottle|bottle|gourde|bouteille/, T('Up to {temp}', { temp: temp(hiC) }));
   }
-  if (loC !== null && loC <= 5) add('cold', 'Warm coat, hat and gloves', /coat|gloves|\bhat\b|scarf/, `Down to ${temp(loC)}`);
-  else if (loC !== null && loC <= 14) add('layers', 'A warm layer for the evenings', /jacket|sweater|layer|fleece|hoodie/, `Evenings down to ${temp(loC)}`);
-  if (weather.some(w => w.icon === 'weather_snowy')) add('snow', 'Waterproof shoes', /boots|waterproof shoes/, 'Snow in the forecast');
+  if (loC !== null && loC <= 5) add('cold', T('Warm coat, hat and gloves'), /coat|gloves|\bhat\b|scarf|manteau|gants|bonnet|[ée]charpe/, T('Down to {temp}', { temp: temp(loC) }));
+  else if (loC !== null && loC <= 14) add('layers', T('A warm layer for the evenings'), /jacket|sweater|layer|fleece|hoodie|veste|\bpull|polaire|sweat/, T('Evenings down to {temp}', { temp: temp(loC) }));
+  if (weather.some(w => w.icon === 'weather_snowy')) add('snow', T('Waterproof shoes'), /boots|waterproof shoes|bottes|chaussures imperm/, T('Snow in the forecast'));
 
   // Lots of stops on a day means a lot of walking.
   const busy = days.filter(d => dayItems(trip, d).length >= 4).length;
-  if (busy) add('shoes', 'Comfortable walking shoes', /shoes|sneakers|trainers/, `${plural(busy, 'busy day')} on foot`);
+  if (busy) add('shoes', T('Comfortable walking shoes'), /shoes|sneakers|trainers|chaussures|baskets/, Tn(busy, '{n} busy day on foot', '{n} busy days on foot'));
 
-  if (/flight|airport|airline|boarding|\bfly\b/.test(text)) {
-    add('id', 'Passport or ID', /passport|\bid\b|identity/, 'You’re flying');
-    add('boarding', 'Boarding passes (or the airline app)', /boarding/, 'You’re flying');
+  if (/flight|airport|airline|boarding|\bfly\b|\bvol\b|a[ée]roport|embarquement/.test(text)) {
+    add('id', T('Passport or ID'), /passport|\bid\b|identity|passeport|identit/, T('You’re flying'));
+    add('boarding', T('Boarding passes (or the airline app)'), /boarding|embarquement/, T('You’re flying'));
   }
-  if (trip.travel === 'drive' || Object.values(trip.dayTravel || {}).includes('drive') || /car rental|rental car|hire car/.test(text)) {
-    add('licence', 'Driving licence', /licen[cs]e|permit/, `Driving${facts.driving ? ` (on the ${facts.driving})` : ''}`);
+  if (trip.travel === 'drive' || Object.values(trip.dayTravel || {}).includes('drive') || /car rental|rental car|hire car|location de voiture|voiture de location/.test(text)) {
+    add('licence', T('Driving licence'), /licen[cs]e|permit|permis/, facts.driving ? T('Driving (on the {side})', { side: facts.driving }) : T('Driving'));
   }
-  if (plans.some(i => i.category === 'stay')) add('hotel', 'Hotel booking details', /hotel|booking|reservation|airbnb/, 'You have a place to stay planned');
-  if (plans.some(i => i.category === 'event')) add('tickets', 'Tickets for shows and events', /ticket/, 'Shows or events planned');
+  if (plans.some(i => i.category === 'stay')) add('hotel', T('Hotel booking details'), /h[oô]tel|booking|r[ée]servation|airbnb/, T('You have a place to stay planned'));
+  if (plans.some(i => i.category === 'event')) add('tickets', T('Tickets for shows and events'), /ticket|billet/, T('Shows or events planned'));
   // Whole words: "Liverpool" is not a pool, the Strand Book Store not a beach, the city of Bath not a bath.
-  const beachy = /\bbeach|\bpraia\b|\bplage\b|\bplaya\b|\bspiaggia\b|\bstrandbad|\bswim|\bpools?\b|\bpiscina\b|\bthermal|\bspa\b|\b(?:public|turkish|roman|hot) baths?\b|\bbathhouse|\bhammam|\bonsen\b/;
+  const beachy = /\bbeach|\bpraia\b|\bplage\b|\bplaya\b|\bspiaggia\b|\bstrandbad|\bswim|\bpools?\b|\bpiscina\b|\bpiscines?\b|\bbaignade|\bthermal|\bspa\b|\b(?:public|turkish|roman|hot) baths?\b|\bbathhouse|\bhammam|\bonsen\b/;
   if (beachy.test(text) || (guide && plans.some(i => matchPlaces(i, guide).some(p => beachy.test(norm(p.name)))))) {
-    add('swim', 'Swimsuit and towel', /swim|bathing|towel/, 'A beach or pool is planned');
+    add('swim', T('Swimsuit and towel'), /swim|bathing|towel|maillot|serviette/, T('A beach or pool is planned'));
   }
   if (facts.plugs && facts.plugs.length) {
     const types = facts.plugs.map(p => (/^Type (\w)/.exec(p) || [])[1]).filter(Boolean);
-    add('plug', `Plug adapter${types.length ? ` (type ${types.join('/')})` : ''}`, /adapter|adaptor/, `If your chargers have other plugs${facts.voltage ? ` · ${facts.voltage}` : ''}`);
+    add('plug', types.length ? T('Plug adapter (type {types})', { types: types.join('/') }) : T('Plug adapter'), /adapter|adaptor|adaptateur/, T('If your chargers have other plugs') + (facts.voltage ? ` · ${facts.voltage}` : ''));
   }
   return out;
 }
@@ -71,17 +71,17 @@ function packingHTML(trip) {
   const list = packingSuggestions(trip);
   if (!list.length) return '';
   return `
-    <section class="pack-ideas" aria-label="Suggestions">
-      <h2 class="group-label">${icon('auto_awesome', 'sm')}Suggested for ${esc(trip.name)}</h2>
-      ${trip.shared ? `<p class="supporting">Tap one to add it to your own checklist, or ${icon('group', 'sm')} to add it for everyone on the trip.</p>` : ''}
+    <section class="pack-ideas" aria-label="${T('Suggestions')}">
+      <h2 class="group-label">${icon('auto_awesome', 'sm')}${T('Suggested for {trip}', { trip: esc(trip.name) })}</h2>
+      ${trip.shared ? `<p class="supporting">${T('Tap one to add it to your own checklist, or {icon} to add it for everyone on the trip.', { icon: icon('group', 'sm') })}</p>` : ''}
       <ul class="group">${list.map(s => `
         <li class="pack-idea">
-          <button type="button" class="pack-add ripple" data-action="pack-add" data-key="${s.key}" aria-label="Add ${esc(s.text)}${trip.shared ? ' to your own checklist' : ''}">
+          <button type="button" class="pack-add ripple" data-action="pack-add" data-key="${s.key}" aria-label="${trip.shared ? T('Add {name} to your own checklist', { name: esc(s.text) }) : T('Add {name}', { name: esc(s.text) })}">
             ${icon('add')}<span class="row-text"><span class="row-title">${esc(s.text)}</span><span class="row-sub">${esc(s.why)}</span></span>
           </button>
           ${trip.shared ? `<button type="button" class="icon-btn tonal ripple" data-action="pack-add-all" data-key="${s.key}"
-            aria-label="Add ${esc(s.text)} to the list for everyone" title="Add for everyone on the trip">${icon('group')}</button>` : ''}
-          <button type="button" class="icon-btn ripple" data-action="pack-hide" data-key="${s.key}" aria-label="Don’t suggest ${esc(s.text)}" title="Don’t suggest this">${icon('close')}</button>
+            aria-label="${T('Add {name} to the list for everyone', { name: esc(s.text) })}" title="${T('Add for everyone on the trip')}">${icon('group')}</button>` : ''}
+          <button type="button" class="icon-btn ripple" data-action="pack-hide" data-key="${s.key}" aria-label="${T('Don’t suggest {name}', { name: esc(s.text) })}" title="${T('Don’t suggest this')}">${icon('close')}</button>
         </li>`).join('')}
       </ul>
     </section>`;
@@ -97,12 +97,12 @@ document.addEventListener('click', (e) => {
   if (el.dataset.action === 'pack-add') {
     state.checklist.push({ id: uid(), text: s.text, done: false });
     save();
-    snackbar(trip.shared ? `Added to your own checklist: ${s.text}` : `Added: ${s.text}`);
+    snackbar(trip.shared ? T('Added to your own checklist: {name}', { name: s.text }) : T('Added: {name}', { name: s.text }));
   } else if (el.dataset.action === 'pack-add-all') {
     // On a trip planned with other people: onto the trip's own list, for everyone.
     trip.todos = [...(trip.todos || []), { id: uid(), text: s.text, done: false }];
     save();
-    snackbar(`Added for everyone: ${s.text}`);
+    snackbar(T('Added for everyone: {name}', { name: s.text }));
   } else {
     packingHidden[trip.id] = [...new Set([...(packingHidden[trip.id] || []), s.key])];
     try { localStorage.setItem(PACKING_KEY, JSON.stringify(packingHidden)); } catch { /* storage full */ }

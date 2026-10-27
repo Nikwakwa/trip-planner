@@ -1164,7 +1164,9 @@ dialog.alert[open] { animation: alert-in .4s var(--ease-decel); }
 /* Settings: a choice with its name in front (Theme, Units, Date, Time) */
 .row.pick { min-height: 64px; gap: 12px; }
 .pick-label { flex: none; width: 52px; font-size: 14px; line-height: 20px; font-weight: 600; color: var(--on-surface-variant); }
-.row.pick .segmented button { height: 40px; }
+/* Room by the length of each word: "Sombre" is longer than "Auto" (French, on a 360px phone) */
+.row.pick .segmented button { height: 40px; flex: 1 1 auto; }
+@media (max-width: 380px) { .row.pick .segmented button { padding: 0 6px; gap: 4px; } }
 
 /* ---------- Explore filter chips ---------- */
 .filter-row {
