@@ -30,45 +30,79 @@ the same address shows a desktop layout on a wide screen, by itself.
 
 ## Files
 
+The app is plain web files, in three groups: the page itself at the top, its look in `css/`, and its
+behavior in `js/`. Each file covers one part of the app, so a change usually touches only one or two.
+
+**At the top**
+
 | File | What it does |
 |------|--------------|
-| `index.html` | The page structure (what's on screen). |
-| `theme.js` | Picks light or dark before the page shows. |
-| `styles.css` | The look: colors, spacing, fonts. |
-| `app.js` | The behavior: adding plans, saving, switching trips. |
-| `places.js` | Finds a trip's place (OpenStreetMap) and builds a guide for it (Wikivoyage, Wikipedia). |
-| `sync.js` | Sign-in and syncing plans between devices (Firebase). |
-| `share.js` | Planning a trip together: invitations, who is on a trip, the Share sheet. |
-| `firebase-config.js` | Your Firebase project's settings (see below). |
+| `index.html` | The page structure (what's on screen), and the list of files it loads. |
+| `firebase-config.js` | Your settings: the Firebase project, the reCAPTCHA, report and map keys (see below). |
+| `sw.js` | The "service worker": keeps a copy of the app so it opens offline. |
+| `manifest.webmanifest` | Tells the phone the app's name, icon and colors so it can be installed. |
 | `firestore.rules` | Database rules: each account only sees its own plans, and the trips it was invited to. |
-| `vendor/firebase/` | Firebase library, stored in the app. |
-| `maps.js` | Day and trip maps, Optimize route, address lookup, sharing. |
-| `routes.js` | By car, the real distance and time by road between a day's stops (OpenStreetMap routing). |
-| `mapstyle.js` | The look of the map: landmark labels and the dark (night) version. |
-| `vendor/maplibre/` | MapLibre GL, the library that draws the detailed map (BSD-3 license), stored in the app. |
+| `serve.ps1` | A tiny local web server for testing on this computer. |
+
+**The look (`css/`)**, in the order the page loads it (a later file can adjust an earlier one):
+
+| File | What it does |
+|------|--------------|
+| `base.css` | The font, the colors (all made from the trip's color, light and dark). |
+| `components.css` | Pieces used everywhere: lists, buttons, chips, sheets, form fields, switches. |
+| `shell.css` | Around the sections: the top bar, the day strip, the + button, the navigation bar. |
+| `plan.css`, `ideas.css`, `checklist.css` | The Plan, Ideas and Checklist sections. |
+| `map.css` | The maps and their pins. |
+| `sheets.css` | The sheets of the features: Essentials, voting, sharing, the AI Assistant, tickets… |
+| `desktop.css` | The computer layout (sidebar, docked map), on wide windows. |
+
+**The behavior (`js/`)**, in the order the page loads it:
+
+| File | What it does |
+|------|--------------|
+| `theme.js` | Picks light or dark before the page shows. |
+| `version.js` | The app's version number and the list of what changed in each version ("What's new"). |
+| `i18n.js`, `lang/fr.js` | Picks the app's language; the French translation of every text. |
+| `core.js` | Small tools every other file uses (dates, distances, safe text and links), and what each button does. |
+| `places.js` | Finds a trip's place (OpenStreetMap) and builds a guide for it (Wikivoyage, Wikipedia). |
 | `weather.js` | The forecast for each trip day (Open-Meteo). |
-| `essentials.js` | The Essentials sheet (Wikidata facts, Wikivoyage tips). |
 | `hours.js` | Opening hours and "usually closed" warnings (OpenStreetMap). |
+| `essentials.js` | The Essentials sheet (Wikidata facts, Wikivoyage tips). |
+| `mapstyle.js` | The look of the map: landmark labels and the dark (night) version. |
+| `maps.js` | Day and trip maps, Optimize route, address lookup, sharing the plan as text. |
+| `routes.js` | By car, the real distance and time by road between a day's stops (OpenStreetMap routing). |
 | `drag.js` | Hold and drag plans and ideas onto days. |
-| `assistant.js` | The AI assistant chat (Gemini through Firebase, or the Claude / Gemini app). |
 | `today.js` | Home base (your hotel), "Now & next" during the trip, and "What's near me". |
 | `calendar.js` | Add plans to Google Calendar, or the whole trip as a calendar file. |
 | `files.js` | Tickets & bookings attached to plans (kept on the phone). |
 | `packing.js` | Packing suggestions for the Checklist. |
-| `info.js` | "About this place" for a plan: what it is, hours, photos, what to know (Wikivoyage, Wikipedia). |
-| `vendor/leaflet/` | Leaflet map library (BSD-2 license), stored in the app. |
-| `fonts/`, `icons/sprite.svg` | Google Sans Flex and Material Symbols, stored for offline use (`tools/fetch-assets.ps1`). |
-| `manifest.webmanifest` | Tells the phone the app's name, icon and colors so it can be installed. |
-| `sw.js` | The "service worker": keeps a copy of the app so it opens offline. |
+| `info.js` | "About this place" for a plan: what it is, hours, photos, what to know. |
+| `assistant.js` | The AI assistant chat (Gemini through Firebase, or another AI app). |
 | `vote.js` | Voting for new features, and suggesting your own (Settings → About). |
-| `version.js` | The app's version number and the list of what changed in each version ("What's new"). |
-| `i18n.js` | Picks the app's language and swaps each text for its translation. |
-| `lang/fr.js` | The French translation: each English text of the app, and its French. |
+| `share.js` | Planning a trip together: invitations, who is on a trip, the Share sheet. |
+| `sync.js` | Sign-in and syncing plans between devices (Firebase). |
+| `ui.js` | Shared pieces of the screen: messages at the bottom, "Are you sure?" questions, colors. |
+| `guide.js` | Ideas for each day, Auto-fill day, and "Book ahead". |
+| `store.js` | Your plans: saving them on the device, and checking anything that comes from outside. |
+| `render.js` | Drawing the screen and switching sections. |
+| `view-plan.js`, `view-ideas.js`, `view-checklist.js`, `view-settings.js` | The four sections. |
+| `form-plan.js`, `form-trip.js` | The forms to add or edit a plan, and a trip. |
+| `account.js` | Signing in, changing the password, deleting the account. |
+| `sheets.js` | Closing sheets (✕, tap outside, swipe down), asking before losing what was typed. |
+| `backup.js` | Backup files, restoring one, and "Erase everything". |
+| `about.js` | Privacy, What's new, and Report a problem. |
+| `app.js` | Starts the app: offline mode, installing, new versions. |
 | `selfcheck.js` | A self-check of the parts that must not break (see "Updating the app later"). |
-| `icons/` | The logo and the app icons for the home screen. |
-| `serve.ps1` | A tiny local web server for testing on this computer. |
+
+**Elsewhere**
+
+| File | What it does |
+|------|--------------|
+| `vendor/` | Libraries stored in the app: Firebase, Leaflet (BSD-2 license) and MapLibre GL (BSD-3 license). |
+| `fonts/`, `icons/` | Google Sans Flex, Material Symbols, the logo and the home-screen icons (`tools/fetch-assets.ps1`). |
 | `tools/make-icons.ps1` | Draws the logo (`icons/logo.svg`) and the app icons from it (needs Microsoft Edge). |
 | `tools/fake-firebase.js` | A pretend Firebase, to test sign-in, sync and shared trips on this computer without real accounts. The app never loads it. |
+| `tools/snapshot.js` | Checks that a tidy-up of the code changes nothing on screen. The app never loads it. |
 
 ## Languages
 
@@ -80,10 +114,11 @@ The app speaks English and French. Each device picks for itself:
   and the Essentials facts (language, currency…). The AI Assistant answers in the app's language.
 - Not translated: what comes from the travel guides (Wikivoyage and Wikipedia are read in English), and
   what people type themselves (plan names, notes, checklist items).
-- **Adding a text or a version later**: every new text needs its French in `lang/fr.js`. The self-check
+- **Adding a text or a version later**: every new text needs its French in `js/lang/fr.js`. The self-check
   ("?selfcheck", see "Updating the app later") lists any text without one, and any French left over.
-- **Another language** (Spanish, German…): a new file next to `lang/fr.js` with every text translated,
-  and its name added to the list at the top of `i18n.js`. Nothing else in the app has to change.
+- **Another language** (Spanish, German…): a new file next to `js/lang/fr.js` with every text translated,
+  its name added to the list at the top of `js/i18n.js`, and the file to the lists in `index.html` and `sw.js`.
+  Nothing else in the app has to change.
 
 ## Try it on this computer
 
@@ -108,14 +143,15 @@ After changing files, the phone picks up the new version automatically: open the
 online, then close and reopen it.
 
 Every update gets a new **version number** and a few lines saying what changed, at the top of the list
-in `version.js`. The app shows that list under **Settings → About → What's new**, back to the first
+in `js/version.js`. The app shows that list under **Settings → About → What's new**, back to the first
 version, and offers it once after each update. A number has three parts, like `2.5.0`: the first changes
 when the app looks or works differently, the second when something new is added, the third for fixes only.
 
 Before sending an update out, run the **self-check**: add `?selfcheck` to the app's address
 (on this computer: <http://localhost:8080/?selfcheck>). It tests dates, backups, syncing, AI answers
-and opening hours on made-up plans (yours are not touched) and shows what passed. If a line is red,
-don't ship. It is also a quick first test on a new kind of phone.
+and opening hours on made-up plans (yours are not touched), checks that the code is put together right
+(every file kept for offline use, every button has something to do, the safety rules in place), and shows
+what passed. If a line is red, don't ship. It is also a quick first test on a new kind of phone.
 
 ## Planning a trip together
 

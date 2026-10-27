@@ -8,7 +8,7 @@
    - Short summaries from the Wikivoyage guide: getting around, staying safe,
      language, customs, staying connected.
    Fetched once per place while online and saved on the phone, so it works offline.
-   Functions here use helpers from app.js, which is loaded after this file.
+   Functions here also use the screen's files (ui.js … app.js), which load after this one.
    ========================================================= */
 
 const ESSENTIALS_KEY = 'tripPlanner.essentials';
@@ -283,3 +283,14 @@ function openEssentials(trip) {
   $('#info-dialog').showModal();
   $('#info-body').scrollTop = 0;
 }
+
+/* ---------- Taps ---------- */
+
+onAction('essentials', () => openEssentials(activeTrip()));
+onAction('retry-essentials', () => {
+  const trip = state.trips.find(t => t.id === essentials.tripId);
+  if (!trip || !trip.place) return;
+  essentials.status.delete(placeKey(trip.place));
+  loadEssentials(trip.place);
+  renderEssentials();
+});

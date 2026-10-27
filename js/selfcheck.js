@@ -2,7 +2,8 @@
 
 /* =========================================================
    Self-check: tests the parts of the app that must not break (dates, checking data from
-   outside, backups, merging the account's plans, AI answers, opening hours).
+   outside, backups, merging the account's plans, AI answers, opening hours, translations), and how
+   the code is put together (files saved for offline use, actions, names, links).
    Open the app with "?selfcheck" at the end of its address to run it, before every update
    that ships, and on a new kind of device. It is only loaded then.
    It works on made-up plans: the real ones are set aside while it runs and nothing is saved.
@@ -32,6 +33,17 @@ function runChecks() {
   const same = (got, want) => stable(got) === stable(want) || `got ${stable(got)}, expected ${stable(want)}`;
   const copy = v => JSON.parse(JSON.stringify(v));
   const throws = (fn) => { try { fn(); } catch { return true; } return 'no error was raised'; };
+  // The app's own files, read as they are on the server (for the checks on texts and on the code).
+  const read = (url) => {
+    const req = new XMLHttpRequest();
+    req.open('GET', url, false);      // waits: the checks run in one go
+    req.send();
+    if (req.status !== 200) throw new Error(`couldn’t read ${url} (offline?)`);
+    return req.responseText;
+  };
+  // The code files index.html loads (not the vendored libraries).
+  const codeFiles = () => [...new DOMParser().parseFromString(read('index.html'), 'text/html').querySelectorAll('script[src]')]
+    .map(s => s.getAttribute('src')).filter(src => !/^(https?:|vendor\/)/.test(src));
 
   // The real plans and account are set aside, and nothing can be saved, sent or redrawn meanwhile.
   // Everything inside is done in one go (no waiting), so nothing else runs in between.
@@ -737,18 +749,9 @@ function runChecks() {
   }
   // Every text of the app, as the code and the page have it: T('…'), Tn(n, '…', '…'), What's new, and index.html.
   check('Every text of the app has a translation, and every translation a text', () => {
-    const read = (url) => {
-      const req = new XMLHttpRequest();
-      req.open('GET', url, false);      // waits: the checks run in one go
-      req.send();
-      if (req.status !== 200) throw new Error(`couldn’t read ${url} (offline?)`);
-      return req.responseText;
-    };
     const texts = new Set(CHANGELOG.flatMap(c => c.items));
     const unquote = s => s.replace(/\\(.)/g, '$1');
-    const files = [...new Set([...document.scripts].map(s => (s.getAttribute('src') || '').split('?')[0]))]
-      .filter(src => src && !/^(https?:|vendor\/|lang\/)/.test(src) && !['firebase-config.js', 'i18n.js', 'selfcheck.js'].includes(src));
-    for (const file of files) {
+    for (const file of codeFiles().filter(f => !['js/i18n.js', 'js/lang/fr.js', 'firebase-config.js'].includes(f))) {
       const code = read(file);
       for (const m of code.matchAll(/\bT\(\s*'((?:[^'\\]|\\.)*)'/g)) texts.add(unquote(m[1]));
       for (const m of code.matchAll(/\bTn\([^']*?'((?:[^'\\]|\\.)*)'\s*,\s*'((?:[^'\\]|\\.)*)'/g)) { texts.add(unquote(m[1])); texts.add(unquote(m[2])); }
@@ -768,6 +771,63 @@ function runChecks() {
       if (unused.length) problems.push(`${unused.length} ${LANGS[lang]} not used: ${unused.slice(0, 8).join(' | ')}`);
     }
     return !problems.length || problems.join(' — ');
+  });
+
+  /* ---------- How the code is put together ---------- */
+  group = 'The code';
+  const page = () => new DOMParser().parseFromString(read('index.html'), 'text/html');
+  const sources = () => [...codeFiles(), 'index.html'].map(f => [f, read(f)]);
+  check('Every file the page loads is saved for offline use, and every saved file is loaded', () => {
+    const list = read('sw.js').match(/const FILES = \[([\s\S]*?)\];/);
+    const saved = new Set(list ? [...list[1].replace(/\/\/.*$/gm, '').matchAll(/'([^']+)'/g)].map(m => m[1]) : []);
+    const doc = page();
+    const loaded = [...doc.querySelectorAll('script[src], link[rel="stylesheet"]')].map(el => el.getAttribute('src') || el.getAttribute('href'));
+    const unsaved = loaded.filter(f => !saved.has(f));
+    const unused = [...saved].filter(f => /^(js|css)\//.test(f) && f !== 'js/selfcheck.js' && !loaded.includes(f));
+    return (!unsaved.length && !unused.length) || `not in sw.js: ${unsaved.join(', ') || '-'}; in sw.js but not loaded: ${unused.join(', ') || '-'}`;
+  });
+  check('Every button’s data-action has an action (onAction)', () => {
+    const missing = new Set();
+    for (const [file, text] of sources()) {
+      for (const m of text.matchAll(/data-action="([a-z][\w-]*)"/g)) if (!ACTIONS.has(m[1])) missing.add(`${m[1]} (${file})`);
+    }
+    return !missing.size || 'no action for ' + [...missing].join(', ');
+  });
+  check('No two files use the same name at the top level', () => {
+    // Two "function save" in two files: the second one silently replaces the first.
+    const seen = new Map();
+    const twice = [];
+    for (const [file, text] of sources().filter(([f]) => f.endsWith('.js'))) {
+      for (const m of text.matchAll(/^(?:async\s+)?(?:function\*?|const|let|var|class)\s+([\w$]+)/gm)) {
+        if (seen.has(m[1])) twice.push(`${m[1]} (${seen.get(m[1])}, ${file})`);
+        else seen.set(m[1], file);
+      }
+    }
+    return !twice.length || twice.join(', ');
+  });
+  check('The page keeps its security policy: scripts from the app’s own files only, no plugins', () => {
+    const meta = page().querySelector('meta[http-equiv="Content-Security-Policy"]');
+    const csp = meta ? meta.getAttribute('content') : '';
+    if (!/script-src 'self'/.test(csp)) return 'no script-src \'self\' in index.html';
+    if (/unsafe-inline|unsafe-eval|script-src[^;]*\*/.test(csp)) return 'the policy lets other code run: ' + csp;
+    return /object-src 'none'/.test(csp) || 'object-src \'none\' is missing';
+  });
+  check('No code in the page’s HTML: no onclick="…", no javascript: links', () => {
+    // The page's security policy would block them anyway; this says where they are.
+    const bad = [];
+    for (const [file, text] of sources()) {
+      for (const m of text.matchAll(/<[a-z][^<>]*?\son[a-z]+\s*=\s*["'`$]|(?:href|src)\s*=\s*["'`]\s*javascript:/gi)) bad.push(`${file}: ${m[0].slice(0, 60)}`);
+    }
+    return !bad.length || bad.join(' | ');
+  });
+  check('Links that open a new tab can’t reach back into the app (rel="noopener")', () => {
+    const bad = [];
+    for (const [file, text] of sources()) {
+      for (const m of text.matchAll(/<a\b(?:[^<>]|\$\{[^}]*\})*?target="_blank"(?:[^<>]|\$\{[^}]*\})*>/g)) {
+        if (!/rel="[^"]*noopener/.test(m[0])) bad.push(`${file}: ${m[0].slice(0, 80)}`);
+      }
+    }
+    return !bad.length || bad.join(' | ');
   });
 
   /* ---------- Report a problem ---------- */

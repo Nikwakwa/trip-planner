@@ -1,0 +1,245 @@
+/* shell.css — around the sections: the top bar, the page column, the + and AI buttons, the navigation bar. */
+
+/* ---------- Top app bar ---------- */
+.appbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--surface);
+  padding: calc(env(safe-area-inset-top) + 8px) 0 8px;
+  transition: background-color .3s var(--ease);
+}
+.appbar.scrolled { background: var(--surface-container); }
+.appbar-inner {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 0 16px;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.appbar-title {
+  flex: 1;
+  margin: 0;
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 500;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity .25s var(--ease), transform .25s var(--ease);
+}
+.appbar.show-title .appbar-title { opacity: 1; transform: none; }
+
+.trip-tabs {
+  flex: 1;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.trip-chip {
+  flex: none;
+  height: 40px;
+  padding: 0 18px 0 14px;
+  border-radius: 20px;
+  border: 1px solid var(--outline-variant);
+  color: var(--on-surface-variant);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: border-radius .35s var(--ease-spring), background-color .3s var(--ease), color .3s;
+}
+.trip-chip .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
+.trip-chip.active {
+  background: var(--secondary-container);
+  color: var(--on-secondary-container);
+  border-color: transparent;
+  border-radius: 12px;
+}
+.trip-chip.add { width: 40px; padding: 0; justify-content: center; }
+
+.offline-pill {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px 0 10px;
+  border-radius: 16px;
+  background: var(--tertiary-container);
+  color: var(--on-tertiary-container);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ---------- Day strip (phones): one pill per day, to jump to it; the day on screen is filled ---------- */
+.day-strip {
+  display: flex;
+  gap: 8px;
+  max-width: 640px;
+  margin: 8px auto 0;
+  padding: 2px 16px 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.day-strip::-webkit-scrollbar { display: none; }
+.day-strip button {
+  flex: none;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--surface-container-high);
+  color: var(--on-surface);
+  transition: background-color .25s var(--ease), color .25s var(--ease);
+}
+.day-strip small { font-size: 14px; line-height: 20px; font-weight: 600; letter-spacing: 0; }
+.day-strip b { font-size: 14px; line-height: 20px; font-weight: 700; }
+.day-strip button.today { box-shadow: inset 0 0 0 2px var(--primary); }
+.day-strip button.on { background: var(--inverse-surface); color: var(--inverse-on-surface); }
+
+/* ---------- Page ---------- */
+main { max-width: 640px; margin: 0 auto; padding: 8px 16px 0; }
+
+.view { animation: view-in .4s var(--ease-decel); }
+@keyframes view-in { from { opacity: 0; transform: translateY(16px); } }
+
+.headline {
+  margin: 12px 4px 4px;
+  font-size: 36px;
+  line-height: 44px;
+  font-weight: 560;
+  letter-spacing: -.015em;
+  font-variation-settings: 'ROND' 100;
+}
+.supporting {
+  margin: 0 4px 20px;
+  color: var(--on-surface-variant);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+
+/* ---------- Floating action button ---------- */
+.fab {
+  position: fixed;
+  z-index: 9;
+  right: max(16px, calc(50% - 304px));
+  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 16px);
+  height: 56px;
+  min-width: 56px;
+  padding: 0 22px 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-radius: 18px;
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+  font-size: 16px;
+  font-weight: 650;
+  box-shadow: var(--elev-3);
+}
+.fab:active { border-radius: 28px; }
+.fab-label {
+  max-width: 160px;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: max-width .35s var(--ease), opacity .2s;
+}
+.fab.collapsed { padding: 0 16px; gap: 0; }
+.fab.collapsed .fab-label { max-width: 0; opacity: 0; }
+body.snack-open .fab { bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 80px); }
+
+/* The AI Assistant: a smaller button stacked on the + button, on both trip sections */
+.ai-fab {
+  position: fixed;
+  z-index: 9;
+  right: calc(max(16px, 50% - 304px) + 4px);
+  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 84px);
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: var(--tertiary-container);
+  color: var(--on-tertiary-container);
+  box-shadow: var(--elev-3);
+}
+.ai-fab:active { border-radius: 24px; }
+body.snack-open .ai-fab { bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 148px); }
+/* Scrolling down a list, both buttons step aside so they don't cover the plans (render.js, onScroll) */
+.fab, .ai-fab {
+  transition: padding .35s var(--ease), gap .35s var(--ease), bottom .35s var(--ease), border-radius .3s var(--ease),
+    background-color .5s var(--ease), transform .3s var(--ease), opacity .2s var(--ease);
+}
+body.fabs-away .fab:not(:focus-visible), body.fabs-away .ai-fab:not(:focus-visible) {
+  transform: translateY(32px) scale(.9);
+  opacity: 0;
+  pointer-events: none;
+}
+/* Room to scroll the last plan clear of both buttons; without them (Checklist, Settings) the page ends sooner */
+@media (max-width: 899px) {
+  body:has(.ai-fab:not([hidden])) { padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 152px); }
+  body:has(#fab[hidden]) { padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 32px); }
+}
+
+/* ---------- Navigation bar ---------- */
+.navbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9;
+  display: flex;
+  justify-content: center;
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--surface-container);
+  transition: background-color .5s var(--ease);
+}
+.navbar button {
+  flex: 1;
+  max-width: 168px;
+  height: var(--nav-h);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--on-surface-variant);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: .03em;
+}
+.nav-ind {
+  position: relative;
+  width: 56px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+}
+.nav-ind::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--secondary-container);
+  opacity: 0;
+  transform: scaleX(.35);
+  transition: transform .4s var(--ease-spring), opacity .2s;
+}
+.nav-ind .icon { position: relative; grid-area: 1 / 1; }
+.navbar .i-fill { display: none; }
+.navbar button.active { color: var(--on-surface); font-weight: 700; }
+.navbar button.active .nav-ind { color: var(--on-secondary-container); }
+.navbar button.active .nav-ind::before { opacity: 1; transform: none; }
+.navbar button.active .i-fill { display: block; }
+.navbar button.active .i-line { display: none; }
+
+

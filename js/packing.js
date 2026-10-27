@@ -4,7 +4,7 @@
    Smart packing list: suggestions for the Checklist, from the trip's
    forecast, its plans, how it gets around, and its Essentials (plugs).
    Each one can be added with a tap, or hidden (remembered on this phone).
-   Functions here use helpers from app.js, which is loaded after this file.
+   Functions here also use the screen's files (ui.js … app.js), which load after this one.
    ========================================================= */
 
 const PACKING_KEY = 'tripPlanner.packing';
@@ -87,25 +87,28 @@ function packingHTML(trip) {
     </section>`;
 }
 
-document.addEventListener('click', (e) => {
-  const el = e.target.closest('[data-action="pack-add"], [data-action="pack-add-all"], [data-action="pack-hide"]');
-  if (!el) return;
-  const trip = activeTrip();
-  if (!trip) return;
-  const s = packingIdeas(trip).find(x => x.key === el.dataset.key);
-  if (!s) return;
-  if (el.dataset.action === 'pack-add') {
-    state.checklist.push({ id: uid(), text: s.text, done: false });
-    save();
-    snackbar(trip.shared ? T('Added to your own checklist: {name}', { name: s.text }) : T('Added: {name}', { name: s.text }));
-  } else if (el.dataset.action === 'pack-add-all') {
-    // On a trip planned with other people: onto the trip's own list, for everyone.
-    trip.todos = [...(trip.todos || []), { id: uid(), text: s.text, done: false }];
-    save();
-    snackbar(T('Added for everyone: {name}', { name: s.text }));
-  } else {
-    packingHidden[trip.id] = [...new Set([...(packingHidden[trip.id] || []), s.key])];
-    try { localStorage.setItem(PACKING_KEY, JSON.stringify(packingHidden)); } catch { /* storage full */ }
-  }
-  render();
+// A suggestion's buttons: onto the personal checklist, onto the trip's own list (a trip planned with
+// other people, for everyone), or hide it.
+function onPackAction(name, run) {
+  onAction(name, (el) => {
+    const trip = activeTrip();
+    const s = trip && packingIdeas(trip).find(x => x.key === el.dataset.key);
+    if (!s) return;
+    run(s, trip);
+    render();
+  });
+}
+onPackAction('pack-add', (s, trip) => {
+  state.checklist.push({ id: uid(), text: s.text, done: false });
+  save();
+  snackbar(trip.shared ? T('Added to your own checklist: {name}', { name: s.text }) : T('Added: {name}', { name: s.text }));
+});
+onPackAction('pack-add-all', (s, trip) => {
+  trip.todos = [...(trip.todos || []), { id: uid(), text: s.text, done: false }];
+  save();
+  snackbar(T('Added for everyone: {name}', { name: s.text }));
+});
+onPackAction('pack-hide', (s, trip) => {
+  packingHidden[trip.id] = [...new Set([...(packingHidden[trip.id] || []), s.key])];
+  try { localStorage.setItem(PACKING_KEY, JSON.stringify(packingHidden)); } catch { /* storage full */ }
 });

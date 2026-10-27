@@ -8,7 +8,7 @@
    - Changing stays: the day a new stay begins starts at the one before it (check out).
    - Now & next: on a trip day, the plan going on now, the next one, and when to leave for it.
    - What's near me: guide places around the phone's location, open now first.
-   Functions here use helpers from app.js, which is loaded after this file.
+   Functions here also use the screen's files (ui.js … app.js), which load after this one.
    ========================================================= */
 
 /* ---------- Home base ---------- */
@@ -240,3 +240,5 @@ function renderNearMe() {
         </li>`;
     }).join('')}</ul>`;
 }
+
+onAction('near-me', () => openNearMe());

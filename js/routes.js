@@ -6,7 +6,7 @@
    Asked from OpenStreetMap's routing server (run by FOSSGIS: free, no key), one question for a
    whole day, then saved on the device. Only by car: there is no free service for public transit,
    and a short walk stays an estimate.
-   Functions here use helpers from app.js, which is loaded after this file.
+   Functions here also use the screen's files (ui.js … app.js), which load after this one.
    ========================================================= */
 
 const ROUTES_KEY = 'tripPlanner.routes';
@@ -28,7 +28,7 @@ const roadSpot = p => `${p.lat.toFixed(4)},${p.lng.toFixed(4)}`;
 const roadKey = (a, b) => `${roadSpot(a)}>${roadSpot(b)}`;
 const fmtRoadTime = m => (m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`);
 
-// The travel between two stops: by car the real road, once it is known; else the estimate (travel, in app.js).
+// The travel between two stops: by car the real road, once it is known; else the estimate (travel, in core.js).
 function legTravel(a, b, mode) {
   const t = travel(miles(a, b), mode);
   const road = t.mode === 'driving' && roadRoutes.saved[roadKey(a, b)];

@@ -5,7 +5,7 @@
    hotel confirmations, museum tickets…). Kept on this phone only (in the
    browser's file storage), so they open offline. They aren't synced to other
    phones or included in backup files.
-   Functions here use helpers from app.js, which is loaded after this file.
+   Functions here also use the screen's files (ui.js … app.js), which load after this one.
    ========================================================= */
 
 const FILES_DB = 'tripPlannerFiles';
@@ -140,7 +140,7 @@ async function saveFormFiles(itemId) {
   }
 }
 
-// "Erase everything" (app.js): every file goes too.
+// "Erase everything" (backup.js): every file goes too.
 async function eraseFiles() {
   tickets.index.clear();
   try {
@@ -183,3 +183,5 @@ async function openFiles(itemId) {
     $('#files-body').innerHTML = `<p class="supporting">${T('Couldn’t open the files.')}</p>`;
   }
 }
+
+onAction('files', el => openFiles(idOf(el)));

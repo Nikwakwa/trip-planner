@@ -14,7 +14,7 @@
    A trip planned with other people (share.js) works the same way, but its
    documents are kept apart from the account's own, in a "space" of their own
    that everyone on the trip reads and writes.
-   Functions here use helpers from app.js, which is loaded after this file.
+   Functions here also use the screen's files (ui.js … app.js), which load after this one.
    ========================================================= */
 
 const SYNC_KEY = 'tripPlanner.sync';
@@ -111,7 +111,7 @@ function stateDocs(s, space = '') {
 // Rebuilds a space's plans from its documents. Keeps the same objects
 // where possible, so an "Undo" that's still on screen keeps working.
 function applyDocs(docs, space = '') {
-  // Each document is checked first (app.js): one the app can't use is left out.
+  // Each document is checked first (store.js): one the app can't use is left out.
   const tidy = d => (!d ? null : d.k === 'trip' ? tidyTrip(d) : d.k === 'item' ? tidyItem(d) : d.k === 'check' || d.k === 'todo' ? tidyCheck(d) : null);
   const all = Object.values(docs).map(j => tidy(JSON.parse(j))).filter(Boolean);
   const byPos = (a, b) => (a.pos - b.pos) || (a.id < b.id ? -1 : 1);

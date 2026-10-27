@@ -7,7 +7,7 @@
      shopping — or, for a country or region, its main cities and destinations).
      Places without a Wikivoyage page fall back to famous spots from Wikipedia.
    Guides are saved on the phone, so they keep working offline.
-   Functions here use helpers from app.js, which is loaded after this file.
+   Functions here also use the screen's files (ui.js … app.js), which load after this one.
    ========================================================= */
 
 const GUIDES_KEY = 'tripPlanner.guides';

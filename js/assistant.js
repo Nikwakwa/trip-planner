@@ -8,7 +8,7 @@
      Firebase App Check (reCAPTCHA Enterprise) proves requests come from this app.
    - Or copy the request to another AI app (a chatbot), and paste the answer back.
    Nothing changes until "Apply" is tapped on the assistant's proposal, and Apply can be undone.
-   Functions here use helpers from app.js, which is loaded after this file.
+   Functions here also use the screen's files (ui.js … app.js), which load after this one.
    ========================================================= */
 
 const AI_KEY = 'tripPlanner.assistant';
@@ -574,70 +574,66 @@ function requestForOtherApp(trip, text) {
     + `${convo ? `\n\nConversation so far:\n${convo}` : ''}\n\nUser: ${text}`;
 }
 
-document.addEventListener('click', async (e) => {
-  const el = e.target.closest('[data-action^="ai-"]');
-  if (!el) return;
-  const trip = activeTrip();
-  if (!trip) return;
-  const chat = chatOf(trip);
-  switch (el.dataset.action) {
-    case 'ai-booking': {
-      // The user pastes the confirmation after this line, then sends.
-      const input = $('#ai-input');
-      input.value = T('Add this booking to my trip:') + '\n\n';
-      input.focus();
-      input.setSelectionRange(input.value.length, input.value.length);
-      snackbar(T('Now paste the confirmation email, then send'));
-      break;
-    }
-    case 'ai-starter':
-      sendToAssistant(el.textContent);
-      break;
-    case 'ai-apply':
-      applyProposal(trip, chat[Number(el.dataset.msg)]);
-      break;
-    case 'ai-dismiss':
-      chat[Number(el.dataset.msg)].status = 'dismissed';
-      saveAI();
-      renderChat();
-      break;
-    case 'ai-paste':
-      ai.paste = !ai.paste;
-      renderChat();
-      break;
-    case 'ai-copy': {
-      const text = $('#ai-input').value.trim();
-      if (!text) { ai.error = T('Type your request in the box below first.'); renderChat(); $('#ai-input').focus(); break; }
-      try {
-        await navigator.clipboard.writeText(requestForOtherApp(trip, text));
-        ai.pending = text;
-        ai.error = '';
-        snackbar(T('Request copied — paste it into your AI app'));
-      } catch {
-        ai.error = T('Couldn’t copy. Try again.');
-      }
-      renderChat();
-      break;
-    }
-    case 'ai-read': {
-      const pasted = $('#ai-answer').value;
-      if (!pasted.trim()) break;
-      try {
-        const answer = parseAnswer(pasted);
-        const asked = ai.pending || $('#ai-input').value.trim();
-        if (asked) chat.push({ role: 'user', text: asked });
-        chat.push({ role: 'model', text: answer.text, changes: answer.changes, model: T('From another AI app') });
-        ai.pending = '';
-        ai.error = '';
-        $('#ai-input').value = '';
-      } catch (err) {
-        ai.error = T('That doesn’t look like the answer. Copy the whole answer, including the part between ``` marks.');
-      }
-      saveAI();
-      renderChat();
-      break;
-    }
+/* ---------- Taps in the AI Assistant ---------- */
+
+onAction('assistant', () => openAssistant());
+
+// The chat's own buttons work on the open trip's chat.
+function onChatAction(name, run) {
+  onAction(name, (el) => {
+    const trip = activeTrip();
+    if (trip) return run(el, trip, chatOf(trip));
+  });
+}
+
+onChatAction('ai-booking', () => {
+  // The user pastes the confirmation after this line, then sends.
+  const input = $('#ai-input');
+  input.value = T('Add this booking to my trip:') + '\n\n';
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+  snackbar(T('Now paste the confirmation email, then send'));
+});
+onChatAction('ai-starter', el => sendToAssistant(el.textContent));
+onChatAction('ai-apply', (el, trip, chat) => applyProposal(trip, chat[Number(el.dataset.msg)]));
+onChatAction('ai-dismiss', (el, trip, chat) => {
+  chat[Number(el.dataset.msg)].status = 'dismissed';
+  saveAI();
+  renderChat();
+});
+onChatAction('ai-paste', () => {
+  ai.paste = !ai.paste;
+  renderChat();
+});
+onChatAction('ai-copy', async (el, trip) => {
+  const text = $('#ai-input').value.trim();
+  if (!text) { ai.error = T('Type your request in the box below first.'); renderChat(); $('#ai-input').focus(); return; }
+  try {
+    await navigator.clipboard.writeText(requestForOtherApp(trip, text));
+    ai.pending = text;
+    ai.error = '';
+    snackbar(T('Request copied — paste it into your AI app'));
+  } catch {
+    ai.error = T('Couldn’t copy. Try again.');
   }
+  renderChat();
+});
+onChatAction('ai-read', (el, trip, chat) => {
+  const pasted = $('#ai-answer').value;
+  if (!pasted.trim()) return;
+  try {
+    const answer = parseAnswer(pasted);
+    const asked = ai.pending || $('#ai-input').value.trim();
+    if (asked) chat.push({ role: 'user', text: asked });
+    chat.push({ role: 'model', text: answer.text, changes: answer.changes, model: T('From another AI app') });
+    ai.pending = '';
+    ai.error = '';
+    $('#ai-input').value = '';
+  } catch (err) {
+    ai.error = T('That doesn’t look like the answer. Copy the whole answer, including the part between ``` marks.');
+  }
+  saveAI();
+  renderChat();
 });
 
 document.getElementById('ai-form').addEventListener('submit', (e) => {

@@ -7,7 +7,7 @@
    - The whole trip: a calendar file (.ics) with every plan that has a day,
      for Google Calendar's "Import" or any calendar app.
    A plan with a time lasts as long as a visit usually takes; one without a time is all-day.
-   Functions here use helpers from app.js, which is loaded after this file.
+   Functions here also use the screen's files (ui.js … app.js), which load after this one.
    ========================================================= */
 
 // The time zone where a day of the trip is spent. It comes with the forecast for that day's spot
@@ -114,3 +114,5 @@ function downloadTripCalendar(trip) {
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
   snackbar(Tn(plans.length, 'Calendar file saved — {n} plan', 'Calendar file saved — {n} plans'));
 }
+
+onAction('trip-calendar', () => downloadTripCalendar(activeTrip()));

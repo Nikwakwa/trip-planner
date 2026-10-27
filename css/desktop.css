@@ -1,0 +1,207 @@
+/* =========================================================
+   Desktop layout: applies by itself on wide windows (computers, big tablets).
+   - From 900px: a sidebar on the left (sections, AI Assistant, the trip's days),
+     one reading-width column for the content, sheets as centered windows.
+   - From 1200px, on the Plan tab: the trip map stays in view on the right.
+   Phones keep everything above as is.
+   ========================================================= */
+.side-extra, .map-pane { display: none; }
+.item.flash { animation: flash 1.6s var(--ease); }
+@keyframes flash { 0%, 40% { box-shadow: inset 0 0 0 2px var(--primary); } }
+
+@media (min-width: 900px) {
+  :root { --rail-w: 248px; --content-w: 720px; }
+  body { padding-left: var(--rail-w); padding-bottom: 64px; }
+
+  /* Sidebar */
+  .navbar {
+    top: 0;
+    right: auto;
+    width: var(--rail-w);
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 2px;
+    padding: 92px 12px 16px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+  .navbar > button {
+    flex: none;
+    max-width: none;
+    height: 48px;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 0 16px;
+    border-radius: 24px;
+    font-size: 14px;
+    letter-spacing: .01em;
+  }
+  .navbar > button .nav-ind { width: 24px; height: 24px; }
+  .navbar > button .nav-ind::before { display: none; }
+  .navbar > button.active { background: var(--secondary-container); color: var(--on-secondary-container); }
+
+  .side-extra { display: grid; gap: 4px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--outline-variant); }
+  .side-extra button {
+    flex: none;
+    flex-direction: row;
+    justify-content: flex-start;
+    max-width: none;
+    letter-spacing: .01em;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    height: 40px;
+    padding: 0 16px;
+    border-radius: 20px;
+    color: var(--on-surface-variant);
+    font-size: 14px;
+    font-weight: 600;
+    text-align: left;
+  }
+  .side-extra .side-ai { height: 48px; border-radius: 24px; color: var(--primary); }
+  .side-label {
+    margin: 14px 16px 4px;
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--on-surface-variant);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .side-days { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  .side-days button span { flex: 1; }
+  .side-days button.today { color: var(--primary); }
+  .side-days small {
+    min-width: 22px;
+    padding: 0 6px;
+    border-radius: 11px;
+    background: var(--surface-container-highest);
+    font-size: 12px;
+    line-height: 22px;
+    text-align: center;
+  }
+
+  /* "New plan" sits at the top of the sidebar */
+  .fab, body.snack-open .fab {
+    z-index: 10;
+    left: 16px;
+    right: auto;
+    top: 20px;
+    bottom: auto;
+    width: calc(var(--rail-w) - 32px);
+    justify-content: center;
+    box-shadow: none;
+  }
+  .fab.collapsed { padding: 0 22px 0 16px; gap: 12px; }
+  .fab.collapsed .fab-label { max-width: 160px; opacity: 1; }
+  body.fabs-away .fab:not(:focus-visible) { transform: none; opacity: 1; pointer-events: auto; }
+  /* The AI Assistant is in the sidebar instead */
+  .ai-fab { display: none; }
+
+  /* One column, at a comfortable reading width */
+  .appbar-inner, main { max-width: var(--content-w); padding-left: 24px; padding-right: 24px; }
+  .trip-tabs { flex-wrap: wrap; overflow: visible; }
+  .tray-row { flex-wrap: wrap; overflow: visible; margin: 0; padding: 2px 0 4px; }
+  .idea-chip button { max-width: 360px; }
+  .suggest-row { scrollbar-width: thin; margin: 2px 0 0; padding: 2px 0 8px; scroll-padding: 0; }
+  .s-card { flex: 1 0 200px; width: auto; max-width: 280px; }
+  .filter-row { flex-wrap: wrap; overflow: visible; }
+  .snackbar { left: calc(var(--rail-w) + 24px); right: auto; width: min(560px, 100vw - var(--rail-w) - 48px); bottom: 24px; margin: 0; }
+
+  /* Sheets become centered windows */
+  dialog.sheet { margin: auto; max-width: 560px; max-height: 88dvh; border-radius: 28px; }
+  dialog.sheet[open] { animation: alert-in .3s var(--ease-decel); }
+  dialog.sheet .handle { display: none; }
+  .sheet form, .place-body { padding-top: 20px; }
+  .place-body:has(.pi-figure img) .pi-head [data-close] { top: 32px; }
+  .sheet .sheet-head { padding-top: 16px; }
+  .sheet form .sheet-head { padding-top: 0; }
+  dialog.info-sheet { max-width: 680px; height: min(88dvh, 820px); }
+  dialog.fit-sheet { max-width: 560px; height: fit-content; }
+
+  /* The map as a window (when it isn't docked): the map on the left, the stops on the right */
+  dialog.map-sheet { max-width: min(1200px, 94vw); height: 88dvh; max-height: 88dvh; }
+  dialog.map-sheet[open] { display: grid; grid-template-columns: minmax(0, 1fr) 380px; grid-template-rows: auto minmax(0, 1fr); }
+  .map-sheet .map-head { grid-column: 1 / -1; }
+  .map-sheet .map { height: auto; margin: 0 0 16px 16px; }
+  .map-body { padding: 0 16px 16px; }
+
+  /* AI Assistant: a panel docked on the right */
+  dialog.ai-sheet { margin: 0 0 0 auto; width: 460px; max-width: 460px; height: 100dvh; max-height: 100dvh; border-radius: 28px 0 0 28px; }
+  dialog.ai-sheet[open] { animation: panel-in .35s var(--ease-decel); }
+}
+@keyframes panel-in { from { transform: translateX(100%); } }
+
+/* Without the docked map, the single column sits in the middle of the space */
+@media (min-width: 900px) {
+  body:not(.has-map) .appbar-inner, body:not(.has-map) main { margin-left: auto; margin-right: auto; }
+}
+
+/* Wide windows, Plan tab: the trip map stays in view on the right (maps.js docks it) */
+@media (min-width: 1200px) {
+  :root { --content-w: clamp(520px, 42vw, 720px); }
+  body.has-map .appbar, body.has-map main { width: var(--content-w); max-width: none; margin: 0; }
+  body.has-map .appbar-inner { max-width: none; }
+  body.has-map .map-pane {
+    display: block;
+    position: fixed;
+    z-index: 8;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: calc(var(--rail-w) + var(--content-w));
+    background: var(--surface-container-highest);
+  }
+  .map-slot { position: absolute; inset: 0; }
+  .map-slot .map { height: 100%; margin: 0; border-radius: 0; }
+  .pane-card {
+    position: absolute;
+    z-index: 2;
+    top: 16px;
+    left: 16px;
+    max-width: min(420px, calc(100% - 88px));
+    display: grid;
+    gap: 2px;
+    padding: 12px 16px;
+    border-radius: 20px;
+    background: var(--surface);
+    box-shadow: var(--elev-3);
+  }
+  .pane-title { margin: 0; font-size: 18px; line-height: 24px; font-weight: 650; }
+  .pane-sub { margin: 0; font-size: 13px; line-height: 18px; color: var(--on-surface-variant); }
+  .pane-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .pane-actions:empty { display: none; }
+}
+
+/* Mouse: things you can click light up when pointed at */
+@media (hover: hover) and (pointer: fine) {
+  .item-main:hover, .row:hover, .place-opt:hover, .pack-add:hover, .idea-chip button:hover, .empty-day:hover,
+  .assist-chip:hover, .trip-chip:not(.active):hover, .filter-chip:hover, .hero-btn:hover, .icon-btn:hover, .leg-link:hover {
+    background-image: linear-gradient(color-mix(in oklab, currentColor 8%, transparent), color-mix(in oklab, currentColor 8%, transparent));
+  }
+  .btn.filled:hover, .btn.tonal:hover, .fab:hover { filter: brightness(1.06); }
+  [data-drag] { cursor: grab; }
+  body.dragging, body.dragging * { cursor: grabbing !important; }
+}
+
+/* No day strip: the sidebar lists the days. The trip card's actions wrap instead of scrolling. */
+@media (min-width: 900px) {
+  .day-strip { display: none; }
+  .day { scroll-margin-top: 76px; }
+  .hero-actions { flex-wrap: wrap; overflow: visible; margin: 14px 0 0; padding: 0; }
+  .side-days button.on { background: var(--surface-container-highest); color: var(--on-surface); }
+}
+
+/* On a wide window the trip map is docked on the right */
+@media (min-width: 1200px) { body.has-map .hero-btn[data-action="trip-map"] { display: none; } }
+
+/* Dark mode without a CARTO key: the light OpenStreetMap map, darkened (maps.js sets "inverted") */
+#map.inverted .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.92) contrast(.88) saturate(.8); }
+
+

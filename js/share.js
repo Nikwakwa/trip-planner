@@ -16,7 +16,7 @@
    In the app such a trip is marked `trip.shared = id`. sync.js keeps its documents apart from
    the account's own and syncs them the same way. The checklist, and all that is kept per
    device (tickets, AI chats, settings), are never shared.
-   Functions here use helpers from app.js and sync.js, which are loaded after this file.
+   Functions here also use sync.js and the screen's files (ui.js … app.js), which load after this one.
    ========================================================= */
 
 const SHARE_MAX = 20;        // people on one trip (firestore.rules says the same)
@@ -644,7 +644,7 @@ function joinError(text) {
   $('#join-error').hidden = !text;
 }
 
-// This uses nothing from app.js before it is tapped, so it can be set up as the file loads.
+// This uses nothing from the screen's files before it is tapped, so it can be set up as the file loads.
 document.getElementById('join-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const invite = readInvite(e.currentTarget.elements.link.value);
@@ -652,3 +652,20 @@ document.getElementById('join-form').addEventListener('submit', (e) => {
   document.getElementById('join-dialog').close();
   offerInvite(invite);
 });
+
+/* ---------- Taps ---------- */
+
+onAction('share-trip', () => openShare());
+onAction('share-text', () => shareTrip());          // maps.js: the itinerary as text
+onAction('share-start', () => inviteToTrip());
+onAction('share-send', () => sendInvite(false));
+onAction('share-copy', () => sendInvite(true));
+onAction('share-remove', el => removeFromTrip(el.dataset.uid));
+onAction('share-leave', async () => {
+  if (await endSharedTrip(activeTrip())) $('#share-dialog').close();
+});
+onAction('share-sign-in', () => {
+  $('#share-dialog').close();
+  openAuthForm();
+});
+onAction('join-trip', () => openJoin());

@@ -8,7 +8,7 @@
      about places within a kilometre of the plan;
    - the opening hours for the plan's day (hours.js) and your own notes.
    What Wikipedia said is saved on the device, so it shows offline afterwards.
-   Functions here use helpers from app.js, which is loaded after this file.
+   Functions here also use the screen's files (ui.js … app.js), which load after this one.
    ========================================================= */
 
 const INFO_KEY = 'tripPlanner.info';
@@ -176,14 +176,10 @@ function openPlanInfo(id) {
   dlg.scrollTop = 0;
 }
 
-document.addEventListener('click', (e) => {
-  const el = e.target.closest('[data-action="plan-info"], [data-action="plan-edit"]');
-  if (!el) return;
-  if (el.dataset.action === 'plan-info') {
-    openPlanInfo(el.closest('[data-id]').dataset.id);
-  } else {
-    const found = findItem(planInfo.itemId);
-    $('#place-dialog').close();
-    if (found) openItemForm(found.item);
-  }
+onAction('plan-info', el => openPlanInfo(idOf(el)));
+// "Edit plan" in the sheet.
+onAction('plan-edit', () => {
+  const found = findItem(planInfo.itemId);
+  $('#place-dialog').close();
+  if (found) openItemForm(found.item);
 });

@@ -9,7 +9,7 @@
      featureVotes/{uid}      { ids: [the keys that person voted for] }
      featureIdeas/{uid}_{n}  { title, text, uid, at }   n = 0…4: that is what limits it to five
    firestore.rules lets each account write only its own. Names and emails are never stored here.
-   Functions here use helpers from app.js and sync.js, which are loaded after this file.
+   Functions here also use sync.js and the screen's files (ui.js … app.js), which load after this one.
    ========================================================= */
 
 // The app's own proposals. Keep an id for good once it has shipped: votes are kept by id.
@@ -275,9 +275,21 @@ function openVoting() {
   startVoting();
 }
 
-// These use nothing from app.js, so they can be set up as the file loads.
+// These use nothing from the screen's files, so they can be set up as the file loads.
 document.getElementById('vote-dialog').addEventListener('close', stopVoting);
 document.getElementById('vote-form').addEventListener('submit', (e) => {
   e.preventDefault();
   suggestFeature(e.currentTarget);
+});
+
+/* ---------- Taps ---------- */
+
+onAction('feature-votes', () => openVoting());
+onAction('vote', el => toggleVote(el.dataset.key));
+onAction('vote-remove', el => removeIdea(el.dataset.doc));
+onAction('vote-suggest', () => suggesting(true));
+onAction('vote-suggest-cancel', () => suggesting(false));
+onAction('vote-sign-in', () => {
+  $('#vote-dialog').close();
+  openAuthForm();
 });

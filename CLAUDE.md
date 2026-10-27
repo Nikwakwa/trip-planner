@@ -17,8 +17,11 @@ written for a non-developer owner, so keep its explanations plain-language when 
 
 There is no build, lint or test command. Check changes by loading the app in a browser at phone size.
 
-**Self-check before every push:** open `http://localhost:8080/?selfcheck`. It loads `selfcheck.js` (only then) and
-shows pass/fail for dates, the `tidy…` checks, backups, sync merging, shared trips, AI answers, opening hours and languages (every text has its French). From the console:
+**Self-check before every push:** open `http://localhost:8080/?selfcheck`. It loads `js/selfcheck.js` (only then) and
+shows pass/fail for dates, the `tidy…` checks, backups, sync merging, shared trips, AI answers, opening hours, languages
+(every text has its French) and the code itself ("The code": every file the page loads is in `sw.js`'s `FILES`, every
+`data-action` has an action, no top-level name is used twice, the security policy, no `on…=` attributes or `javascript:`
+links, `rel="noopener"` on links that open a new tab). From the console:
 `runSelfCheck().filter(r => !r.ok)`. It swaps `state` and `sync.saved` for made-up plans inside `sandbox()`, with
 saving and drawing switched off, all in one go (no `await`). When you change one of those parts, add a check.
 
@@ -35,7 +38,12 @@ Testing notes (this machine has no Node or Python; use PowerShell or Git Bash):
 - A test that swaps `state` and calls `render()` can still save (address lookups call `save()` when they finish).
   Copy the `tripPlanner.*` localStorage keys first and put them back afterwards.
 - The AI Assistant (App Check) only works on the live site, https://nikwakwa.github.io/trip-planner/. After a push,
-  wait until `version.js` there shows the new version, then open the site with a `?fresh=N` query to dodge caches.
+  wait until `js/version.js` there shows the new version, then open the site with a `?fresh=N` query to dodge caches.
+- A change that must not change the screen (moving code, tidying the CSS): `tools/snapshot.js` records each
+  section's HTML and every element's computed style at a fixed moment, and compares; `explain()` lists the properties
+  that changed. Serve the code as it was next to the new one (`git archive HEAD | tar -x -C _old`, ignored by git;
+  delete it afterwards) and follow the steps at the top of the file, at 375, 1000 and 1400px. Record on a freshly
+  loaded page, and put the same `tripPlanner.*` keys back before each run.
 - Nothing here can run Safari. iPhone behavior is only reviewed in the code, never tested: say so, and ask the owner
   to check on an iPhone (the self-check page runs there too).
 - Real accounts can't be created or signed in to from here. For sync and shared trips, use the pretend Firebase,
@@ -57,14 +65,35 @@ Asset scripts (they download from the internet and rewrite files in the repo):
 
 ## Architecture
 
-**Classic scripts that share one global scope.** `index.html` loads, in this order:
-`theme.js` (in the `<head>`), then at the end of the page `version.js` → `i18n.js` → `lang/fr.js` → `firebase-config.js` → `places.js` → `weather.js` → `hours.js` → `essentials.js` → `mapstyle.js` → `maps.js` → `routes.js` →
-`drag.js` → `today.js` → `calendar.js` → `files.js` → `packing.js` → `info.js` → `assistant.js` → `vote.js` → `share.js` → `sync.js` → `app.js`. Don't use `app.js` names (`$`, `CATEGORIES`, …) at load time
-in the earlier files, only inside functions. The files are not modules. The feature files call helpers defined in `app.js` (`$`, `esc`, `icon`,
-`save`, `render`, `snackbar`, `state`, …) at runtime, which works because `app.js` loads last and the calls
-happen after startup. Top-level names must stay unique across all files.
+**Classic scripts that share one global scope.** The code is in `js/`; only `firebase-config.js` (the owner's settings)
+stays at the root. `index.html` loads `js/theme.js` in the `<head>`, then at the end of the page, in this order:
+- the languages and settings: `version.js` → `i18n.js` → `lang/fr.js` → `firebase-config.js`;
+- `core.js`: constants (`CATEGORIES`, `COLORS`, `TRAVEL_MODES`), small helpers (`$`, `esc`, `icon`, `uid`, `isId`,
+  dates and times, `travel`, `fmtDist`, `safeUrl`, `mapsUrl`…), the errors of the visit (`noteError`, listening from the
+  start) and the action table (`onAction`);
+- the features: `places.js` → `weather.js` → `hours.js` → `essentials.js` → `mapstyle.js` → `maps.js` → `routes.js` →
+  `drag.js` → `today.js` → `calendar.js` → `files.js` → `packing.js` → `info.js` → `assistant.js` → `vote.js` →
+  `share.js` → `sync.js`;
+- the screen: `ui.js` (shapes, empty states, `snackbar`, `askConfirm`, photos, theme colors, `tick`, ripple) →
+  `guide.js` (which guide place a plan is, `planSuggestions`, Auto-fill, `bookingNote`) → `store.js` (`state`: defaults,
+  `tidy…`, `load`/`save`, the one-time repairs) → `render.js` (`ui`, `showView`, `render()`, trip tabs, day strip,
+  sidebar, scrolling) → `view-plan.js` → `view-ideas.js` → `view-checklist.js` → `view-settings.js` → `form-plan.js` →
+  `form-trip.js` → `account.js` (sign-in, password, delete account) → `sheets.js` (closing sheets, drafts, swipe down)
+  → `backup.js` (backup, restore, erase) → `about.js` (privacy, What's new, Report a problem) → `pad.js` → `app.js`
+  (install, offline, service worker, start, `catchUp`).
 
-**State and rendering (`app.js`).**
+Names from `core.js` and the files before it can be used anywhere, also at load time. A file may use names from the
+files after it only inside functions (they run after startup, when everything is loaded). The files are not modules:
+top-level names must stay unique across all files (two `function save` in two files: the second silently wins; the
+self-check fails on it). A new file goes in `index.html` and in `sw.js`'s `FILES` (the self-check compares them).
+
+**Taps: the action table (`core.js`).** A button or link with `data-action="name"` runs the action registered with
+`onAction('name', (el, e) => …)`. Each file registers the actions of the buttons it draws, at its end ("Taps"), and
+one listener on the page runs them. `idOf(el)` is the id of the plan a tapped button belongs to. The self-check fails on a
+`data-action` that has no action. The trip tabs (`data-trip`) and the navigation bar (`data-go`) have their own
+listener in render.js. Don't add another document-wide click listener for buttons: register an action.
+
+**State and rendering (`store.js`, `render.js`).**
 - One `state` object (`{ version, activeTripId, trips[{id,name,color,start,end,place,items[]}], checklist[], settings }`)
   is saved as JSON in localStorage under `tripPlanner.v1`. Plans ("items") store dates as `YYYY-MM-DD` strings. An item
   with no date is an "idea".
@@ -89,14 +118,14 @@ happen after startup. Top-level names must stay unique across all files.
   documents (`tidyTrip` / `tidyItem` / `tidyCheck` in `applyDocs`) and backup files (`cleanBackup`, stricter: it keeps
   only known fields). The `tidy…` functions fix the types of the fields the app relies on and keep unknown fields, so
   an older version doesn't erase what a newer one added. Ids must pass `isId`, days `isDate`, times `isTime`.
-- Theme colors come from each trip's `color`: `applyTheme` sets it as the CSS `--seed` variable, and `styles.css`
+- Theme colors come from each trip's `color`: `applyTheme` sets it as the CSS `--seed` variable, and `css/base.css`
   derives the whole palette from that one color. Light/dark mode is set with `html[data-theme]`.
 
 **Guides and suggestions.** A "guide" has the shape `{ dayAreas, places[{id,name,area,cat,lat,lng,mins,when,tags,blurb,aliases}] }`.
 `guideFor(trip)` returns the guide generated for the trip's place (`places.js`; there are no built-in guides any more).
 `places.js` looks up the trip's place with Photon (OSM),
 then builds a guide from Wikivoyage listings, falling back to Wikipedia geosearch. Generated guides are cached in
-localStorage `tripPlanner.guides` (up to 10). `planSuggestions` in `app.js` and Explore both use this guide.
+localStorage `tripPlanner.guides` (up to 10). `planSuggestions` (guide.js) and Explore both use this guide.
 - Places may carry `about` (the full description, shown in the details sheet `openPlaceInfo`) and `hours`.
 - Saved guides are stamped with `GUIDE_VERSION`. Bump it when the guide shape changes: older saved guides keep
   working, and are re-fetched quietly in the background. A Wikipedia guide saved because Wikivoyage couldn't be read
@@ -273,7 +302,7 @@ password first (`confirmUser`). `deleteAccount` stops listening before it emptie
 its plans. The status line counts unconfirmed documents (`waitingCount`) and shows `sync.saved.at`. A new account gets
 a confirmation email; until `sync.saved.verified` is true Settings shows "Confirm your email" (nothing is blocked).
 Settings → About: the privacy note (`openPrivacy`; update it when a new outside service is called) and "Report a
-problem" (`#report-dialog`, `openReport` in app.js): a form with the user's words, an optional reply email, and
+problem" (`#report-dialog`, `openReport` in about.js): a form with the user's words, an optional reply email, and
 `problemDetails()` (version, device, counts, sync state, `recentErrors`; never plan content, and the form shows it).
 With `window.REPORT_KEY` (a Web3Forms access key, public by design) it is POSTed to Web3Forms, which emails the owner;
 without it, or when that fails, `shareReport` uses the Share menu or the clipboard. `firestore.rules` must be pasted into the
@@ -329,7 +358,7 @@ took "Send suggestion", then the only button in the sheet, for "save my votes".
 to publish them by hand.
 
 **Offline / updates (`sw.js`).** The service worker serves cached files first and refreshes them in the background (stale-while-revalidate).
-When you **add a new app file**, add it to `FILES` (`selfcheck.js` is there too, so the self-check matches the saved app). When you **ship any change**, add an entry at the top of `CHANGELOG` in `version.js`
+When you **add a new app file**, add it to `FILES` (`js/selfcheck.js` is there too, so the self-check matches the saved app; the self-check fails on a file the page loads that `FILES` misses). When you **ship any change**, add an entry at the top of `CHANGELOG` in `js/version.js`
 (`x.y.z`: the app looks or works differently . something new . fixes only), written for users in plain words and
 kept short: `{ v, date, items }`, no title, what is new in five short lines at most, and all the fixes as one line,
 "Bug fixes" (the self-check enforces this). The owner wants it easy to digest: a fix is never described, not even
@@ -347,9 +376,12 @@ and `loadMapStyle` gives up after 8 seconds: a weak connection must not leave th
 **Security.**
 - `index.html` has a Content-Security-Policy `<meta>`: scripts run only from the app's own files and Google's
   reCAPTCHA (for App Check). So: no inline `<script>`, no inline handlers (`onclick="…"`, `onerror="…"`) in HTML or in
-  template strings; use `addEventListener` (see the `img[data-photo]` error listener in app.js). A new outside script
+  template strings; use `addEventListener` (see the `img[data-photo]` error listener in ui.js). A new outside script
   needs its host added to the policy. On phones, Firebase Auth tries to load `apis.google.com/js/api.js` (only needed
   for Google sign-in pop-ups, which the app doesn't use): the policy blocks it, and that console message is expected.
+- The policy also blocks plugins (`object-src 'none'`). The self-check guards it (it fails without `script-src 'self'`,
+  with `unsafe-inline` or `unsafe-eval`), and fails on an `on…=` attribute or a `javascript:` link anywhere in the code,
+  and on a link opening a new tab without `rel="noopener"`.
 - Everything written into the page goes through `esc()`, ids included. Wikivoyage, OpenStreetMap, AI answers and
   backup files are all text other people can write.
 - Attachments (`files.js`) accept photos and PDFs only (`SAFE_FILE`). No SVG or HTML: opened from a `blob:` address,
@@ -359,11 +391,19 @@ and `loadMapStyle` gives up after 8 seconds: a weak connection must not leave th
   did that" (`deviceMarks`: `geoRetry`, `seenVersion`, and the language) is carried over, or the one-time repairs at startup run again.
   Add any new marker of that kind there.
 
-**Desktop layout (`styles.css`, end of file).** There is one codebase, and the layout switches by window width.
-Phone styles are the default. Add desktop overrides in the media blocks at the end, and check phone, ~1000px and
+**Styles (`css/`).** `index.html` links them in cascade order: `base.css` (font, color tokens, page, ripple, keyboard
+focus, reduced motion) → `components.css` (lists, a plan or place in a list, chips, the done circle, empty states,
+settings rows, buttons, snackbar, sheets and fields, segmented buttons, filter chips, switches) → `shell.css` (top bar,
+day strip, page column, the + and AI buttons, navigation bar) → `plan.css` → `ideas.css` → `checklist.css` → `map.css`
+→ `sheets.css` (the features' sheets) → `desktop.css`. At equal specificity a later file wins: put a rule with its topic,
+and change the rule itself rather than adding an override further down (the two "later pass" blocks that used to end
+the stylesheet were folded back in 2.16.1). `url()` paths are relative to `css/` (`../fonts/…`).
+
+**Desktop layout (`css/desktop.css`).** There is one codebase, and the layout switches by window width.
+Phone styles are the default. Add desktop overrides in desktop.css (loaded last), and check phone, ~1000px and
 ~1400px.
 - From 900px: `.navbar` becomes a labelled sidebar (`--rail-w`) with the FAB ("New plan") at its top, and `#side-extra`
-  below the sections (AI Assistant, the trip's days as `jump-day` links; `renderSidebar` in app.js). Content is one
+  below the sections (AI Assistant, the trip's days as `jump-day` links; `renderSidebar` in render.js). Content is one
   reading-width column (`--content-w`). Days are never laid out in columns. Sheets become centered windows, and the AI
   Assistant sheet docks on the right.
 - From 1200px on the Plan tab: the map is docked in `#map-pane` on the right (`body.has-map`). `syncMapDock()`
@@ -374,7 +414,7 @@ Phone styles are the default. Add desktop overrides in the media blocks at the e
 
 **UI decisions worth keeping.**
 - The navigation bar has four sections: Plan, Ideas, Checklist, Settings (`plan`, `ideas`, `pack` and `more` in the
-  code). Change section with `showView(view)` or `setView(view)` (app.js), never by setting `ui.view`: they keep each
+  code). Change section with `showView(view)` or `setView(view)` (render.js), never by setting `ui.view`: they keep each
   section's scroll position (`scrollAt`) and the browser's history in step. Leaving the Plan adds one history step, so
   the device's Back button returns to the Plan instead of closing the app. Tapping the section already open scrolls
   to its top. The bar is 64px tall (`--nav-h`, Material 3 Expressive's shorter bar).
@@ -413,7 +453,7 @@ Phone styles are the default. Add desktop overrides in the media blocks at the e
 - The plan form lists matching real places under the name and the address as you type (`findMatches`: the guide, then
   Photon, kept to places near the trip with `nearTrip`). Picking one fills the address and saves its `lat`/`lng` (and
   `guideId`), so no address lookup is needed. Nothing is matched without a pick.
-- "Auto-fill day" (a day tool, `autoFillDay` in app.js) adds guide sights to a day until it holds about 8 hours, then
+- "Auto-fill day" (a day tool, `autoFillDay` in guide.js) adds guide sights to a day until it holds about 8 hours, then
   runs `optimizeDay`. It picks by interest first (`placeInterest`, mostly the place's `fame`), minus a cost per mile
   from the day's plans, and only from the most interesting quarter of the guide; an empty day starts from the most
   interesting place not in the trip yet. No AI, no times, no meals, with Undo. Not offered with a Wikipedia guide.
@@ -429,7 +469,7 @@ Phone styles are the default. Add desktop overrides in the media blocks at the e
 - Ideas (Ideas tab) have "Add to a day" (`pick-day` / `set-day`) in place of the done checkbox.
 - On desktop, hovering a plan highlights its pin (`hotPin`), and the docked map opens on today's route during the trip.
 - A hidden present for a friend of the owner who drums: eight taps on the title of the "What's new" sheet
-  open a practice pad to play (`openPad` in app.js; the words on it are `PAD_NAME`). Keep it out of
+  open a practice pad to play (`openPad` in pad.js; the words on it are `PAD_NAME`). Keep it out of
   the changelog and the README.
 - Keyboard focus is shown with a global `:focus-visible` outline. Don't remove outlines without a replacement.
 

@@ -1,0 +1,172 @@
+/* base.css — the font, the colors (all derived from the trip's color, light and dark), the page itself,
+   the touch ripple, and "reduce motion". */
+
+/* Google Sans Flex, stored in the app so it works offline */
+@font-face {
+  font-family: 'Google Sans Flex';
+  src: url('../fonts/google-sans-flex.woff2') format('woff2');
+  font-weight: 300 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ---------- Color system ----------
+   Every color is generated from one "seed" color (the trip's color),
+   the same way Pixel phones build a palette from your wallpaper. */
+:root {
+  --seed: #c62828;
+  color-scheme: light;
+
+  --font: 'Google Sans Flex', 'Google Sans', Roboto, system-ui, sans-serif;
+  --ease: cubic-bezier(.2, 0, 0, 1);            /* Material "emphasized" */
+  --ease-decel: cubic-bezier(.05, .7, .1, 1);
+  --ease-spring: cubic-bezier(.34, 1.45, .64, 1); /* expressive bounce */
+  --nav-h: 64px;                                /* Material 3 Expressive's shorter navigation bar */
+  --elev-3: 0 1px 3px rgb(0 0 0 / .18), 0 4px 10px 3px rgb(0 0 0 / .1);
+
+  /* Fallback palette for browsers without relative colors */
+  --primary: #a8261f; --on-primary: #fff;
+  --primary-container: #ffdad5; --on-primary-container: #5c0e0a;
+  --secondary-container: #f7dcd8; --on-secondary-container: #442a27;
+  --tertiary-container: #f3e1a6; --on-tertiary-container: #3f3000;
+  --surface: #fff8f7; --surface-container-low: #fdf0ee; --surface-container: #f8eae8;
+  --surface-container-high: #f2e4e2; --surface-container-highest: #ecdfdc;
+  --on-surface: #231918; --on-surface-variant: #534341;
+  --outline: #857370; --outline-variant: #d8c2be;
+  --inverse-surface: #392e2d; --inverse-on-surface: #ffedea; --inverse-primary: #ffb4a9;
+  --error: #ba1a1a; --error-container: #ffdad6; --on-error-container: #410002;
+  --cat-l: .92; --cat-c: .06; --cat-on-l: .42; --cat-on-c: .13;
+}
+
+@supports (color: oklch(from red l c h)) {
+  :root {
+    --primary: oklch(from var(--seed) .5 min(c, .17) h);
+    --on-primary: #fff;
+    --primary-container: oklch(from var(--seed) .91 min(c, .07) h);
+    --on-primary-container: oklch(from var(--seed) .3 min(c, .12) h);
+    --secondary-container: oklch(from var(--seed) .91 .03 h);
+    --on-secondary-container: oklch(from var(--seed) .3 .03 h);
+    --tertiary-container: oklch(from var(--seed) .91 .06 calc(h + 70));
+    --on-tertiary-container: oklch(from var(--seed) .32 .08 calc(h + 70));
+    --surface: oklch(from var(--seed) .985 .006 h);
+    --surface-container-low: oklch(from var(--seed) .965 .009 h);
+    --surface-container: oklch(from var(--seed) .95 .012 h);
+    --surface-container-high: oklch(from var(--seed) .935 .014 h);
+    --surface-container-highest: oklch(from var(--seed) .915 .016 h);
+    --on-surface: oklch(from var(--seed) .22 .012 h);
+    --on-surface-variant: oklch(from var(--seed) .44 .02 h);
+    --outline: oklch(from var(--seed) .62 .02 h);
+    --outline-variant: oklch(from var(--seed) .86 .015 h);
+    --inverse-surface: oklch(from var(--seed) .28 .01 h);
+    --inverse-on-surface: oklch(from var(--seed) .95 .01 h);
+    --inverse-primary: oklch(from var(--seed) .82 .1 h);
+  }
+}
+
+/* Dark theme. ui.js (applyAppearance) sets data-theme from Settings → Appearance
+   (or from the phone's setting when Appearance is "Automatic"). */
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --primary: #ffb4a9; --on-primary: #690004;
+    --primary-container: #8c1d18; --on-primary-container: #ffdad5;
+    --secondary-container: #5d3f3b; --on-secondary-container: #ffdad5;
+    --tertiary-container: #5a4400; --on-tertiary-container: #ffdf93;
+    --surface: #1a1110; --surface-container-low: #231918; --surface-container: #271d1c;
+    --surface-container-high: #322826; --surface-container-highest: #3d3231;
+    --on-surface: #f1dfdc; --on-surface-variant: #d8c2be;
+    --outline: #a08c89; --outline-variant: #534341;
+    --inverse-surface: #f1dfdc; --inverse-on-surface: #392e2d; --inverse-primary: #a8261f;
+    --error: #ffb4ab; --error-container: #93000a; --on-error-container: #ffdad6;
+    --cat-l: .34; --cat-c: .06; --cat-on-l: .88; --cat-on-c: .09;
+    --elev-3: 0 1px 3px rgb(0 0 0 / .4), 0 4px 10px 3px rgb(0 0 0 / .3);
+}
+@supports (color: oklch(from red l c h)) {
+    :root[data-theme="dark"] {
+      --primary: oklch(from var(--seed) .8 min(c, .12) h);
+      --on-primary: oklch(from var(--seed) .28 min(c, .1) h);
+      --primary-container: oklch(from var(--seed) .36 min(c, .1) h);
+      --on-primary-container: oklch(from var(--seed) .92 min(c, .05) h);
+      --secondary-container: oklch(from var(--seed) .34 .03 h);
+      --on-secondary-container: oklch(from var(--seed) .9 .02 h);
+      --tertiary-container: oklch(from var(--seed) .36 .06 calc(h + 70));
+      --on-tertiary-container: oklch(from var(--seed) .9 .05 calc(h + 70));
+      --surface: oklch(from var(--seed) .16 .008 h);
+      --surface-container-low: oklch(from var(--seed) .19 .01 h);
+      --surface-container: oklch(from var(--seed) .21 .011 h);
+      --surface-container-high: oklch(from var(--seed) .245 .012 h);
+      --surface-container-highest: oklch(from var(--seed) .28 .013 h);
+      --on-surface: oklch(from var(--seed) .92 .008 h);
+      --on-surface-variant: oklch(from var(--seed) .78 .015 h);
+      --outline: oklch(from var(--seed) .6 .015 h);
+      --outline-variant: oklch(from var(--seed) .36 .015 h);
+      --inverse-surface: oklch(from var(--seed) .92 .008 h);
+      --inverse-on-surface: oklch(from var(--seed) .25 .01 h);
+      --inverse-primary: oklch(from var(--seed) .5 .15 h);
+    }
+}
+
+/* Plan cards: white in light mode, a raised surface in dark mode */
+:root {
+  --card: #fff;
+  --card-shadow: 0 1px 2px rgb(0 0 0 / .06), 0 3px 10px rgb(0 0 0 / .07);
+}
+:root[data-theme="dark"] {
+  --card: var(--surface-container-high);
+  --card-shadow: 0 1px 2px rgb(0 0 0 / .35);
+}
+
+/* ---------- Base ---------- */
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+html, body { margin: 0; }
+
+body {
+  font-family: var(--font);
+  font-optical-sizing: auto;
+  font-size: 16px;
+  line-height: 24px;
+  letter-spacing: .01em;
+  background: var(--surface);
+  color: var(--on-surface);
+  -webkit-tap-highlight-color: transparent;
+  padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 96px);
+  transition: background-color .5s var(--ease), color .5s var(--ease);
+}
+
+button, input, select, textarea { font: inherit; color: inherit; letter-spacing: inherit; }
+button { cursor: pointer; background: none; border: none; padding: 0; }
+a { color: inherit; }
+[hidden] { display: none !important; }
+#theme-probe { background: var(--surface); }
+
+.icon { width: 24px; height: 24px; fill: currentColor; flex: none; display: block; }
+.icon.sm { width: 18px; height: 18px; }
+
+/* Tap ripple (added by ui.js) */
+.ripple { position: relative; overflow: hidden; isolation: isolate; }
+.wave {
+  position: absolute;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: .14;
+  transform: scale(0);
+  pointer-events: none;
+  z-index: -1;
+  animation: wave .55s var(--ease) forwards;
+}
+@keyframes wave { to { transform: scale(1); opacity: 0; } }
+
+/* Keyboard focus is always visible (mouse and touch don't show it) */
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+dialog :focus-visible { outline-offset: 0; }
+h2[tabindex="-1"]:focus-visible { outline: none; }
+
+
+/* ---------- Respect "reduce motion" ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}
+

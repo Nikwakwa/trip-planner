@@ -4,7 +4,7 @@
    Weather for each trip day (Open-Meteo: free, no account needed).
    The forecast reaches about 16 days ahead. It is saved on the phone,
    so days already fetched still show while offline.
-   Functions here use helpers from app.js, which is loaded after this file.
+   Functions here also use the screen's files (ui.js … app.js), which load after this one.
    ========================================================= */
 
 const WEATHER_KEY = 'tripPlanner.weather';

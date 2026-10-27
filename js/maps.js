@@ -4,7 +4,7 @@
    Maps, route optimizing and address lookup.
    Uses OpenStreetMap data: map images (tiles, drawn by CARTO) and address search (Nominatim).
    The map library (Leaflet) is stored in the app and loaded on first use.
-   Functions here use helpers from app.js, which is loaded right after.
+   Functions here also use the screen's files (ui.js … app.js), which load after this one.
    ========================================================= */
 
 // Map images. With a CARTO key (firebase-config.js; free for personal use): CARTO's clean styles drawn
@@ -416,7 +416,7 @@ function withBase(trip, day, located) {
   return [...(start ? [start.c] : []), ...pts, ...(back ? [end.c] : [])];
 }
 
-// A route's travel, added up stop by stop: the way by road (miles) and the time (see travel in app.js).
+// A route's travel, added up stop by stop: the way by road (miles) and the time (see travel in core.js).
 function routeTravel(route, mode) {
   let total = 0, minutes = 0, guessed = 0;
   route.forEach((c, k) => {
@@ -456,7 +456,7 @@ function checkMapDock() {
 dockQuery.addEventListener('change', checkMapDock);
 window.addEventListener('resize', checkMapDock);
 
-// Called after every render (app.js): shows or hides the docked map, and keeps it up to date.
+// Called after every render (render.js): shows or hides the docked map, and keeps it up to date.
 function syncMapDock() {
   const docked = mapDocked();
   const el = $('#map');
@@ -791,3 +791,13 @@ document.addEventListener('mouseover', (e) => {
   const li = e.target.closest('#view-plan .item[data-id]');
   hotPin(li ? li.dataset.id : null);
 });
+
+/* ---------- Taps ---------- */
+
+onAction('day-map', el => openMap(el.dataset.date));
+onAction('trip-map', () => openMap('all'));
+onAction('optimize', el => runOptimize(el.dataset.date));
+onAction('undo-optimize', () => {
+  if (mapView.note && mapView.note.undo) mapView.note.undo();
+});
+onAction('focus-stop', el => focusStop(el.dataset.id));

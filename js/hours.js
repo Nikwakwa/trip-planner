@@ -5,7 +5,7 @@
    usually closed. Hours come from OpenStreetMap (asked in one go for a
    trip's plans, then saved on the phone), or from the travel guide.
    Hours change — these are hints, not guarantees.
-   Functions here use helpers from app.js, which is loaded after this file.
+   Functions here also use the screen's files (ui.js … app.js), which load after this one.
    ========================================================= */
 
 const HOURS_KEY = 'tripPlanner.hours';

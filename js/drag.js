@@ -6,7 +6,7 @@
    Dropping a plan on the ideas tray takes it off the schedule.
    Plans with a set time stay in time order; the others keep the spot
    they're dropped in (saved as a "slot", like Optimize route does).
-   Functions here use helpers from app.js, which is loaded after this file.
+   Functions here also use the screen's files (ui.js … app.js), which load after this one.
    ========================================================= */
 
 const HOLD_MS = 350;
@@ -197,7 +197,7 @@ function endDrag(drop) {
 // the personal one, or back), or to another spot in its own list.
 function dropOnList(target) {
   const there = target.zone.dataset.list;
-  const from = listNamed(drag.home), to = listNamed(there);       // app.js
+  const from = listNamed(drag.home), to = listNamed(there);       // view-checklist.js
   const at = from.get().findIndex(c => c.id === drag.id);
   if (at < 0) return;
   const line = from.get()[at];
