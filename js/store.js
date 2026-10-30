@@ -14,6 +14,7 @@ function defaultState() {
     version: 1,
     activeTripId: null,
     trips: [],
+    archived: {},
     checklist: [
       check(T('Phone charger + power bank')),
       check(T('Comfortable walking shoes')),
@@ -101,6 +102,11 @@ function tidyCheck(c, newId = false) {
   return { ...c, id: isId(c.id) ? c.id : uid(), done: c.done === true };
 }
 
+// The archived trips (archive.js): trip id → the day it was archived.
+function tidyArchived(a) {
+  return Object.fromEntries(Object.entries(a && typeof a === 'object' ? a : {}).filter(([id, day]) => isId(id) && isDate(day)));
+}
+
 // The copy saved on this device: nothing is thrown away, whatever state it is in.
 function tidyState(data) {
   const trips = data.trips.map((t) => {
@@ -114,6 +120,7 @@ function tidyState(data) {
   return {
     ...data,
     trips,
+    archived: tidyArchived(data.archived),
     checklist: (Array.isArray(data.checklist) ? data.checklist : []).map(c => tidyCheck(c, true)).filter(Boolean),
     settings: data.settings && typeof data.settings === 'object' ? data.settings : {},
   };
@@ -196,9 +203,15 @@ saveLocal();
 
 /* ---------- Finding a trip or a plan ---------- */
 
-// The trip on screen, or null before the first trip is added.
+// An archived trip is off the top bar (archive.js). The mark is the account's, not the trip's: on a trip
+// planned with other people, archiving it tidies only your own top bar.
+const isArchived = t => !!(t && state.archived && state.archived[t.id]);
+const tripsShown = () => state.trips.filter(t => !isArchived(t));
+const firstTripId = () => (tripsShown()[0] || {}).id || null;
+
+// The trip on screen (an archived one too, while it's looked at), else the first on the top bar, else null.
 function activeTrip() {
-  return state.trips.find(t => t.id === state.activeTripId) || state.trips[0] || null;
+  return state.trips.find(t => t.id === state.activeTripId) || tripsShown()[0] || null;
 }
 function findItem(id) {
   for (const t of state.trips) {

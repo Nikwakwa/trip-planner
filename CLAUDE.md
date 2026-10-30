@@ -78,7 +78,7 @@ stays at the root. `index.html` loads `js/theme.js` in the `<head>`, then at the
   `guide.js` (which guide place a plan is, `planSuggestions`, Auto-fill, `bookingNote`) → `store.js` (`state`: defaults,
   `tidy…`, `load`/`save`, the one-time repairs) → `render.js` (`ui`, `showView`, `render()`, trip tabs, day strip,
   sidebar, scrolling) → `view-plan.js` → `view-ideas.js` → `view-checklist.js` → `view-settings.js` → `form-plan.js` →
-  `form-trip.js` → `account.js` (sign-in, password, delete account) → `sheets.js` (closing sheets, drafts, swipe down)
+  `form-trip.js` → `archive.js` (archived trips) → `account.js` (sign-in, password, delete account) → `sheets.js` (closing sheets, drafts, swipe down)
   → `backup.js` (backup, restore, erase) → `about.js` (privacy, What's new, Report a problem) → `pad.js` → `app.js`
   (install, offline, service worker, start, `catchUp`).
 
@@ -94,12 +94,25 @@ one listener on the page runs them. `idOf(el)` is the id of the plan a tapped bu
 listener in render.js. Don't add another document-wide click listener for buttons: register an action.
 
 **State and rendering (`store.js`, `render.js`).**
-- One `state` object (`{ version, activeTripId, trips[{id,name,color,start,end,place,items[]}], checklist[], settings }`)
+- One `state` object (`{ version, activeTripId, trips[{id,name,color,start,end,place,items[]}], archived{}, checklist[], settings }`)
   is saved as JSON in localStorage under `tripPlanner.v1`. Plans ("items") store dates as `YYYY-MM-DD` strings. An item
   with no date is an "idea".
 - `state.trips` can be empty (a fresh install starts with no trips). Then `activeTrip()` returns `null`, and the Plan
   and Ideas tabs show `renderWelcome()` ("Where do you want to go?") instead of a trip. Code reachable without a trip
   must handle `null`.
+- Archived trips (`archive.js`): `state.archived` maps a trip id to the day it was archived. It is the account's,
+  not the trip's: synced as `arch_<tripId>` documents in the account's own space (`stateDocs`/`applyDocs` with space
+  `''`), a shared trip's too, and never written into a trip document. So archiving a shared trip only changes your
+  own top bar. A mark stays while its trip hasn't arrived (a new device gets the account's documents before the shared
+  trips'); it is removed with its trip (deleting it, `dropShare`). Read it with `isArchived(t)`. The top bar shows
+  `tripsShown()` (`barTrips`: plus the archived trip on screen, marked with the archive icon) and an archive button
+  with the count, which opens `#archive-dialog`. `activeTrip()` keeps an archived trip that's being looked at, and
+  falls back to the first shown trip; after a trip goes away, use `firstTripId()`, never `state.trips[0]`.
+  Archiving the trip on screen moves to `soonestTrip()` (under way, next, undated, latest). Backups keep `archived`
+  (only when there are marks, under the trips' new ids); "Restore from backup" keeps the marks of the shared trips it keeps.
+  Where to archive: the trip card offers **Archive** first once the trip is over, and the trip sheet has
+  Archive/Unarchive next to Delete (both icon-only under 600px, so "Enregistrer" fits); an archived trip's card says
+  "Archived" and offers **Unarchive** first.
 - `ui` holds temporary view state that isn't saved (current tab/filter).
 - After any change, call `save()` then `render()`. `save()` writes localStorage *and* calls `pushChanges()`
   (sync.js). `render()` rebuilds the current view's HTML from scratch using template strings. Put all
@@ -293,8 +306,8 @@ dinner, and the route doubled back.
 
 **Sync (`sync.js`).** This is optional and switched on only when `firebase-config.js` sets `window.FIREBASE_CONFIG`.
 Firebase compat SDKs are vendored and loaded lazily. The state is split into Firestore documents
-`users/{uid}/docs/{trip_…|item_…|check_…}`. After each save, the local state is compared with the last known remote copy (kept in
-localStorage `tripPlanner.sync`), and only the differences are sent. Only documents of those three kinds are ever
+`users/{uid}/docs/{trip_…|item_…|check_…|arch_…}` (`arch_`: an archived trip, 2.18). After each save, the local state is compared with the last known remote copy (kept in
+localStorage `tripPlanner.sync`), and only the differences are sent. Only documents of the kinds this version writes are ever
 removed (`SYNCED_KINDS`), so a newer version can keep other kinds next to them. Remote snapshots are merged into
 `state`. A plan changed both here (not sent yet) and elsewhere is merged field by field (`mergeDoc`: theirs, with
 the fields changed here on top), because deleting a plan changes the `pos` of every plan after it. `settings` stay on each phone and are never synced. Account actions (Settings → Account): the sign-in sheet

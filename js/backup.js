@@ -98,7 +98,10 @@ function cleanBackup(data) {
     todos: Array.isArray(t.todos) && t.todos.length ? checks(t.todos) : undefined,
   }));
   const checklist = checks(data.checklist);
-  const activeTripId = tripIds.get(data.activeTripId) || (trips.length ? trips[0].id : null);
+  // The archived trips, under the ids their trips have here.
+  const archived = Object.fromEntries(Object.entries(tidyArchived(data.archived))
+    .filter(([was]) => tripIds.has(was)).map(([was, day]) => [tripIds.get(was), day]));
+  const activeTripId = tripIds.get(data.activeTripId) || (trips.find(t => !archived[t.id]) || {}).id || null;
   const s = data.settings || {};
   const settings = {
     theme: ['auto', 'light', 'dark'].includes(s.theme) ? s.theme : 'auto',
@@ -110,7 +113,7 @@ function cleanBackup(data) {
     clock: ['24', '12'].includes(s.clock) ? s.clock : defaultSettings().clock,
     ...(LANGS[s.lang] ? { lang: s.lang } : {}),
   };
-  return { version: 1, activeTripId, trips, checklist, settings };
+  return { version: 1, activeTripId, trips, ...(Object.keys(archived).length ? { archived } : {}), checklist, settings };
 }
 
 document.addEventListener('change', async (e) => {
@@ -141,6 +144,12 @@ document.addEventListener('change', async (e) => {
   // copy of one is left out.
   const kept = sharedNow();
   restored.trips = restored.trips.filter(t => !kept.some(k => k.id === t.id)).concat(kept);
+  // They stay archived, or not, as they are now.
+  restored.archived = { ...restored.archived };
+  for (const t of kept) {
+    if (isArchived(t)) restored.archived[t.id] = state.archived[t.id];
+    else delete restored.archived[t.id];
+  }
   state = restored;
   save();
   scrollAt = {};

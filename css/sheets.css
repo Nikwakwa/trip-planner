@@ -113,6 +113,12 @@ a.fact .fact-icon { background: var(--error); color: var(--error-container); }
 .vote-status.on { color: var(--primary); font-weight: 650; }
 .vote-status .icon { flex: none; width: 20px; height: 20px; }
 
+/* ---------- Archived trips (archive.js) ---------- */
+.archive-intro { margin: 0 4px 16px; }
+.archive-row { display: flex; align-items: center; }
+.archive-row > .row { flex: 1; min-width: 0; }
+.archive-row > .icon-btn { margin-right: 6px; color: var(--primary); }
+
 /* ---------- Planning a trip together (share.js) ---------- */
 dialog.fit-sheet { height: fit-content; }      /* as tall as what it holds */
 .trip-chip .icon { margin: 0 -4px 0 -2px; opacity: .8; }

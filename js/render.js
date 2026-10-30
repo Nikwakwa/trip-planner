@@ -184,6 +184,7 @@ function renderSidebar(trip) {
 // No trip yet: ask where the user wants to go. The Ideas tab says what will show up there.
 function renderWelcome() {
   const ideas = ui.view === 'ideas';
+  const archived = state.trips.filter(isArchived).length;     // all of them archived: they're one tap away
   $('#view-' + ui.view).innerHTML = `
     <section class="hero welcome">
       ${shape(HERO_SHAPE, 'hero-shape')}
@@ -196,17 +197,25 @@ function renderWelcome() {
     <p class="welcome-note">${ideas
       ? T('Pick a place first. Its sights, food and things to do show up here, to save for later or add to a day.')
       : T('Pick a place and you’ll get ideas for things to do there, day by day. Already planning on another device? Sign in under <b>Settings</b> to bring your trips here.')}</p>
-    ${!ideas && sync.configured ? `<button type="button" class="btn text ripple welcome-join" data-action="join-trip">${icon('group')}${T('Invited to a trip? Join it')}</button>` : ''}`;
+    ${!ideas && sync.configured ? `<button type="button" class="btn text ripple welcome-join" data-action="join-trip">${icon('group')}${T('Invited to a trip? Join it')}</button>` : ''}
+    ${archived ? `<button type="button" class="btn text ripple welcome-join" data-action="archive-list">${icon('archive')}${Tn(archived, '{n} archived trip', '{n} archived trips')}</button>` : ''}`;
 }
 
+// The trips on the top bar, then + and the archive (archive.js). An archived trip shows only while it's
+// on screen, with the archive's icon, and goes once another trip is picked.
+const barTrips = trip => state.trips.filter(t => !isArchived(t) || t.id === trip.id);
 function renderTripTabs(trip) {
+  const archived = state.trips.filter(isArchived).length;
+  const label = Tn(archived, '{n} archived trip', '{n} archived trips');
   $('#trip-tabs').innerHTML =
-    state.trips.map(t => `
-      <button type="button" class="trip-chip ripple ${t.id === trip.id ? 'active' : ''}" data-trip="${esc(t.id)}"
+    barTrips(trip).map(t => `
+      <button type="button" class="trip-chip ripple ${t.id === trip.id ? 'active' : ''} ${isArchived(t) ? 'archived' : ''}" data-trip="${esc(t.id)}"
         style="--c:${esc(t.color)}" aria-pressed="${t.id === trip.id}">
-        <span class="dot"></span>${esc(t.name)}${sharedMark(t)}
+        ${isArchived(t) ? icon('archive', 'sm') : '<span class="dot"></span>'}${esc(t.name)}${sharedMark(t)}
       </button>`).join('') +
-    `<button type="button" class="trip-chip add ripple" data-action="new-trip" aria-label="${T('Add a trip')}">${icon('add', 'sm')}</button>`;
+    `<button type="button" class="trip-chip add ripple" data-action="new-trip" aria-label="${T('Add a trip')}">${icon('add', 'sm')}</button>` +
+    (archived ? `<button type="button" class="trip-chip archive-chip ripple" data-action="archive-list" aria-label="${label}" title="${label}">
+      ${icon('archive', 'sm')}${archived}</button>` : '');
 }
 
 /* ---------- Scrolling: tint the top bar, shrink the + button ---------- */

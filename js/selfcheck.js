@@ -354,6 +354,70 @@ function runChecks() {
       [[{ id: 'x', text: 'Tent', done: false }], false, [{ id: 'x', text: 'Tent', done: true }], undefined]);
   });
 
+  /* ---------- Archived trips (archive.js) ---------- */
+  group = 'Archived trips';
+  check('Which trips are archived is read back, and a bad mark is left out', () =>
+    same(tidyState({ trips: [], archived: { t1: '2026-05-04', '<b>': '2026-05-04', t2: 'soon', t3: 5 } }).archived, { t1: '2026-05-04' }));
+  check('The top bar leaves archived trips out, except the one on screen', () => sandbox(() => {
+    state = both();
+    state.archived = { trip2: '2026-05-04' };
+    return same([barTrips(state.trips[0]).map(t => t.id), barTrips(romeOf(state)).map(t => t.id)], [['trip1'], ['trip1', 'trip2']]);
+  }));
+  check('With every trip archived the app opens on none, but a trip being looked at stays on screen', () => sandbox(() => {
+    state = sample();
+    state.archived = { trip1: '2026-05-04' };
+    state.activeTripId = null;
+    const none = [activeTrip(), firstTripId()];
+    state.activeTripId = 'trip1';
+    return same([...none, activeTrip().id], [null, null, 'trip1']);
+  }));
+  check('Archiving the trip on screen goes to the trip under way, else the next one, else one without dates, else the latest', () => sandbox(() => {
+    const day = (n) => { const d = parseDate(todayISO()); d.setDate(d.getDate() + n); return toISO(d); };
+    const trip = (id, from, to) => ({ ...sample().trips[0], id, start: from === null ? '' : day(from), end: to === null ? '' : day(to), items: [] });
+    state = { ...sample(), trips: [trip('old', -30, -25), trip('last', -9, -2), trip('later', 20, 25), trip('idea', null, null), trip('soon', 3, 6), trip('now', -1, 1)] };
+    const order = [];
+    for (let next = soonestTrip(); next; next = soonestTrip()) {
+      order.push(next.id);
+      state.archived = { ...state.archived, [next.id]: todayISO() };
+    }
+    return same(order, ['now', 'soon', 'later', 'idea', 'last', 'old']);
+  }));
+  check('Which trips are archived goes to the account and back, apart from the trips (a shared trip’s too)', () => sandbox(() => {
+    state = both();
+    state.archived = { trip1: '2026-05-04', trip2: '2026-05-05' };
+    const own = stateDocs(state), theirs = stateDocs(state, 's1');
+    const marks = Object.keys(own).filter(k => k.startsWith('arch_')).sort();
+    const inTrips = [JSON.parse(own.trip_trip1), JSON.parse(theirs.trip_trip2)].some(d => 'archived' in d);
+    state = { ...both(), archived: {} };
+    applyDocs(own);
+    return same([marks, Object.keys(theirs).some(k => k.startsWith('arch_')), inTrips, state.archived, SYNCED_KINDS.test('arch_trip1')],
+      [['arch_trip1', 'arch_trip2'], false, false, { trip1: '2026-05-04', trip2: '2026-05-05' }, true]);
+  }));
+  check('Archiving on another device arrives, unarchiving there too, and archiving here offline is kept', () => {
+    const run = (base, local, remote) => sandbox(() => {
+      const s = (archived) => ({ ...sample(), archived });
+      state = s(local);
+      sync.saved = { uid: 'selfcheck', email: '', linked: true, base: stateDocs(s(base)), shared: {} };
+      const waiting = waitingCount();
+      mergeRemote(stateDocs(s(remote)), new Set());
+      return [state.archived, waiting];
+    });
+    const on = { trip1: '2026-05-04' };
+    return same([run({}, {}, on), run(on, on, {}), run({}, on, {})], [[on, 0], [{}, 0], [on, 1]]);
+  });
+  check('Leaving a shared trip, or deleting a trip, takes its mark away', () => sandbox(() => {
+    state = both();
+    state.archived = { trip1: '2026-05-04', trip2: '2026-05-05' };
+    sync.saved = { uid: 'selfcheck', email: '', linked: true, base: {}, shared: {} };
+    dropShare('s1');
+    return same([state.trips.map(t => t.id), state.archived], [['trip1'], { trip1: '2026-05-04' }]);
+  }));
+  check('A backup keeps which trips are archived, under the ids the trips have', () => {
+    const b = cleanBackup({ trips: [{ id: 't1', name: 'A' }, { id: 't2', name: 'B' }], archived: { t2: '2026-05-02', gone: '2026-05-03', t1: 'nope' } });
+    const all = cleanBackup({ trips: [{ id: 't1', name: 'A' }], archived: { t1: '2026-05-02' } });
+    return same([b.archived, b.activeTripId, all.activeTripId, 'archived' in cleanBackup(copy(sample()))], [{ t2: '2026-05-02' }, 't1', null, false]);
+  });
+
   /* ---------- Order of the plans in a day ---------- */
   group = 'Plans';
   check('Plans go by time, then by their spot on the route; the rest in the afternoon, before the evening', () =>

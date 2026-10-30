@@ -7,7 +7,7 @@
    The app keeps working offline; changes are sent once back online.
 
    How it works: the plans are stored as small documents in the account
-   ("trip_…", "item_…", "check_…"). After every change the app compares its
+   ("trip_…", "item_…", "check_…", and "arch_…" for an archived trip). After every change the app compares its
    plans with what the account has and sends only the differences. When
    another phone changes something, the account tells this phone right away.
 
@@ -19,7 +19,7 @@
 
 const SYNC_KEY = 'tripPlanner.sync';
 const FIREBASE_FILES = ['app', 'auth', 'firestore'].map(p => `vendor/firebase/firebase-${p}-compat.js`);
-const SYNCED_KINDS = /^(trip|item|check|todo)_/;      // the documents this version of the app writes and removes
+const SYNCED_KINDS = /^(trip|item|check|todo|arch)_/;      // the documents this version of the app writes and removes
 
 const sync = {
   configured: !!(window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.apiKey),
@@ -105,6 +105,9 @@ function stateDocs(s, space = '') {
     (todos || []).forEach((c, i) => { out[docKey('todo', c.id)] = stable({ k: 'todo', trip: t.id, pos: i, ...c }); });
   }
   if (!space) s.checklist.forEach((c, i) => { out[docKey('check', c.id)] = stable({ k: 'check', pos: i, ...c }); });
+  // The archived trips (archive.js): the account's own marks, a shared trip's too. They stay while that trip's
+  // documents haven't arrived yet: a mark is only removed with its trip (deleting or leaving it).
+  if (!space) for (const [id, at] of Object.entries(s.archived || {})) out[docKey('arch', id)] = stable({ k: 'arch', id, at });
   return out;
 }
 
@@ -112,7 +115,8 @@ function stateDocs(s, space = '') {
 // where possible, so an "Undo" that's still on screen keeps working.
 function applyDocs(docs, space = '') {
   // Each document is checked first (store.js): one the app can't use is left out.
-  const tidy = d => (!d ? null : d.k === 'trip' ? tidyTrip(d) : d.k === 'item' ? tidyItem(d) : d.k === 'check' || d.k === 'todo' ? tidyCheck(d) : null);
+  const tidy = d => (!d ? null : d.k === 'trip' ? tidyTrip(d) : d.k === 'item' ? tidyItem(d) : d.k === 'check' || d.k === 'todo' ? tidyCheck(d)
+    : d.k === 'arch' && !space && isId(d.id) && isDate(d.at) ? d : null);
   const all = Object.values(docs).map(j => tidy(JSON.parse(j))).filter(Boolean);
   const byPos = (a, b) => (a.pos - b.pos) || (a.id < b.id ? -1 : 1);
   const here = t => (t.shared || '') === space;
@@ -156,8 +160,9 @@ function applyDocs(docs, space = '') {
   if (!space) {
     const oldChecks = new Map(state.checklist.map(c => [c.id, c]));
     state.checklist = all.filter(d => d.k === 'check').sort(byPos).map(({ k, pos, ...c }) => reuse(oldChecks.get(c.id), c));
+    state.archived = Object.fromEntries(all.filter(d => d.k === 'arch').map(d => [d.id, d.at]));
   }
-  if (!list.some(t => t.id === state.activeTripId)) state.activeTripId = list.length ? list[0].id : null;
+  if (!list.some(t => t.id === state.activeTripId)) state.activeTripId = firstTripId();
   return true;
 }
 

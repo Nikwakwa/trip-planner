@@ -52,6 +52,7 @@ const FILES = [
   'js/view-settings.js',
   'js/form-plan.js',
   'js/form-trip.js',
+  'js/archive.js',
   'js/account.js',
   'js/sheets.js',
   'js/backup.js',

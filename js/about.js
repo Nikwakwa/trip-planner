@@ -79,7 +79,7 @@ function problemDetails() {
     `Version: ${APP_VERSION}`,
     `Device: ${navigator.userAgent}`,
     `Window: ${innerWidth}×${innerHeight}, ${installed() ? 'installed' : 'in the browser'}, ${navigator.onLine ? 'online' : 'offline'}, language ${navigator.language || '?'}, app in ${LANG}`,
-    `App: section "${ui.view}", ${plural(state.trips.length, 'trip')}, ${plural(plans, 'plan')}, theme ${state.settings.theme}, ${state.settings.units}`,
+    `App: section "${ui.view}", ${plural(state.trips.length, 'trip')}${state.trips.some(isArchived) ? ` (${state.trips.filter(isArchived).length} archived)` : ''}, ${plural(plans, 'plan')}, theme ${state.settings.theme}, ${state.settings.units}`,
     `Account: ${account}`,
     `Recent errors: ${recentErrors.length ? '\n  ' + recentErrors.join('\n  ') : 'none'}`,
   ].join('\n');

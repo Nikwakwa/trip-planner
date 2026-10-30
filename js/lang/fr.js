@@ -47,7 +47,11 @@ DICTS.fr = {
   'Last day': 'Dernier jour',
   'Getting around': 'Se déplacer',
   'Color': 'Couleur',
-  'Delete trip': 'Supprimer',     // the trip form's button, beside "Enregistrer": the full words didn't fit
+  'Delete trip': 'Supprimer le voyage',     // the trip form's button: an icon only on a phone
+  'Archive': 'Archiver',
+  'Unarchive': 'Désarchiver',
+  'Archived trips': 'Voyages archivés',
+  'Off the top bar, and kept just as they were. Open one to look back, or unarchive it to bring it back.': 'Hors de la barre du haut, et gardés tels quels. Ouvrez-en un pour le revoir, ou désarchivez-le pour le faire revenir.',
   'Sign in to sync': 'Se connecter pour synchroniser',
   'Email': 'E-mail',
   'Password': 'Mot de passe',
@@ -165,6 +169,15 @@ DICTS.fr = {
   'Pick a place and you’ll get ideas for things to do there, day by day. Already planning on another device? Sign in under <b>Settings</b> to bring your trips here.': 'Choisissez un lieu et vous aurez des idées de choses à y faire, jour par jour. Vous préparez déjà sur un autre appareil ? Connectez-vous dans les <b>Paramètres</b> pour retrouver vos voyages ici.',
   'Invited to a trip? Join it': 'Invité à un voyage ? Rejoignez-le',
   'Add a trip': 'Ajouter un voyage',
+  '{n} archived trip': '{n} voyage archivé',
+  '{n} archived trips': '{n} voyages archivés',
+  'Archived': 'Archivé',
+  '{trip} archived': '{trip} archivé',
+  '{trip} archived, only for you': '{trip} archivé, pour vous seulement',
+  '{trip} is back on the top bar': '{trip} est de retour dans la barre du haut',
+  'Unarchive {trip}': 'Désarchiver {trip}',
+  '{n} trip, off the top bar': '{n} voyage, hors de la barre du haut',
+  '{n} trips, off the top bar': '{n} voyages, hors de la barre du haut',
   'Check in': 'Arrivée',
   '{n} night': '{n} nuit',
   '{n} nights': '{n} nuits',
@@ -872,6 +885,7 @@ DICTS.fr = {
   'last synced {when}': 'dernière synchronisation {when}',
 
   /* ---------- What's new (version.js) ---------- */
+  'Archive a trip to take it off the top bar: it stays one tap away, just as it was': 'Archivez un voyage pour le retirer de la barre du haut : il reste à portée de main, tel quel',
   'Plans without a time go before the day’s evening plans, not after them': 'Les activités sans heure passent avant celles du soir, et non plus après',
   'English or French: choose the language in Settings → Appearance': 'Anglais ou français : choisissez la langue dans Paramètres → Apparence',
   'On a device set to French, the app opens in French': 'Sur un appareil réglé en français, l’app s’ouvre en français',

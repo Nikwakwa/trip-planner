@@ -95,7 +95,10 @@ function renderPlan(trip) {
   const today = todayISO();
   const hasDates = trip.start && trip.end;
   const n = hasDates ? daysBetween(trip.start, trip.end) + 1 : 0;
-  const status = tripStatus(trip);
+  // An archived trip says so, and offers to come back to the top bar. A trip that is over offers to go (archive.js).
+  const archived = isArchived(trip);
+  const status = archived ? { icon: 'archive', text: T('Archived') } : tripStatus(trip);
+  const over = !archived && hasDates && trip.end < today;
   const planned = trip.items.filter(i => i.date);
   const done = planned.filter(i => i.done).length;
   const ideas = trip.items.length - planned.length;
@@ -118,6 +121,8 @@ function renderPlan(trip) {
           </div>` : ''}
       </div>
       <div class="hero-actions">
+        ${archived ? `<button type="button" class="hero-btn ripple" data-action="unarchive">${icon('unarchive')}${T('Unarchive')}</button>` : ''}
+        ${over ? `<button type="button" class="hero-btn ripple" data-action="archive-trip">${icon('archive')}${T('Archive')}</button>` : ''}
         ${planned.length ? `<button type="button" class="hero-btn ripple" data-action="trip-map">${icon('map')}${T('Trip map')}</button>` : ''}
         ${trip.place ? `<button type="button" class="hero-btn ripple" data-action="essentials">${icon('info')}${T('Essentials')}</button>` : ''}
         ${shareButtonHTML(trip) /* share.js: with other people, or as text */}

@@ -60,6 +60,13 @@
   border-radius: 12px;
 }
 .trip-chip.add { width: 40px; padding: 0; justify-content: center; }
+/* The archive (archive.js): its icon and how many trips are in it. It nods once when a trip goes in. */
+.trip-chip.archive-chip { padding: 0 14px 0 11px; gap: 6px; }
+.trip-chip.archive-chip .icon { margin: 0; opacity: 1; }
+.trip-chip.archive-chip.pulse { animation: chip-pulse .7s var(--ease) 2; }
+@keyframes chip-pulse {
+  40% { transform: scale(1.1); background: var(--secondary-container); color: var(--on-secondary-container); border-color: transparent; }
+}
 
 .offline-pill {
   flex: none;

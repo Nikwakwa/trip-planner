@@ -5,6 +5,7 @@
 function renderMore() {
   const offlineReady = 'serviceWorker' in navigator && navigator.serviceWorker.controller;
   const signedIn = !!sync.saved;
+  const archived = state.trips.filter(isArchived).length;     // their own sheet (archive.js)
   let account;
   if (!sync.configured) {
     account = `
@@ -54,7 +55,7 @@ function renderMore() {
 
     <h2 class="group-label">${T('Trips')}</h2>
     <ul class="group">
-      ${state.trips.map(t => `
+      ${tripsShown().map(t => `
         <li><button type="button" class="row ripple" data-action="edit-trip" data-trip-id="${esc(t.id)}">
           <span class="trip-avatar" style="--c:${esc(t.color)}">${esc(t.name.charAt(0).toUpperCase())}</span>
           <span class="row-text">
@@ -63,6 +64,10 @@ function renderMore() {
           </span>
           <span class="row-trail">${icon('edit')}</span>
         </button></li>`).join('')}
+      ${archived ? `<li><button type="button" class="row ripple" data-action="archive-list">
+        <span class="row-icon">${icon('archive')}</span>
+        <span class="row-text"><span class="row-title">${T('Archived trips')}</span><span class="row-sub">${Tn(archived, '{n} trip, off the top bar', '{n} trips, off the top bar')}</span></span>
+      </button></li>` : ''}
       <li><button type="button" class="row ripple" data-action="new-trip">
         <span class="row-icon">${icon('add')}</span>
         <span class="row-text"><span class="row-title">${T('Add a trip')}</span></span>

@@ -200,6 +200,8 @@
         <legend>Color</legend>
       </fieldset>
       <div class="sheet-actions">
+        <!-- Archive or Unarchive (archive.js); on a phone both buttons here show their icon only -->
+        <button type="button" class="btn text ripple" id="trip-archive" hidden></button>
         <button type="button" class="btn text danger ripple" id="trip-delete">
           <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#delete"/></svg><span id="trip-delete-label">Delete trip</span>
         </button>
@@ -207,6 +209,23 @@
         <button type="submit" class="btn filled lg ripple">Save</button>
       </div>
     </form>
+  </dialog>
+
+  <!-- Bottom sheet: the archived trips, to open one again or bring it back to the top bar (archive.js) -->
+  <dialog id="archive-dialog" class="sheet info-sheet fit-sheet">
+    <div class="info-inner">
+      <div class="handle" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 tabindex="-1" autofocus>Archived trips</h2>
+        <button type="button" class="icon-btn ripple" data-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#close"/></svg>
+        </button>
+      </div>
+      <div class="info-body">
+        <p class="sheet-text archive-intro">Off the top bar, and kept just as they were. Open one to look back, or unarchive it to bring it back.</p>
+        <ul id="archive-list" class="group archive-list"></ul>
+      </div>
+    </div>
   </dialog>
 
   <!-- Bottom sheet: sign in, so phones with the same login share plans -->
@@ -543,6 +562,7 @@
   <script src="js/view-settings.js"></script>
   <script src="js/form-plan.js"></script>
   <script src="js/form-trip.js"></script>
+  <script src="js/archive.js"></script>
   <script src="js/account.js"></script>
   <script src="js/sheets.js"></script>
   <script src="js/backup.js"></script>

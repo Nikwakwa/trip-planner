@@ -169,8 +169,9 @@ function dropShare(id) {
   const trip = state.trips.find(t => t.shared === id);
   if (trip) {
     state.trips = state.trips.filter(t => t !== trip);
+    if (state.archived) delete state.archived[trip.id];
     if (state.activeTripId === trip.id) {
-      state.activeTripId = state.trips.length ? state.trips[0].id : null;
+      state.activeTripId = firstTripId();
       scrollAt = {};
     }
     saveLocal();

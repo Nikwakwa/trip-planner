@@ -85,6 +85,16 @@ function openTripForm(trip) {
   showPlaceResults([]);
   $('#trip-delete').hidden = !trip;
   $('#trip-delete-label').textContent = tripEndLabel(trip);     // share.js: "Leave trip" when it is someone else's
+  $('#trip-delete').setAttribute('aria-label', tripEndLabel(trip));
+  $('#trip-delete').title = tripEndLabel(trip);
+  // Archive or bring back (archive.js). On a phone this row shows icons only: the names are there for
+  // screen readers, and on a long press.
+  const archive = $('#trip-archive');
+  archive.hidden = !trip;
+  const label = isArchived(trip) ? T('Unarchive') : T('Archive');
+  archive.innerHTML = `${icon(isArchived(trip) ? 'unarchive' : 'archive')}<span>${label}</span>`;
+  archive.setAttribute('aria-label', label);
+  archive.title = label;
   tripDialog.showModal();
   draftStart(tripDialog);
   if (!trip) f.name.focus();
@@ -159,12 +169,21 @@ $('#trip-delete').addEventListener('click', async () => {
   });
   if (!ok) return;
   state.trips = state.trips.filter(t => t.id !== trip.id);
-  if (state.activeTripId === trip.id) state.activeTripId = state.trips.length ? state.trips[0].id : null;
+  if (state.archived) delete state.archived[trip.id];
+  if (state.activeTripId === trip.id) state.activeTripId = firstTripId();
   scrollAt = {};
   save();
   tripDialog.close();
   render();
   snackbar(T('{trip} deleted', { trip: trip.name }));
+});
+
+// Archive or bring back the trip being edited (archive.js). Like Delete, it leaves the sheet without saving.
+$('#trip-archive').addEventListener('click', () => {
+  const trip = state.trips.find(t => t.id === editingTripId);
+  if (!trip) return;
+  tripDialog.close();
+  if (isArchived(trip)) unarchiveTrip(trip); else archiveTrip(trip);
 });
 
 onAction('new-trip', () => openTripForm(null));

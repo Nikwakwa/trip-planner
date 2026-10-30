@@ -21,6 +21,10 @@ the same address shows a desktop layout on a wide screen, by itself.
   transit are estimates. Distances and temperatures in metric or imperial units
   (**Settings → Appearance → Units**).
 - During the trip: **Now & next** (what's on and when to leave for the next plan) and **What's near me**.
+- **Archive** a trip to take it off the top bar: once it's over, its card offers **Archive** (any trip can be
+  archived from its ✎ sheet). It's kept just as it was, behind the box button at the end of the top bar (also in
+  **Settings → Trips**): open it from there to look back, or **Unarchive** it. Archiving is yours alone: on a
+  trip you plan with other people, it doesn't move for them.
 - A **Stay** plan with an address (your hotel) becomes the **home base**: days start and end there.
 - **Photos** of places, **packing suggestions** from the forecast and your plans, **Add to calendar**,
   **tickets & bookings** attached to plans, and **booking emails** turned into plans by the AI Assistant.
@@ -87,6 +91,7 @@ behavior in `js/`. Each file covers one part of the app, so a change usually tou
 | `render.js` | Drawing the screen and switching sections. |
 | `view-plan.js`, `view-ideas.js`, `view-checklist.js`, `view-settings.js` | The four sections. |
 | `form-plan.js`, `form-trip.js` | The forms to add or edit a plan, and a trip. |
+| `archive.js` | Archived trips: taking a trip off the top bar, and the "Archived trips" sheet. |
 | `account.js` | Signing in, changing the password, deleting the account. |
 | `sheets.js` | Closing sheets (✕, tap outside, swipe down), asking before losing what was typed. |
 | `backup.js` | Backup files, restoring one, and "Erase everything". |

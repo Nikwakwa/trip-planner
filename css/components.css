@@ -433,6 +433,13 @@ dialog::backdrop { background: rgb(0 0 0 / .42); animation: fade-in .3s var(--ea
 .sheet-actions { display: flex; align-items: center; gap: 8px; padding-top: 4px; }
 .sheet-actions .btn.filled { flex: none; }     /* "Enregistrer" is never cut; a long red button wraps instead */
 .sheet-actions .btn.text { margin-left: -12px; }
+.sheet-actions .btn.text + .btn.text { margin-left: 0; }
+/* A trip's Archive and Delete: icons only on a phone, so Save keeps its room (in French too) */
+@media (max-width: 599px) {
+  #trip-form .sheet-actions .btn.text { width: 48px; padding: 0; }
+  #trip-form .sheet-actions .btn.text > span { display: none; }
+  #trip-form .sheet-actions .btn.text .icon { width: 22px; height: 22px; }
+}
 /* The long forms (a plan, a trip): Save stays in view at the bottom while the fields scroll under it */
 #item-form > .sheet-actions, #trip-form > .sheet-actions {
   position: sticky;
