@@ -375,6 +375,7 @@ function loadLeaflet() {
       console.warn('Vector map unavailable, using the picture map', e);
       mapView.style = null;
     }
+    mapView.ready = true;
     return L;
   });
   return leafletLoading;
@@ -638,7 +639,8 @@ function setMapTheme() {
 
 function drawMap(fit) {
   const L = window.L;
-  if (!L || !mapShown()) return;
+  // Not before the detailed map has loaded or given up: a redraw in between would settle for the picture map.
+  if (!L || !mapView.ready || !mapShown()) return;
   if (!mapView.map) {
     mapView.map = L.map('map', { zoomControl: false });
     L.control.zoom({ position: 'topright' }).addTo(mapView.map);
