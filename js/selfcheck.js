@@ -356,9 +356,10 @@ function runChecks() {
 
   /* ---------- Order of the plans in a day ---------- */
   group = 'Plans';
-  check('Plans go by time, then by their spot on the route, then the rest', () =>
-    same([{ id: 'rest' }, { id: 'noon', time: '12:30' }, { id: 'after9', slot: '09:00~01' }, { id: 'nine', time: '09:00' }, { id: 'first', slot: '00:00~01' }]
-      .sort(byPlanOrder).map(i => i.id), ['first', 'nine', 'after9', 'noon', 'rest']));
+  check('Plans go by time, then by their spot on the route; the rest in the afternoon, before the evening', () =>
+    same([{ id: 'dinner', time: '20:00' }, { id: 'rest' }, { id: 'noon', time: '12:30' }, { id: 'after9', slot: '09:00~01' }, { id: 'nine', time: '09:00' },
+      { id: 'late', slot: '20:00~01' }, { id: 'five', time: '17:00' }, { id: 'first', slot: '00:00~01' }]
+      .sort(byPlanOrder).map(i => i.id), ['first', 'nine', 'after9', 'noon', 'five', 'rest', 'dinner', 'late']));
 
   check('“Book ahead” is read from a guide’s words, and only from words that mean it', () =>
     same(['Tickets sell out weeks in advance.', 'Reservations are strongly recommended and essential on weekends.', 'Reservation strongly required.',
@@ -706,6 +707,8 @@ function runChecks() {
     const got = [sectionSummary(long), shortBlurb(long), longBlurb(long)];
     return got.every(t => t.startsWith('The size of the U.S. and the distance')) || `got ${stable(got.map(t => t.slice(0, 30)))}`;
   });
+  check('Essentials show the voltage at a wall socket, not the three-phase one (France said "400 V")', () =>
+    same([['400', '230'], ['220', '127'], ['120'], ['11000'], []].map(socketVolts), ['230 V', '127/220 V', '120 V', '', '']));
 
   /* ---------- Voting for new features ---------- */
   group = 'Voting for new features';

@@ -176,7 +176,7 @@ function renderPlan(trip) {
       isToday && `<b>${T('Today')}</b>`,
       inRange ? T('Day {n}', { n: daysBetween(trip.start, day) + 1 }) : T('Outside trip dates'),
       items.length && Tn(items.length, '{n} plan', '{n} plans'),
-    ].filter(Boolean).join(' · ');
+    ].filter(Boolean).map(s => `<span>${s}</span>`).join(' · ');     // each part on one line ("4 activités")
     const list = dayListHTML(day, items, trip, guide);     // on a day without plans: only a stay's check-out
     html += `
       <section class="day ${isToday ? 'is-today' : ''}" id="day-${day}" style="--day:${dayTint(days.indexOf(day))}">
@@ -214,7 +214,7 @@ function legHTML(a, b, mode, label = '') {
   const t = legTravel(a, b, mode);      // routes.js: by car the real road, once it is known
   return `
     <li class="leg"><a class="leg-link ripple${label ? ' labelled' : ''}" href="${esc(directionsUrl(a, b, t.mode))}" target="_blank" rel="noopener"
-      aria-label="${T('Directions')} ${label ? esc(label.toLowerCase()) : ''} ${esc(t.text)}, ${fmtDist(t.dist)}">${label ? `${icon('hotel')}<span class="leg-base">${T('{label}:', { label: esc(label) })}</span>` : ''}${icon(t.icon)}<span>${esc(t.text)} · ${fmtDist(t.dist)}</span><span class="leg-go">${T('Directions')}</span></a></li>`;
+      aria-label="${[T('Directions'), label && esc(label.toLowerCase()), `${esc(t.text)}, ${fmtDist(t.dist)}`].filter(Boolean).join(', ')}">${label ? `${icon('hotel')}<span class="leg-base">${T('{label}:', { label: esc(label) })}</span>` : ''}${icon(t.icon)}<span>${esc(t.text)} · ${fmtDist(t.dist)}</span><span class="leg-go">${T('Directions')}</span></a></li>`;
 }
 
 // A day's plans, with the travel time between each pair of stops, and to and from the home base (today.js).

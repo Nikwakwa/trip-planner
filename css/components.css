@@ -412,10 +412,12 @@ dialog::backdrop { background: rgb(0 0 0 / .42); animation: fade-in .3s var(--ea
 }
 
 /* Trip colors: circles that morph into rounded squares when picked */
-.swatches { gap: 9px; }
+/* All seven on one row, a little smaller on a narrow phone */
+.swatches { gap: 9px; flex-wrap: nowrap; }
+.swatches label { flex: 0 1 42px; min-width: 0; }
 .swatches span {
-  width: 42px;
-  height: 42px;
+  width: 100%;
+  aspect-ratio: 1;
   display: grid;
   place-items: center;
   border-radius: 50%;
@@ -429,6 +431,7 @@ dialog::backdrop { background: rgb(0 0 0 / .42); animation: fade-in .3s var(--ea
 .swatches input:checked + span .icon { opacity: 1; transform: none; }
 
 .sheet-actions { display: flex; align-items: center; gap: 8px; padding-top: 4px; }
+.sheet-actions .btn.filled { flex: none; }     /* "Enregistrer" is never cut; a long red button wraps instead */
 .sheet-actions .btn.text { margin-left: -12px; }
 /* The long forms (a plan, a trip): Save stays in view at the bottom while the fields scroll under it */
 #item-form > .sheet-actions, #trip-form > .sheet-actions {
@@ -504,7 +507,12 @@ dialog.alert[open] { animation: alert-in .4s var(--ease-decel); }
 .row .segmented { margin: 0; flex: 1; }
 /* Settings: a choice with its name in front (Theme, Units, Date, Time) */
 .row.pick { min-height: 64px; gap: 12px; }
-.pick-label { flex: none; width: 52px; font-size: 14px; line-height: 20px; font-weight: 600; color: var(--on-surface-variant); }
+.pick-label { flex: none; width: 72px; font-size: 14px; line-height: 20px; font-weight: 600; color: var(--on-surface-variant); }
+/* On a phone the name goes above its buttons: beside them, "Language" ran into "English" */
+@media (max-width: 599px) {
+  .row.pick { flex-direction: column; align-items: stretch; gap: 8px; }
+  .pick-label { width: auto; padding-left: 4px; }
+}
 /* Room by the length of each word: "Sombre" is longer than "Auto" (French, on a 360px phone) */
 .row.pick .segmented button { height: 40px; flex: 1 1 auto; }
 @media (max-width: 380px) { .row.pick .segmented button { padding: 0 6px; gap: 4px; } }

@@ -47,7 +47,7 @@ DICTS.fr = {
   'Last day': 'Dernier jour',
   'Getting around': 'Se déplacer',
   'Color': 'Couleur',
-  'Delete trip': 'Supprimer le voyage',
+  'Delete trip': 'Supprimer',     // the trip form's button, beside "Enregistrer": the full words didn't fit
   'Sign in to sync': 'Se connecter pour synchroniser',
   'Email': 'E-mail',
   'Password': 'Mot de passe',
@@ -160,7 +160,7 @@ DICTS.fr = {
   'Ideas for your trip': 'Des idées pour votre voyage',
   'Plan a trip': 'Préparer un voyage',
   'Where do you want to go?': 'Où voulez-vous aller ?',
-  'Search a city or country': 'Chercher une ville ou un pays',
+  'Search a city or country': 'Une ville ou un pays',
   'Pick a place first. Its sights, food and things to do show up here, to save for later or add to a day.': 'Choisissez d’abord un lieu. Ses sites, restaurants et activités apparaîtront ici, à garder pour plus tard ou à ajouter à une journée.',
   'Pick a place and you’ll get ideas for things to do there, day by day. Already planning on another device? Sign in under <b>Settings</b> to bring your trips here.': 'Choisissez un lieu et vous aurez des idées de choses à y faire, jour par jour. Vous préparez déjà sur un autre appareil ? Connectez-vous dans les <b>Paramètres</b> pour retrouver vos voyages ici.',
   'Invited to a trip? Join it': 'Invité à un voyage ? Rejoignez-le',
@@ -872,6 +872,7 @@ DICTS.fr = {
   'last synced {when}': 'dernière synchronisation {when}',
 
   /* ---------- What's new (version.js) ---------- */
+  'Plans without a time go before the day’s evening plans, not after them': 'Les activités sans heure passent avant celles du soir, et non plus après',
   'English or French: choose the language in Settings → Appearance': 'Anglais ou français : choisissez la langue dans Paramètres → Apparence',
   'On a device set to French, the app opens in French': 'Sur un appareil réglé en français, l’app s’ouvre en français',
   'Bug fixes': 'Corrections de bugs',

@@ -213,8 +213,9 @@ region trip ("Hauptbahnhof") is first searched around the day's plans. The basem
 using OpenFreeMap's "liberty" style as adjusted by `tuneMapStyle(style, theme)` in `mapstyle.js` (earlier POI labels;
 the dark theme is derived by recoloring every paint color, see `nightColor`). Pins, routes and popups stay Leaflet.
 If MapLibre or the style can't load, raster tiles are used: CARTO (Voyager / dark) when `window.CARTO_KEY` is set in
-`firebase-config.js`, else standard OSM tiles with a CSS invert in dark mode (`tileUrl`, `setMapTheme`). Plans are ordered by `time`, then by `slot` (written by Optimize route, e.g. `"12:30~01"`),
-then everything else (`byPlanOrder`).
+`firebase-config.js`, else standard OSM tiles with a CSS invert in dark mode (`tileUrl`, `setMapTheme`). Plans are ordered by `time`, then by `slot` (written by Optimize route and by a drop, e.g. `"12:30~01"`);
+a plan with neither sorts as if at 17:00, after that hour's plans (`byPlanOrder`): at the end it came after an 8 PM
+dinner, and the route doubled back.
 
 **Weather, hours, essentials, drag.**
 - Each of `weather.js` (Open-Meteo), `hours.js` (Overpass/OSM `opening_hours`, falling back to the Wikivoyage listing's
@@ -443,7 +444,8 @@ Phone styles are the default. Add desktop overrides in desktop.css (loaded last)
   first when their form changed since it opened (`draftStart`, called by their open functions). Esc is caught on
   `keydown`: the browser lets a page stop the dialog's `cancel` only once per tap or key typed.
 - Suggestion cards all start with `.s-photo`: the photo, over the type's color and icon when there is none.
-- Settings: "Appearance" is the choices (`.row.pick`: Language, Theme, Units, Date (English only), Time; their buttons share the width by word length); the switches that fetch or
+- Settings: "Appearance" is the choices (`.row.pick`: Language, Theme, Units, Date (English only), Time; their buttons share the width by word length; on a phone the name is above its buttons, as "Language"
+  ran into "English" beside them); the switches that fetch or
   suggest things are under "Planning help".
 - Suggestions are open only for the "focus day" (first day from today with suggestions). Other days show a one-line
   `suggest-toggle`, and `ui.suggest[day]` remembers a manual toggle.

@@ -103,6 +103,7 @@
 .day.is-today .day-title { color: var(--primary); }
 .day-sub { margin-top: 2px; font-size: 13px; line-height: 18px; color: var(--on-surface-variant); }
 .day-sub b { color: var(--primary); font-weight: 650; }
+.day-sub > span { white-space: nowrap; }
 /* The day's travel, all stops together (maps.js) */
 .day-total {
   display: flex;
@@ -302,7 +303,7 @@
 .suggest-toggle span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .suggest-toggle small { flex: none; font-size: 12px; font-weight: 600; opacity: .8; }
 .suggest-toggle .turn { transform: rotate(90deg); opacity: .7; }
-button.suggest-title { border-radius: 12px; padding: 4px 8px 4px 0; text-align: left; }
+button.suggest-title { min-height: 40px; border-radius: 12px; padding: 4px 8px 4px 0; text-align: left; }
 .suggest-row {
   display: flex;
   gap: 10px;
@@ -382,7 +383,9 @@ button.suggest-title { border-radius: 12px; padding: 4px 8px 4px 0; text-align: 
 
 /* First start: no trip yet, ask where to go. */
 .welcome { padding-bottom: 20px; }
-.welcome .hero-title { font-size: 40px; line-height: 46px; margin-bottom: 20px; }
+/* No edit button beside it here: the title takes the whole width, so "Où voulez-vous" fits on a line */
+.welcome .hero-title { font-size: 40px; line-height: 46px; margin: 2px 0 20px; }
+.welcome .nobr { white-space: nowrap; }
 .where-btn {
   display: flex;
   align-items: center;
@@ -399,7 +402,8 @@ button.suggest-title { border-radius: 12px; padding: 4px 8px 4px 0; text-align: 
   transition: border-radius .3s var(--ease);
 }
 .where-btn:active { border-radius: 16px; }
-.where-btn .icon { color: var(--primary); }
+.where-btn .icon { flex: none; color: var(--primary); }
+.where-btn span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .welcome-note {
   margin: 0 8px;
   color: var(--on-surface-variant);

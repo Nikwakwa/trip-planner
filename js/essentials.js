@@ -13,7 +13,7 @@
 
 const ESSENTIALS_KEY = 'tripPlanner.essentials';
 const ESSENTIALS_MAX_AGE = 60 * 864e5;
-const ESSENTIALS_VERSION = 2;     // 2: the country's main languages, and summaries that keep their sentences whole. Older saved ones are fetched again.
+const ESSENTIALS_VERSION = 3;     // 2: the country's main languages, and summaries that keep their sentences whole. 3: the socket voltage only. Older saved ones are fetched again.
 
 const ESSENTIAL_SECTIONS = [
   { key: 'around', title: T('Getting around'), icon: 'directions_bus', heads: ['Get around'] },
@@ -48,6 +48,13 @@ function essentialsFor(trip) {
 
 // The facts' names come in the app's language (i18n.js), when Wikidata has them in it.
 const factsLang = () => (LANG === 'fr' ? 'fr' : 'en');
+
+// The voltage at a wall socket. Wikidata also lists a country's three-phase supply (France: 230 and 400):
+// only household values count, e.g. "230 V", or "127/220 V" in Brazil.
+function socketVolts(values) {
+  const volts = [...new Set(values.map(v => Math.round(Number(v))))].filter(v => v >= 90 && v <= 260).sort((a, b) => a - b);
+  return volts.length ? `${volts.slice(0, 2).join('/')} V` : '';
+}
 
 async function countryFacts(qid) {
   // Names are in the app's language, or in Wikidata's "mul" (same in every language, e.g. "euro").
@@ -102,7 +109,7 @@ async function countryFacts(qid) {
     languages: languages.map(cap).slice(0, 4),
     currency: all('P38').map(cap).slice(0, 2),
     plugs: plugs.slice(0, 4),
-    voltage: Number(all('P2884')[0]) > 0 ? `${Math.round(Number(all('P2884')[0]))} V` : '',
+    voltage: socketVolts(all('P2884')),
     driving: all('P1622')[0] || '',
     calling: all('P474')[0] || '',
   };

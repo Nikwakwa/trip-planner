@@ -23,8 +23,9 @@ const DAY_HUES = [25, 250, 145, 300, 60, 200, 340, 100];
 /* ---------- Plan order ----------
    Plans with a time sort by time. Plans without a time can carry a "slot"
    (set by Optimize route), e.g. "12:30~01" = first stop after the 12:30 plan.
-   Plans with neither go last. */
-const orderKey = it => it.time || it.slot || '~';
+   Plans with neither go in the afternoon, after the plans until 17:00: a sight without a time
+   used to come after an 8 PM dinner, and the day's route went there and back. */
+const orderKey = it => it.time || it.slot || '17:00~~';
 function byPlanOrder(a, b) {
   const x = orderKey(a), y = orderKey(b);
   return x < y ? -1 : x > y ? 1 : 0;

@@ -266,7 +266,9 @@ function itemHours(item, guide) {
 }
 
 const fmtMins = m => (m > 0 && m % 1440 === 0 ? T('midnight') : fmtTime(`${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`));
-const rangeText = rs => rs.map(([a, b]) => (a === 0 && b >= 1440 ? T('all day') : `${fmtMins(a)} – ${fmtMins(b)}`)).join(', ');
+// A time stays on one line ("6:00 PM" never breaks before "PM").
+const oneLine = s => s.replace(/ /g, ' ');
+const rangeText = rs => rs.map(([a, b]) => (a === 0 && b >= 1440 ? T('all day') : `${oneLine(fmtMins(a))} – ${oneLine(fmtMins(b))}`)).join(', ');
 
 // A short line for a plan's card: a warning when closed, otherwise that day's hours.
 function hoursNote(item, guide) {
