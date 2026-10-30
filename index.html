@@ -3,8 +3,9 @@
 <head>
   <meta charset="utf-8">
   <!-- Safety net: the page only runs scripts from the app's own files (plus Google's bot check for the
-       AI Assistant). Text from a guide, a backup file or another device can never run as code. -->
-  <meta http-equiv="Content-Security-Policy" content="script-src 'self' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
+       AI Assistant). Text from a guide, a backup file or another device can never run as code.
+       And it only talks to the services the app uses (connect-src), so nothing can be sent anywhere else. -->
+  <meta http-equiv="Content-Security-Policy" content="script-src 'self' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; connect-src 'self' https://*.googleapis.com https://www.google.com https://www.gstatic.com https://photon.komoot.io https://nominatim.openstreetmap.org https://routing.openstreetmap.de https://overpass-api.de https://api.open-meteo.com https://tiles.openfreemap.org https://*.wikipedia.org https://*.wikivoyage.org https://*.wikidata.org https://api.web3forms.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#fff8f7">
   <meta name="description" content="Plan your trips day by day, together. Works offline.">

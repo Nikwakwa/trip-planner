@@ -8,6 +8,9 @@
    each, five at most. Fixes are never described, not even one people would notice: they are a
    single line, "Bug fixes", and a version with fixes only says just that. */
 const CHANGELOG = [
+  { v: '2.17.1', date: '2026-10-30', items: [
+    'Bug fixes',
+  ] },
   { v: '2.17.0', date: '2026-10-30', items: [
     'Plans without a time go before the day’s evening plans, not after them',
     'Bug fixes',

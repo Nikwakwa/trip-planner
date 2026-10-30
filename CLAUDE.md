@@ -209,7 +209,7 @@ is always looked up (`needsLookup`), a plan on the map only matches a place of t
 (5 miles; a destination of a country guide gets `MATCH_REACH`), and a plan without a spot only one near the plans
 around it (`plansAround`: its day, the day before and after). When the address found is a whole town or park and
 the guide place with the plan's name is inside it, the pin goes on that place. A short address on a country or
-region trip ("Hauptbahnhof") is first searched around the day's plans. The basemap is a MapLibre GL vector layer inside Leaflet (`L.maplibreGL`, vendored in `vendor/maplibre`),
+region trip ("Hauptbahnhof") is first searched around the day's plans. The basemap is a MapLibre GL (6.x, an ES module) vector layer inside Leaflet (`L.maplibreGL`, vendored in `vendor/maplibre`),
 using OpenFreeMap's "liberty" style as adjusted by `tuneMapStyle(style, theme)` in `mapstyle.js` (earlier POI labels;
 the dark theme is derived by recoloring every paint color, see `nightColor`). Pins, routes and popups stay Leaflet.
 If MapLibre or the style can't load, raster tiles are used: CARTO (Voyager / dark) when `window.CARTO_KEY` is set in
@@ -383,6 +383,16 @@ and `loadMapStyle` gives up after 8 seconds: a weak connection must not leave th
 - The policy also blocks plugins (`object-src 'none'`). The self-check guards it (it fails without `script-src 'self'`,
   with `unsafe-inline` or `unsafe-eval`), and fails on an `on…=` attribute or a `javascript:` link anywhere in the code,
   and on a link opening a new tab without `rel="noopener"`.
+- The policy lists the servers the page may talk to (`connect-src`: Firebase/Google, Photon, Nominatim, the OSM router,
+  Overpass, Open-Meteo, OpenFreeMap, Wikipedia/Wikivoyage/Wikidata, Web3Forms). A new outside service needs its host
+  added there, or its requests are blocked. The self-check fails on a `fetch(`/`getJSON(` address (written there or in
+  a `const NAME = 'https://…'`) that isn't on the list, and anything the policy blocks is noted in `recentErrors` (only
+  its site) for "Report a problem". Images aren't limited (photos and map tiles come from many hosts).
+- The vendored libraries are checked against GitHub's advisory database (`api.github.com/advisories?ecosystem=npm&affects=maplibre-gl@6.16.0`)
+  before a version is raised, and now and then. 2.17.1 left MapLibre 5 for 6.16 over CVE-2026-85061 (an XSS through a
+  style's attribution). MapLibre 6 is a module only: maps.js `import()`s `maplibre-gl.mjs` and sets `window.maplibregl`
+  for the bridge, and the map worker is `maplibre-gl-worker.mjs` next to it (both in `LIBS`). `tuneMapStyle` drops the
+  style's `attribution`s: the app writes its own credit line.
 - Everything written into the page goes through `esc()`, ids included. Wikivoyage, OpenStreetMap, AI answers and
   backup files are all text other people can write.
 - Attachments (`files.js`) accept photos and PDFs only (`SAFE_FILE`). No SVG or HTML: opened from a `blob:` address,

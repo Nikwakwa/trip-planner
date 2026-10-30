@@ -367,7 +367,8 @@ function loadLeaflet() {
       css.rel = 'stylesheet';
       css.href = 'vendor/maplibre/maplibre-gl.css';
       document.head.append(css);
-      await loadScript('vendor/maplibre/maplibre-gl.js');
+      // MapLibre is a module (it fetches its worker from the file next to it); the bridge looks for it as maplibregl.
+      window.maplibregl = await import(new URL('vendor/maplibre/maplibre-gl.mjs', document.baseURI).href);
       await loadScript('vendor/maplibre/leaflet-maplibre-gl.js');
       mapView.style = await loadMapStyle();
     } catch (e) {

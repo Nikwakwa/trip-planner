@@ -73,7 +73,8 @@ const FILES = [
 // The big libraries: the detailed map, and sign-in and sync. Saved too, so they are there offline
 // even if they were never used while online. The app still installs if one can't be fetched.
 const LIBS = [
-  'vendor/maplibre/maplibre-gl.js',
+  'vendor/maplibre/maplibre-gl.mjs',
+  'vendor/maplibre/maplibre-gl-worker.mjs',
   'vendor/maplibre/maplibre-gl.css',
   'vendor/maplibre/leaflet-maplibre-gl.js',
   'vendor/firebase/firebase-app-compat.js',

@@ -205,6 +205,14 @@ window.addEventListener('unhandledrejection', (e) => {
   const r = e.reason;
   noteError('Promise: ' + ((r && (r.message || r.code)) || r));
 });
+// Something the page's security policy stopped: most likely a service missing from its list (index.html).
+// Only the site is noted: a search address carries what was typed.
+document.addEventListener('securitypolicyviolation', (e) => {
+  let where = String(e.blockedURI || '');
+  try { where = new URL(where).origin; } catch { /* 'inline', 'eval'… */ }
+  if (where === 'https://apis.google.com') return;      // Firebase Auth's pop-up helper, blocked on purpose
+  noteError(`Blocked by the security policy (${e.effectiveDirective}): ${where}`);
+});
 
 /* ---------- What a tap does ----------
    A button or link with data-action="…" runs the action of that name. Each part of the app adds its own

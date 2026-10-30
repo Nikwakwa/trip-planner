@@ -51,10 +51,12 @@ foreach ($part in 'app', 'auth', 'firestore', 'app-check') {
 Write-Host "Firebase $fbVersion saved."
 
 # ---- MapLibre GL (draws the vector map) and its bridge to Leaflet ----
-$mlVersion = '5.24.0'
+# From version 6 it comes as a module (.mjs) with its map worker in a file next to it (maps.js loads it).
+# Before raising the version, check https://github.com/maplibre/maplibre-gl-js/security/advisories
+$mlVersion = '6.16.0'
 $mlBridge = '0.1.4'
 New-Item -ItemType Directory -Force (Join-Path $root 'vendor/maplibre') | Out-Null
-foreach ($f in 'dist/maplibre-gl.js', 'dist/maplibre-gl.css', 'LICENSE.txt') {
+foreach ($f in 'dist/maplibre-gl.mjs', 'dist/maplibre-gl-worker.mjs', 'dist/maplibre-gl.css', 'LICENSE.txt') {
   Invoke-WebRequest "https://unpkg.com/maplibre-gl@$mlVersion/$f" -OutFile (Join-Path $root "vendor/maplibre/$(Split-Path $f -Leaf)") -UseBasicParsing
 }
 Invoke-WebRequest "https://unpkg.com/@maplibre/maplibre-gl-leaflet@$mlBridge/leaflet-maplibre-gl.js" -OutFile (Join-Path $root 'vendor/maplibre/leaflet-maplibre-gl.js') -UseBasicParsing

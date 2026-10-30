@@ -63,6 +63,8 @@ function recolor(value, kind) {
 // The style, adjusted. theme: 'light' or 'dark'.
 function tuneMapStyle(style, theme) {
   const out = JSON.parse(JSON.stringify(style));
+  // The style's own credit lines are HTML from another site: the app writes its own (drawMap), so they go.
+  for (const source of Object.values(out.sources || {})) if (source) delete source.attribution;
   for (const layer of out.layers) {
     // Landmarks and places appear about one zoom level earlier.
     if (layer.id === 'poi_r1') layer.minzoom = 13.5;

@@ -815,6 +815,30 @@ function runChecks() {
     if (/unsafe-inline|unsafe-eval|script-src[^;]*\*/.test(csp)) return 'the policy lets other code run: ' + csp;
     return /object-src 'none'/.test(csp) || 'object-src \'none\' is missing';
   });
+  check('The page only talks to the services the app uses, and each one the code calls is on the list (connect-src)', () => {
+    const meta = page().querySelector('meta[http-equiv="Content-Security-Policy"]');
+    const csp = meta ? meta.getAttribute('content') : '';
+    const allowed = ((csp.match(/connect-src([^;]*)/) || [])[1] || '').trim().split(/\s+/).filter(Boolean);
+    if (!allowed.length || allowed.some(a => /^(\*|https?:|data:|blob:)$/.test(a))) return 'connect-src is missing, or lets the page talk to any server: ' + allowed.join(' ');
+    const ok = host => allowed.some((a) => {
+      const m = a.match(/^https:\/\/(\*\.)?([^/]+)\/?$/);
+      return m && (m[1] ? host.endsWith('.' + m[2]) : host === m[2]);
+    });
+    // Addresses written in a fetch(…) or getJSON(…), directly or through a constant (const OVERPASS = 'https://…').
+    const missing = [];
+    for (const [file, text] of sources().filter(([f]) => f.endsWith('.js'))) {
+      const consts = new Map([...text.matchAll(/^const ([A-Z_]+) = ['`]https:\/\/([^/'`]+)/gm)].map(m => [m[1], m[2]]));
+      for (const m of text.matchAll(/\b(?:fetch|getJSON)\(\s*(?:['`]https:\/\/([^/'`$]+)|`?\$?\{?([A-Z_]+)\b)/g)) {
+        const host = m[1] || consts.get(m[2]);
+        if (host && !ok(host)) missing.push(`${host} (${file})`);
+      }
+    }
+    return !missing.length || 'not in connect-src: ' + missing.join(', ');
+  });
+  check('The map style’s credit lines (HTML from another site) never reach the map', () => {
+    const style = { sources: { a: { type: 'vector', attribution: '<details open ontoggle=alert(1)>' } }, layers: [] };
+    return !('attribution' in tuneMapStyle(style, 'light').sources.a) || 'tuneMapStyle keeps the attribution';
+  });
   check('No code in the page’s HTML: no onclick="…", no javascript: links', () => {
     // The page's security policy would block them anyway; this says where they are.
     const bad = [];
