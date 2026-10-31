@@ -118,9 +118,9 @@ function renderPlanInfo() {
   const why = p && (!wiki || !wiki.text || said(p.about || p.blurb) !== said(wiki.text)) ? (p.about || p.blurb) : '';
   const site = safeUrl((p && p.url) || item.link);
   const facts = factsHTML([
-    [T('Usual hours'), p && p.hours],
-    [T('Price'), p && p.price],
-    [T('Getting there'), p && p.tip],
+    [T('Usual hours'), p && tr(p.hours)],
+    [T('Price'), p && tr(p.price)],
+    [T('Getting there'), p && tr(p.tip)],
     [T('Time to allow'), p && p.mins < 360 ? fmtDuration(p.mins) : ''],
     [T('Your notes'), item.notes],
   ]);
@@ -141,13 +141,13 @@ function renderPlanInfo() {
     ${wiki && wiki.text ? `
       <section class="tip">
         <h3>${icon('info')}${T('What it is')}</h3>
-        <p>${esc(wiki.text)}</p>
+        <p>${esc(tr(wiki.text))}</p>
         <div class="tip-links">${safeUrl(wiki.url) ? `<a class="assist-chip ripple" href="${esc(safeUrl(wiki.url))}" target="_blank" rel="noopener">${icon('open_in_new')}${T('Wikipedia: {title}', { title: esc(wiki.title) })}</a>` : ''}</div>
       </section>` : ''}
     ${why ? `
       <section class="tip">
         <h3>${icon('auto_awesome')}${T('Why go')}</h3>
-        <p>${esc(why)}</p>
+        <p>${esc(tr(why))}</p>
         <div class="tip-links">${guide.sourceUrl && !p.local ? `<a class="assist-chip ripple" href="${esc(guide.sourceUrl)}" target="_blank" rel="noopener">${icon('open_in_new')}${T('{source} travel guide', { source: esc(guide.source) })}</a>` : ''}</div>
       </section>` : ''}
     ${facts ? `
@@ -156,7 +156,8 @@ function renderPlanInfo() {
         ${facts}
         <p class="pi-small">${T('Hours and prices change — check before you go.')}</p>
       </section>` : ''}
-    ${looking ? `<p class="guide-note" role="status">${icon('travel_explore')}${T('Looking it up…')}</p>` : ''}
+    ${looking ? `<p class="guide-note" role="status">${icon('travel_explore')}${T('Looking it up…')}</p>`
+      : [wiki && wiki.text, why, p && p.hours, p && p.price, p && p.tip].some(translating) ? `<p class="guide-note" role="status">${icon('translate')}${T('Translating…')}</p>` : ''}
     ${!looking && !(wiki && wiki.text) && !why && !facts ? `<p class="supporting">${navigator.onLine
       ? T('Nothing found about this place. A fuller name or address on the plan can help.')
       : T('You’re offline. Open this once while online, and it is saved for later.')}</p>` : ''}
@@ -168,7 +169,9 @@ function renderPlanInfo() {
       ${item.date ? '' : ideaActionsHTML(item, trip)}
       <span class="spacer"></span>
       <button type="button" class="btn tonal ripple" data-action="plan-edit">${icon('edit')}${item.date ? T('Edit plan') : T('Edit')}</button>
-    </div>`;
+    </div>
+    ${(wiki && wiki.text) || why || (p && (p.hours || p.price || p.tip)) ? translatedNote() : ''}`;
+  $('#place-dialog').redraw = renderPlanInfo;      // when translations arrive (translate.js)
 }
 
 // An idea's sheet also gives it a heart (on a trip planned together) and puts it on a day.

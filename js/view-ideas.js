@@ -24,7 +24,7 @@ function placeHTML(p, added, trip) {
         <span class="item-text">
           <span class="overline">${esc(over)}</span>
           <span class="item-title">${esc(p.name)}</span>
-          <span class="item-notes">${esc(p.blurb)}</span>
+          <span class="item-notes">${esc(tr(p.blurb))}</span>
           <span class="more-link">${T('More')}${icon('arrow_forward')}</span>
         </span>
       </button>
@@ -116,7 +116,8 @@ function renderIdeas(trip) {
         : emptyState('travel_explore', T('Nothing here'), T('Try another filter.'))}
       <p class="footnote">${icon('schedule', 'sm')}${T('Opening hours change — check before you go.')}</p>
       ${guide.source === 'Wikivoyage' ? `<p class="footnote"><span>${T('Places and descriptions:')} <a href="${esc(guide.sourceUrl)}" target="_blank" rel="noopener">Wikivoyage</a>, CC BY-SA.</span></p>` : ''}
-      ${guide.source === 'Wikipedia' ? `<p class="footnote">${T('Places and descriptions:')} Wikipedia, CC BY-SA.</p>` : ''}`;
+      ${guide.source === 'Wikipedia' ? `<p class="footnote">${T('Places and descriptions:')} Wikipedia, CC BY-SA.</p>` : ''}
+      ${translatedNote()}`;
   }
   $('#view-ideas').innerHTML = html;
 }
@@ -144,9 +145,10 @@ function openPlaceInfo(id, day) {
       <button type="button" class="icon-btn ripple" data-close aria-label="${T('Close')}">${icon('close')}</button>
     </div>
     ${tags.trim() ? `<div class="pi-tags">${tags}</div>` : ''}
-    <p class="pi-text">${esc(p.about || p.blurb)}</p>
-    ${p.hours ? `<p class="pi-hours">${icon('schedule')}<span>${esc(p.hours)}</span></p>` : ''}
-    ${factsHTML([[T('Price'), p.price], [T('Getting there'), p.tip]])}
+    <p class="pi-text">${esc(tr(p.about || p.blurb))}</p>
+    ${p.hours ? `<p class="pi-hours">${icon('schedule')}<span>${esc(tr(p.hours))}</span></p>` : ''}
+    ${factsHTML([[T('Price'), tr(p.price)], [T('Getting there'), tr(p.tip)]])}
+    ${[p.about || p.blurb, p.hours, p.price, p.tip].some(translating) ? `<p class="guide-note" role="status">${icon('translate')}${T('Translating…')}</p>` : ''}
     <div class="pi-links">
       <a class="assist-chip ripple" href="${esc(mapsUrl(p.place || p.name, trip, p))}" target="_blank" rel="noopener">${icon('map')}${T('Map')}</a>
       ${safeUrl(p.url) ? `<a class="assist-chip ripple" href="${esc(safeUrl(p.url))}" target="_blank" rel="noopener">${icon('link')}${esc(hostLabel(safeUrl(p.url)))}</a>` : ''}
@@ -159,8 +161,11 @@ function openPlaceInfo(id, day) {
            <span class="spacer"></span>
            <button type="button" class="btn filled lg ripple" data-action="add-suggestion" data-place="${esc(p.id)}" data-date="${day || ''}">
              ${icon('add')}${day ? T('Add to {day}', { day: esc(dayName) }) : T('Save to ideas')}</button>`}
-    </div>`;
-  $('#place-dialog').showModal();
+    </div>
+    ${translatedNote()}`;
+  const dlg = $('#place-dialog');
+  dlg.redraw = () => openPlaceInfo(id, day);      // when translations arrive (translate.js)
+  if (!dlg.open) dlg.showModal();
 }
 
 /* ---------- Taps on Ideas, and on the guide's places ---------- */

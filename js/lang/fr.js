@@ -525,6 +525,7 @@ DICTS.fr = {
   '<b>Wikivoyage, Wikipedia and Wikidata</b>: your destination and the area around your plans, for guides, photos and essentials. <b>Open-Meteo</b>: your destination, or the area of a day’s stay and plans, for the weather.': '<b>Wikivoyage, Wikipédia et Wikidata</b> : votre destination et la zone autour de vos activités, pour les guides, les photos et l’essentiel. <b>Open-Meteo</b> : votre destination, ou la zone de l’hébergement et des activités d’une journée, pour la météo.',
   '<b>The map</b> (OpenFreeMap, CARTO or OpenStreetMap): the part of the map you look at.': '<b>La carte</b> (OpenFreeMap, CARTO ou OpenStreetMap) : la partie de la carte que vous regardez.',
   '<b>Google Gemini</b>: when you send a message to the AI Assistant, the message and that trip’s plans. “Flag plans that sell out” in Settings sends the names of your plans. Google’s reCAPTCHA checks that these requests really come from the app.': '<b>Google Gemini</b> : quand vous envoyez un message à l’Assistant IA, le message et les activités du voyage. « Signaler les activités souvent complètes » dans les Paramètres envoie le nom de vos activités. reCAPTCHA de Google vérifie que ces demandes viennent bien de l’app.',
+  'In French, the descriptions from the travel guide, Wikipedia and the essentials are also sent to Gemini to be translated: only those texts, never your plans.': 'En français, les descriptions du guide de voyage, de Wikipédia et de « L’essentiel » sont aussi envoyées à Gemini pour être traduites : seulement ces textes, jamais vos activités.',
   '<b>Web3Forms</b> (an email service): when you send “Report a problem”, what you wrote, your email if you gave it, the app’s version and the kind of device. It reaches the person who runs this copy of the app.': '<b>Web3Forms</b> (un service d’e-mail) : quand vous envoyez « Signaler un problème », ce que vous avez écrit, votre e-mail si vous l’avez donné, la version de l’app et le type d’appareil. Cela parvient à la personne qui gère cette copie de l’app.',
   'Your location (“Near me”) is used on this device only.': 'Votre position (« Autour de moi ») n’est utilisée que sur cet appareil.',
   'Like any website, the app’s host (GitHub) sees your device’s internet address when the app loads.': 'Comme pour tout site web, l’hébergeur de l’app (GitHub) voit l’adresse Internet de votre appareil quand l’app se charge.',
@@ -690,6 +691,8 @@ DICTS.fr = {
   'Know before you go': 'À savoir avant d’y aller',
   'Hours and prices change — check before you go.': 'Horaires et prix changent — vérifiez avant d’y aller.',
   'Looking it up…': 'Recherche…',
+  'Translating…': 'Traduction…',
+  'Descriptions translated automatically from English.': 'Descriptions traduites automatiquement de l’anglais.',
   'Nothing found about this place. A fuller name or address on the plan can help.': 'Rien trouvé sur ce lieu. Un nom ou une adresse plus complets sur l’activité peuvent aider.',
   'You’re offline. Open this once while online, and it is saved for later.': 'Vous êtes hors ligne. Ouvrez ceci une fois en ligne, et ce sera enregistré pour plus tard.',
 
@@ -907,6 +910,8 @@ DICTS.fr = {
   'last synced {when}': 'dernière synchronisation {when}',
 
   /* ---------- What's new (version.js) ---------- */
+  'In French, the descriptions from the travel guide, Wikipedia and the essentials are translated': 'Les descriptions du guide de voyage, de Wikipédia et de « L’essentiel » sont maintenant en français',
+  'In French, the map shows place names in French': 'La carte affiche les noms de lieux en français',
   'Plans from the travel guide show its description on their card, like ideas': 'Les activités tirées du guide de voyage affichent sa description sur leur carte, comme les idées',
   'Ideas saved from Explore keep their photo, description and time to allow. Tap one to see everything about it': 'Les idées enregistrées depuis Explorer gardent leur photo, leur description et la durée à prévoir. Touchez-en une pour tout voir',
   'On a trip’s first and last day, the address search also finds places far away, like your home': 'Le premier et le dernier jour d’un voyage, la recherche d’adresse trouve aussi les lieux lointains, comme votre domicile',

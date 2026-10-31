@@ -167,7 +167,7 @@ function saveLocal() {
   const text = JSON.stringify(state);
   // When the storage is full, what can be fetched again makes room for the plans: what was read about
   // places, road routes, opening hours, forecasts, then the saved guides (they stay in use until the app is closed).
-  for (const makeRoom of [null, INFO_KEY, ROUTES_KEY, HOURS_KEY, WEATHER_KEY, GUIDES_KEY]) {
+  for (const makeRoom of [null, TRANSLATIONS_KEY, INFO_KEY, ROUTES_KEY, HOURS_KEY, WEATHER_KEY, GUIDES_KEY]) {
     try {
       if (makeRoom) localStorage.removeItem(makeRoom);
       localStorage.setItem(STORAGE_KEY, text);

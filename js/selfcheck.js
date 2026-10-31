@@ -1024,6 +1024,29 @@ function runChecks() {
     return same([card.includes('A &lt;castle&gt; on the hill.'), card.includes(fmtDuration(90)), card.includes(`· ${T('Free')}`), /item-main[^>]*data-action="plan-info"/.test(card),
       plan.includes('on the hill'), plan.includes(fmtDuration(90)), /item-main[^>]*data-action="edit"/.test(plan)], [true, true, true, true, true, true, true]);
   }));
+  check('In French, a guide text shows translated once its translation is on the device, and as it is meanwhile', () => {
+    const was = LANG, saved = translations.saved;
+    try {
+      LANG = 'fr';
+      translations.saved = { [textKey('Open daily.', 'fr')]: ['Ouvert tous les jours.', Date.now()] };
+      const got = [tr('Open daily.'), tr(''), tr('Something new.'), !aiReady() || translating('Something new.')];
+      LANG = 'en';
+      return same([...got, tr('Open daily.'), translating('Open daily.')], ['Ouvert tous les jours.', '', 'Something new.', true, 'Open daily.', false]);
+    } finally {
+      LANG = was;
+      translations.saved = saved;
+      translations.queue.clear();
+      clearTimeout(translations.timer);
+      translations.timer = 0;
+    }
+  });
+  check('A translation answer is used only when it has one text per text asked, none of them far too long', () =>
+    same([readTranslations('{"texts":["Un","Deux"]}', ['One', 'Two']), readTranslations('{"texts":["Un"]}', ['One', 'Two']),
+      readTranslations('{"texts":["Un", "' + 'x'.repeat(200) + '"]}', ['One', 'Two']), readTranslations('nope', ['One'])],
+    [['Un', 'Deux'], ['', ''], ['Un', ''], ['']]));
+  check('In French, map labels ask for the French name first, then the English one as before', () =>
+    same(namesIn(['case', ['has', 'x'], ['get', 'name'], ['coalesce', ['get', 'name_en'], ['get', 'name']]], 'fr'),
+      ['case', ['has', 'x'], ['get', 'name'], ['coalesce', ['coalesce', ['get', 'name:fr'], ['get', 'name_en']], ['get', 'name']]]));
   check('A destination\'s words read whole: no comma first, the name back before "is", a period at the end', () =>
     same([markerText('Flic en Flac', ', a local fishing village'), markerText('Curepipe', ' is the largest highland city.'),
       markerText('Port Louis', '— capital of Mauritius'), markerText('Chamarel', '  '), markerText('Blue Bay', ', bluest water ever seen!')],

@@ -63,7 +63,7 @@ function itemHTML(item, trip, { showDate = false, drag = false, note = null, sch
           ${note && !item.done ? `<span class="item-hours ${note.warn ? 'warn' : ''}">${icon(note.warn ? 'event_busy' : 'schedule')}${esc(note.text)}</span>` : ''}
           ${book ? `<span class="item-hours book">${icon('confirmation_number')}${esc(book.text)}</span>` : ''}
           ${hearts && hearts.length ? `<span class="item-hours hearts">${icon('favorite-fill')}${esc(heartNames(trip, hearts))}</span>` : ''}
-          ${p && p.blurb ? `<span class="item-notes">${esc(p.blurb)}</span>` : ''}
+          ${p && p.blurb ? `<span class="item-notes">${esc(tr(p.blurb))}</span>` : ''}
           ${item.notes ? `<span class="item-notes">${esc(item.notes)}</span>` : ''}
           ${details ? `<span class="more-link">${T('More')}${icon('arrow_forward')}</span>` : ''}
         </span>
@@ -302,7 +302,7 @@ function suggestionCard(r, day) {
         <span class="s-photo" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}${photoImg(p, '')}${whenTag(p)}</span>
         <span class="s-name">${esc(p.name)}</span>
         ${why ? `<span class="s-why">${why}</span>` : ''}
-        <span class="s-blurb">${esc(p.blurb)}</span>
+        <span class="s-blurb">${esc(tr(p.blurb))}</span>
         <span class="more-link">${T('More')}${icon('arrow_forward')}</span>
       </button>
       <div class="s-foot">

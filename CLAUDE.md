@@ -72,7 +72,7 @@ stays at the root. `index.html` loads `js/theme.js` in the `<head>`, then at the
   dates and times, `travel`, `fmtDist`, `safeUrl`, `mapsUrl`…), the errors of the visit (`noteError`, listening from the
   start) and the action table (`onAction`);
 - the features: `places.js` → `weather.js` → `hours.js` → `essentials.js` → `mapstyle.js` → `maps.js` → `routes.js` →
-  `drag.js` → `today.js` → `calendar.js` → `files.js` → `packing.js` → `info.js` → `assistant.js` → `vote.js` →
+  `drag.js` → `today.js` → `calendar.js` → `files.js` → `packing.js` → `info.js` → `assistant.js` → `translate.js` → `vote.js` →
   `share.js` → `sync.js`;
 - the screen: `ui.js` (shapes, empty states, `snackbar`, `askConfirm`, photos, theme colors, `tick`, ripple) →
   `guide.js` (which guide place a plan is, `planSuggestions`, Auto-fill, `bookingNote`) → `store.js` (`state`: defaults,
@@ -125,7 +125,7 @@ listener in render.js. Don't add another document-wide click listener for button
   user text through `esc()`, and all user URLs through `safeUrl()`.
 - Two safety nets, for when nobody can fix the app: a section that throws while drawing shows "This screen can’t be
   shown" (`renderFailed`; the other sections and Settings keep working, and the error goes with "Report a problem"),
-  and when the storage is full `saveLocal` drops what can be fetched again (info, hours, forecasts, then guides) to
+  and when the storage is full `saveLocal` drops what can be fetched again (translations, info, hours, forecasts, then guides) to
   save the plans.
 - A phone keeps the app open for days. Back on screen after 5 minutes, or on a new day, `catchUp()` (end of app.js)
   redraws; on a new day the Plan jumps to today's card (not with a sheet open).
@@ -211,9 +211,16 @@ localStorage `tripPlanner.guides` (up to 10). `planSuggestions` (guide.js) and E
 - "What's new" items are translated at display (`T(t)`): a new `CHANGELOG` line needs its French in lang/fr.js.
 - `fmtNum` writes decimals with a comma in French (`fmtDist`, `fmtDuration`). French plurals: 0 and 1 are
   singular (`Intl.PluralRules`). lang/fr.js turns the space before `? ! : ; % »` into a non-breaking one.
-- What stays English on purpose: guide content (Wikivoyage, the Wikipedia "What it is", read in English because
-  guide place names are English: fr.wikipedia matched the wrong articles), "Report a problem" details (for the
-  owner; they say the app's language), the self-check (it switches `LANG` to English while it runs).
+- Texts other people wrote (`translate.js`, 2.27): guide content (Wikivoyage, the Wikipedia "What it is") and the
+  Essentials tips are read in English, because guide place names are English and the matching relies on them
+  (fr.wikipedia matched the wrong articles). They are translated where they are shown: `tr(text)` gives the
+  translation saved on the device (`tripPlanner.translations`, 2500 at most, never synced), or the English text
+  while Gemini Flash-Lite translates it (texts batched, ~5000 characters a request, 4 s apart; one count mismatch
+  drops the whole batch). Use `tr()` for any new outside text shown, never on names or on what the user typed.
+  A sheet showing such text sets `dlg.redraw` and shows `translating(…)` / `translatedNote()`. In French the
+  map's labels ask for `name:fr` first (`namesIn`, mapstyle.js).
+- What stays English on purpose: place names, "Report a problem" details (for the owner; they say the app's
+  language), the self-check (it switches `LANG` to English while it runs), links to Wikivoyage/Wikipedia pages.
 - Language-aware outside calls: Photon place search (`lang`), Wikidata labels in Essentials (`factsLang`; saved
   essentials carry `lang` and are fetched again in the other language), the AI Assistant (a line in
   `tripContext` asks for replies and new plan titles in that language; booking answers are kept per language).

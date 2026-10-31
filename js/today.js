@@ -234,7 +234,7 @@ function renderNearMe() {
               <span class="item-title">${esc(p.name)}</span>
               ${open === true ? `<span class="item-hours">${icon('schedule')}${T('Open now')}</span>` : ''}
               ${open === false ? `<span class="item-hours warn">${icon('event_busy')}${T('Closed now')}</span>` : ''}
-              <span class="item-notes">${esc(p.blurb)}</span>
+              <span class="item-notes">${esc(tr(p.blurb))}</span>
             </span>
           </button>
         </li>`;

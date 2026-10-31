@@ -5,7 +5,7 @@
 // "Erase everything" also clears what is kept on this device only: tickets, assistant chats,
 // hidden packing suggestions, and the saved guides, forecasts, opening hours and essentials.
 function eraseDeviceData() {
-  for (const key of [AI_KEY, PACKING_KEY, GUIDES_KEY, WEATHER_KEY, HOURS_KEY, ESSENTIALS_KEY, INFO_KEY, ROUTES_KEY]) {
+  for (const key of [AI_KEY, PACKING_KEY, GUIDES_KEY, WEATHER_KEY, HOURS_KEY, ESSENTIALS_KEY, INFO_KEY, ROUTES_KEY, TRANSLATIONS_KEY]) {
     try { localStorage.removeItem(key); } catch { /* storage unavailable */ }
   }
   ai.saved = { chats: {}, booking: {} };
@@ -18,6 +18,7 @@ function eraseDeviceData() {
   roadRoutes.saved = {};
   essentials.saved = {};
   planInfo.saved = {};
+  translations.saved = {};
   joinedGuides.clear();
   eraseFiles();     // files.js
 }

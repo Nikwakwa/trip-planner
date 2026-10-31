@@ -270,7 +270,7 @@ function renderEssentials() {
     return `
       <section class="tip">
         <h3>${icon(def.icon)}${def.title}</h3>
-        ${s.text ? `<p>${esc(s.text)}</p>` : ''}
+        ${s.text ? `<p>${esc(tr(s.text))}</p>` : ''}
         <div class="tip-links">
           ${s.url ? `<a class="assist-chip ripple" href="${esc(s.url)}" target="_blank" rel="noopener">${icon('open_in_new')}${T('More on Wikivoyage')}</a>` : ''}
           ${s.phrasebook ? `<a class="assist-chip ripple" href="${esc(s.phrasebook.url)}" target="_blank" rel="noopener">${icon('translate')}${esc(s.phrasebook.title)}</a>` : ''}
@@ -281,6 +281,8 @@ function renderEssentials() {
   body.innerHTML = `
     ${tiles ? `<div class="facts">${tiles}</div>` : ''}
     ${sections}
+    ${e.sections.some(s => translating(s.text)) ? `<p class="guide-note" role="status">${icon('translate')}${T('Translating…')}</p>` : ''}
+    ${e.sections.some(s => s.text) ? translatedNote() : ''}
     <p class="footnote">${T('Facts: Wikidata. Tips: Wikivoyage, CC BY-SA. Saved on your device {day}.', { day: esc(new Date(e.t).toLocaleDateString(dateLocale(), { month: 'short', day: 'numeric' })) })}</p>`;
 }
 

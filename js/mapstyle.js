@@ -61,6 +61,13 @@ function recolor(value, kind) {
 }
 
 // The style, adjusted. theme: 'light' or 'dark'.
+// A label's expression with the English name ["get", "name_en"] asked in another language first.
+function namesIn(expr, lang) {
+  if (!Array.isArray(expr)) return expr;
+  if (expr.length === 2 && expr[0] === 'get' && expr[1] === 'name_en') return ['coalesce', ['get', `name:${lang}`], expr];
+  return expr.map(x => namesIn(x, lang));
+}
+
 function tuneMapStyle(style, theme) {
   const out = JSON.parse(JSON.stringify(style));
   // The style's own credit lines are HTML from another site: the app writes its own (drawMap), so they go.
@@ -72,6 +79,8 @@ function tuneMapStyle(style, theme) {
     if (layer.id === 'poi_r20') layer.minzoom = 16;
     // Bus stops only once zoomed in to street level: at city level they crowd out everything else.
     if (layer.id === 'poi_transit') layer.filter = ['all', layer.filter, ['any', ['!=', ['get', 'class'], 'bus'], ['>=', ['zoom'], 15]]];
+    // Names in the app's language when the map has them ("Allemagne", "Londres"), else as before (the English one).
+    if (LANG !== 'en' && layer.layout && layer.layout['text-field']) layer.layout['text-field'] = namesIn(layer.layout['text-field'], LANG);
     if (theme !== 'dark') continue;
 
     if (layer.type === 'raster') { layer.layout = { ...layer.layout, visibility: 'none' }; continue; }   // shaded relief: daytime only

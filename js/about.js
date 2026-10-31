@@ -25,6 +25,7 @@ function openPrivacy() {
       T('<b>Wikivoyage, Wikipedia and Wikidata</b>: your destination and the area around your plans, for guides, photos and essentials. <b>Open-Meteo</b>: your destination, or the area of a day’s stay and plans, for the weather.'),
       T('<b>The map</b> (OpenFreeMap, CARTO or OpenStreetMap): the part of the map you look at.'),
       aiReady() && T('<b>Google Gemini</b>: when you send a message to the AI Assistant, the message and that trip’s plans. “Flag plans that sell out” in Settings sends the names of your plans. Google’s reCAPTCHA checks that these requests really come from the app.'),
+      aiReady() && LANG !== 'en' && T('In French, the descriptions from the travel guide, Wikipedia and the essentials are also sent to Gemini to be translated: only those texts, never your plans.'),
       window.REPORT_KEY && T('<b>Web3Forms</b> (an email service): when you send “Report a problem”, what you wrote, your email if you gave it, the app’s version and the kind of device. It reaches the person who runs this copy of the app.'),
       T('Your location (“Near me”) is used on this device only.'),
       T('Like any website, the app’s host (GitHub) sees your device’s internet address when the app loads.'),

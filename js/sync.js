@@ -595,7 +595,10 @@ function syncErrorText(err) {
   if (code.startsWith('auth/api-key-not-valid') || code === 'auth/invalid-api-key') {
     return T('The Firebase settings in firebase-config.js look wrong (see README).');
   }
-  return texts[code] || (err && err.message) || T('Something went wrong.');
+  // Firebase's own messages are in English: in another language, only its code is added.
+  if (texts[code]) return texts[code];
+  if (LANG === 'en' && err && err.message) return err.message;
+  return code ? `${T('Something went wrong.')} (${code})` : T('Something went wrong.');
 }
 
 // How many changes made on this phone the account hasn't confirmed yet (counted per trip, plan or checklist item).
