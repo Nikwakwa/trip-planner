@@ -11,7 +11,7 @@
    ========================================================= */
 
 const GUIDES_KEY = 'tripPlanner.guides';
-const GUIDE_VERSION = 7;          // 2: full descriptions ("about") and opening hours; 3: photos; 4: price, website, photos of destinations; 5: how well known ("fame"); 6: descriptions no longer lose text at "U.S." or "3.5"; 7: photos by their direct address. Older saved guides are refreshed.
+const GUIDE_VERSION = 8;          // 2: full descriptions ("about") and opening hours; 3: photos; 4: price, website, photos of destinations; 5: how well known ("fame"); 6: descriptions no longer lose text at "U.S." or "3.5"; 7: photos by their direct address; 8: destinations' words read whole, else from Wikipedia. Older saved guides are refreshed.
 const MAX_SAVED_GUIDES = 16;
 const WIKIVOYAGE = 'https://en.wikivoyage.org/w/api.php';
 
@@ -330,7 +330,7 @@ function readListings(page, area) {
     // A marker's description follows it on the same line: "{{marker|…}} – the northern capital".
     let content = p.content || '';
     if (t.name === 'marker') {
-      content = page.text.slice(t.end, page.text.indexOf('\n', t.end) >>> 0).replace(/^\s*[–—-]\s*/, '');
+      content = markerText(name, plainText(page.text.slice(t.end, page.text.indexOf('\n', t.end) >>> 0)));
     }
     const lat = parseFloat(p.lat), lng = parseFloat(p.long);
     out.push({
@@ -351,6 +351,66 @@ function readListings(page, area) {
     });
   }
   return out;
+}
+
+// A marker's words go on from its name: "{{marker|…}}, a fishing village", "{{marker|…}} is the largest
+// town", "{{marker|…}} — capital". The comma or dash goes, a sentence that needs the name gets it back
+// ("Curepipe is the largest town"), and it ends with a period.
+const GOES_ON = /^(?:is|are|was|were|has|have|had|offers|boasts|lies|sits|hosts|features|contains|includes|provides|stands|remains|became|attracts)\b/;
+function markerText(name, text) {
+  let t = text.replace(/^[\s,;:–—-]+/, '').trim();
+  if (!t) return '';
+  if (GOES_ON.test(t)) t = `${name} ${t}`;
+  return /[\p{L}\p{N}"'”’)]$/u.test(t) ? t + '.' : t;
+}
+
+// What the start of a Wikipedia article says, for a destination: its first sentence, and the first
+// one about why people go ("known for", "popular with surfers"), without brackets (pronunciation) or other names.
+const DRAWS = /\b(?:known for|famous|popular|attract|touris|visitors|beach|resort|surf|scenic|picturesque|landmark|heritage|historic|museum|waterfall|falls\b|hiking|national park|diving|snorkel|lagoon|old town|castle|cathedral)/i;
+function introText(extract, name) {
+  let text = String(extract || '').replace(/\s+/g, ' ');
+  for (let k = 0; k < 3; k++) text = text.replace(/\s*\([^()]*\)/g, '');
+  text = text.replace(/,?\s+(?:also\s+)?known as [^,.]+,/g, '').replace(/\s+([,.;:])/g, '$1').trim();
+  if (!text) return { blurb: '', about: '' };
+  const [first, ...rest] = sentencesOf(text).map(s => s.trim());
+  const draw = rest.find(s => DRAWS.test(s));
+  // Alone, "Today it is known for…" needs its name back.
+  const short = !draw ? first : (first + ' ' + draw).length <= 170 ? first + ' ' + draw : draw.replace(/^(?:today,?\s+)?it\b/i, name);
+  return { blurb: shortBlurb(short), about: longBlurb(text) };
+}
+
+// Destinations a page lists without a word ("{{marker|…|name=Chamarel}}"): the start of their Wikipedia
+// article, found by the Wikidata id, else by name. Taken only when the article is about a place nearby
+// ("Tamarin" alone is a monkey).
+async function fillIntros(list) {
+  const bare = list.filter(x => !x.blurb && (x.type === 'city' || x.type === 'vicinity') && x.lat !== null);
+  if (!bare.length) return;
+  const ids = [...new Set(bare.filter(x => x.wikidata).map(x => x.wikidata))];
+  const titleOf = new Map();
+  for (let i = 0; i < ids.length; i += 50) {
+    const data = await getJSON('https://www.wikidata.org/w/api.php', wm({ action: 'wbgetentities', ids: ids.slice(i, i + 50).join('|'), props: 'sitelinks', sitefilter: 'enwiki' }));
+    for (const [id, e] of Object.entries(data.entities || {})) {
+      if (e.sitelinks && e.sitelinks.enwiki) titleOf.set(id, e.sitelinks.enwiki.title);
+    }
+  }
+  const wanted = bare.map(x => [x, titleOf.get(x.wikidata) || x.name]);
+  for (let i = 0; i < wanted.length; i += 20) {
+    const part = wanted.slice(i, i + 20);
+    const data = await getJSON('https://en.wikipedia.org/w/api.php', wm({
+      action: 'query', prop: 'extracts|coordinates', exintro: '1', explaintext: '1', exlimit: 'max', colimit: 'max', redirects: '1',
+      titles: [...new Set(part.map(w => w[1]))].join('|'),
+    }));
+    const renamed = rows => new Map((rows || []).map(r => [r.from, r.to]));
+    const normalized = renamed(data.query.normalized), redirects = renamed(data.query.redirects);
+    const pages = new Map((data.query.pages || []).map(p => [p.title, p]));
+    for (const [x, asked] of part) {
+      const title = normalized.get(asked) || asked;
+      const page = pages.get(redirects.get(title) || title);
+      const c = page && page.coordinates && page.coordinates[0];
+      if (!page || !page.extract || !c || miles(x, { lat: c.lat, lng: c.lon }) > 30) continue;
+      Object.assign(x, introText(page.extract, x.name));
+    }
+  }
 }
 
 // Titles of a big city's district pages, e.g. "Lisbon/Alfama".
@@ -504,9 +564,10 @@ async function wikivoyageGuide(place) {
   list = bestListings(list.filter(x => x.lat !== null && miles(place, x) < reach), 160);
   if (list.length < 5) return null;
   await fillThumbs(list).catch(() => {});
+  await fillIntros(list).catch(() => {});
 
   const isDestinations = list.filter(x => x.type === 'city' || x.type === 'vicinity').length >= list.length * 0.6;
-  const places = listingPlaces(list, place.name);
+  const places = listingPlaces(list);
 
   // Neighborhoods for empty days: the city's districts, or groups of nearby places.
   let dayAreas = [];
@@ -563,8 +624,8 @@ function bestListings(list, max) {
     .slice(0, max);
 }
 
-// Listings → the guide's places. inName: the city or country, for a destination without a description.
-function listingPlaces(list, inName) {
+// Listings → the guide's places.
+function listingPlaces(list) {
   // Each place needs its own id: two names can come out the same once shortened to plain letters.
   const usedIds = new Set();
   const placeId = (x) => {
@@ -590,7 +651,7 @@ function listingPlaces(list, inName) {
       /^\s*free\b/i.test(x.price) ? 'free' : '',
       x.type !== 'city' && RAINY.test(x.name) ? 'rainy' : '',
     ].filter(Boolean),
-    blurb: x.blurb || (x.type === 'city' ? T('A destination in {place}.', { place: inName }) : ''),
+    blurb: x.blurb,
     ...(photoOf(x) ? { photo: photoOf(x) } : {}),
     ...(x.hours ? { hours: x.hours } : {}),
     ...(x.about.length > x.blurb.length ? { about: x.about } : {}),
@@ -654,7 +715,7 @@ async function nearbyGuide(center) {
     center: { lat: Math.round(center.lat * 1e4) / 1e4, lng: Math.round(center.lng * 1e4) / 1e4 },
     dayAreas: [],
     dayTitles: {},
-    places: listingPlaces(list, ''),
+    places: listingPlaces(list),
   };
 }
 

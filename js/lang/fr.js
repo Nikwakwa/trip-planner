@@ -558,7 +558,6 @@ DICTS.fr = {
   'Around {name}': 'Autour de {name}',
   'Ideas for a day around {name}': 'Idées pour une journée autour de {name}',
   'Destination': 'Destination',
-  'A destination in {place}.': 'Une destination à découvrir ({place}).',
   'Cloudy': 'Nuageux',
   'Clear': 'Dégagé',
   'Partly cloudy': 'Partiellement nuageux',

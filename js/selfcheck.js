@@ -1007,8 +1007,19 @@ function runChecks() {
       x('C', { image: 'C.jpg' }),
       x('D', { image: 'Map.svg' }),
       x('E', { photoUrl: 'https://thumb.wikimedia.org/e.jpg' }),
-    ], 'X').map(p => p.photo || '');
+    ]).map(p => p.photo || '');
     return same(photos, ['https://thumb.wikimedia.org/a.jpg', '', commonsPhoto('C.jpg'), '', 'https://thumb.wikimedia.org/e.jpg']);
+  });
+  check('A destination\'s words read whole: no comma first, the name back before "is", a period at the end', () =>
+    same([markerText('Flic en Flac', ', a local fishing village'), markerText('Curepipe', ' is the largest highland city.'),
+      markerText('Port Louis', '— capital of Mauritius'), markerText('Chamarel', '  '), markerText('Blue Bay', ', bluest water ever seen!')],
+    ['a local fishing village.', 'Curepipe is the largest highland city.', 'capital of Mauritius.', '', 'bluest water ever seen!']));
+  check('A destination without words gets the start of its Wikipedia article, with why people go', () => {
+    const got = introText('Tamarin (Mauritian Creole pronunciation: [tamaʁɛ̃] ) is a village on the western coast of Mauritius. It has long been the seat of the council.\nTamarin is especially popular with surfers.', 'Tamarin');
+    const long = introText('Chamarel, also known as Chamarelle, is a village in Mauritius mainly located in Rivière Noire District. Today it is primarily known for its scenic locations and nature attractions, among them the Seven Coloured Earths and the Chamarel Falls.', 'Chamarel');
+    return same([got.blurb, long.blurb], ['Tamarin is a village on the western coast of Mauritius. Tamarin is especially popular with surfers.',
+      'Chamarel is primarily known for its scenic locations and nature attractions, among them the Seven Coloured Earths and the Chamarel Falls.'])
+      && got.about.startsWith('Tamarin is a village') || `got ${stable([got, long])}`;
   });
   check('Essentials show the voltage at a wall socket, not the three-phase one (France said "400 V")', () =>
     same([['400', '230'], ['220', '127'], ['120'], ['11000'], []].map(socketVolts), ['230 V', '127/220 V', '120 V', '', '']));
