@@ -67,6 +67,13 @@ function tidyTrip(t, newId = false) {
   }
   if ('travel' in out && !TRAVEL_MODES[out.travel]) delete out.travel;
   if ('shared' in out && !isId(out.shared)) delete out.shared;      // share.js: planned with other people
+  // share.js: on a trip planned together, the ideas each account gave a heart to (account → plan ids).
+  if ('hearts' in out) {
+    const h = out.hearts && typeof out.hearts === 'object' && !Array.isArray(out.hearts) ? out.hearts : {};
+    const own = Object.entries(h).map(([who, ids]) => [who, Array.isArray(ids) ? [...new Set(ids.filter(isId))] : []])
+      .filter(([who, ids]) => isId(who) && ids.length);
+    if (own.length) out.hearts = Object.fromEntries(own); else delete out.hearts;
+  }
   if ('dayTravel' in out) {
     const own = out.dayTravel && typeof out.dayTravel === 'object'
       ? Object.entries(out.dayTravel).filter(([d, m]) => isDate(d) && typeof m === 'string' && TRAVEL_MODES[m]) : [];

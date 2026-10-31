@@ -7,7 +7,8 @@
    The app keeps working offline; changes are sent once back online.
 
    How it works: the plans are stored as small documents in the account
-   ("trip_…", "item_…", "check_…", and "arch_…" for an archived trip). After every change the app compares its
+   ("trip_…", "item_…", "check_…", "arch_…" for an archived trip, and on a trip planned
+   together "heart_…" for the ideas one person likes). After every change the app compares its
    plans with what the account has and sends only the differences. When
    another phone changes something, the account tells this phone right away.
 
@@ -19,7 +20,7 @@
 
 const SYNC_KEY = 'tripPlanner.sync';
 const FIREBASE_FILES = ['app', 'auth', 'firestore'].map(p => `vendor/firebase/firebase-${p}-compat.js`);
-const SYNCED_KINDS = /^(trip|item|check|todo|arch)_/;      // the documents this version of the app writes and removes
+const SYNCED_KINDS = /^(trip|item|check|todo|arch|heart)_/;      // the documents this version of the app writes and removes
 
 const sync = {
   configured: !!(window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.apiKey),
@@ -96,13 +97,16 @@ function stateDocs(s, space = '') {
   let pos = 0;
   for (const t of s.trips) {
     if ((t.shared || '') !== space) continue;
-    const { items, todos, shared, ...trip } = t;
+    const { items, todos, shared, hearts, ...trip } = t;
     // A shared trip has no place in the list of trips: everyone on it keeps their own order.
     out[docKey('trip', t.id)] = stable({ k: 'trip', pos: space ? 0 : pos++, ...trip });
     items.forEach((it, i) => { out[docKey('item', it.id)] = stable({ k: 'item', trip: t.id, pos: i, ...it }); });
     // The trip's own list (things to pack or do, for everyone on the trip): "todo", so that it is never
     // taken for the account's checklist, and version 2.10 leaves it alone.
     (todos || []).forEach((c, i) => { out[docKey('todo', c.id)] = stable({ k: 'todo', trip: t.id, pos: i, ...c }); });
+    // The ideas each person on the trip likes (share.js): one document per account, so that two people giving
+    // hearts at the same moment never undo each other's. Only a shared trip has them.
+    if (space) for (const [who, ids] of Object.entries(hearts || {})) out[docKey('heart', who)] = stable({ k: 'heart', trip: t.id, uid: who, ids });
   }
   if (!space) s.checklist.forEach((c, i) => { out[docKey('check', c.id)] = stable({ k: 'check', pos: i, ...c }); });
   // The archived trips (archive.js): the account's own marks, a shared trip's too. They stay while that trip's
@@ -116,7 +120,8 @@ function stateDocs(s, space = '') {
 function applyDocs(docs, space = '') {
   // Each document is checked first (store.js): one the app can't use is left out.
   const tidy = d => (!d ? null : d.k === 'trip' ? tidyTrip(d) : d.k === 'item' ? tidyItem(d) : d.k === 'check' || d.k === 'todo' ? tidyCheck(d)
-    : d.k === 'arch' && !space && isId(d.id) && isDate(d.at) ? d : null);
+    : d.k === 'arch' && !space && isId(d.id) && isDate(d.at) ? d
+    : d.k === 'heart' && space && isId(d.uid) && Array.isArray(d.ids) ? d : null);
   const all = Object.values(docs).map(j => tidy(JSON.parse(j))).filter(Boolean);
   const byPos = (a, b) => (a.pos - b.pos) || (a.id < b.id ? -1 : 1);
   const here = t => (t.shared || '') === space;
@@ -136,7 +141,7 @@ function applyDocs(docs, space = '') {
   const oldItems = new Map(before.flatMap(t => t.items).map(i => [i.id, i]));
   const oldTodos = new Map(before.flatMap(t => t.todos || []).map(c => [c.id, c]));
 
-  const trips = tripDocs.map(({ k, pos, shared, todos, ...t }) => {
+  const trips = tripDocs.map(({ k, pos, shared, todos, hearts, ...t }) => {
     const old = oldTrips.get(t.id);
     const items = old ? old.items : [];
     items.length = 0;
@@ -150,6 +155,11 @@ function applyDocs(docs, space = '') {
   for (const { k, trip, pos, ...c } of all.filter(d => d.k === 'todo').sort(byPos)) {
     const t = tripById.get(trip);
     if (t) (t.todos = t.todos || []).push(reuse(oldTodos.get(c.id), c));
+  }
+  for (const { trip, uid: who, ids } of all.filter(d => d.k === 'heart')) {
+    const t = tripById.get(trip);
+    const liked = [...new Set(ids.filter(isId))];
+    if (t && liked.length) (t.hearts = t.hearts || {})[who] = liked;
   }
   // The trips of the other spaces stay where they are in the list.
   const list = trips.slice();

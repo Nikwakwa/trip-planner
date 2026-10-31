@@ -16,7 +16,7 @@ function openPrivacy() {
     sync.configured && part('sync', T('In your account'), [
       T('If you sign in, your email address, trips, plans and checklist are also stored with Google Firebase, so that your devices share them.'),
       T('The person who runs this copy of the app can see them there. Your password is stored scrambled: nobody can read it.'),
-      T('A trip you plan with other people is stored there once, for all of you. Everyone on it sees its plans, the list for everyone in the Checklist, and the email addresses of the others. Your own checklist and your other trips stay yours. Tickets and other files can’t be shared: they never leave the device.'),
+      T('A trip you plan with other people is stored there once, for all of you. Everyone on it sees its plans, the list for everyone in the Checklist, who gave a heart to which idea, and the email addresses of the others. Your own checklist and your other trips stay yours. Tickets and other files can’t be shared: they never leave the device.'),
       T('Your votes for new features, and the suggestions you send, are stored there too. Everyone who is signed in can read the suggestions, without your name or email.'),
     ]),
     part('public', T('Sent to other services'), [

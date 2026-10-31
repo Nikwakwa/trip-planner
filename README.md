@@ -178,6 +178,9 @@ Good to know:
   when that trip is open, above your own checklist: anyone adds to it and ticks things off. Hold an item and
   drag it to move it between that list and your own. A packing suggestion can go on either: **+** for yours,
   the people button for everyone.
+- **Hearts on ideas:** in **Ideas**, tap the heart on an idea you like. Everyone sees how many hearts each idea
+  has and who gave them, and the ideas the group likes most come first (also in the row of ideas on the Plan).
+  The AI Assistant knows about them too. Tap the heart again to take it back.
 - **Not** shared: your own checklist, AI Assistant chats, and your other trips.
 - **Files can't be shared in the app.** Tickets & bookings attached to a plan stay on the device they were added
   on. To pass one on, send it yourself (email, WhatsApp…).

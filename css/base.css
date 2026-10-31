@@ -35,6 +35,7 @@
   --outline: #857370; --outline-variant: #d8c2be;
   --inverse-surface: #392e2d; --inverse-on-surface: #ffedea; --inverse-primary: #ffb4a9;
   --error: #ba1a1a; --error-container: #ffdad6; --on-error-container: #410002;
+  --heart: #c2185b;      /* hearts on ideas: the same rose on every trip */
   --cat-l: .92; --cat-c: .06; --cat-on-l: .42; --cat-on-c: .13;
 }
 
@@ -77,6 +78,7 @@
     --outline: #a08c89; --outline-variant: #534341;
     --inverse-surface: #f1dfdc; --inverse-on-surface: #392e2d; --inverse-primary: #a8261f;
     --error: #ffb4ab; --error-container: #93000a; --on-error-container: #ffdad6;
+    --heart: #ff8fb8;
     --cat-l: .34; --cat-c: .06; --cat-on-l: .88; --cat-on-c: .09;
     --elev-3: 0 1px 3px rgb(0 0 0 / .4), 0 4px 10px 3px rgb(0 0 0 / .3);
 }

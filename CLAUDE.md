@@ -312,7 +312,7 @@ dinner, and the route doubled back.
 
 **Sync (`sync.js`).** This is optional and switched on only when `firebase-config.js` sets `window.FIREBASE_CONFIG`.
 Firebase compat SDKs are vendored and loaded lazily. The state is split into Firestore documents
-`users/{uid}/docs/{trip_…|item_…|check_…|arch_…}` (`arch_`: an archived trip, 2.18). After each save, the local state is compared with the last known remote copy (kept in
+`users/{uid}/docs/{trip_…|item_…|check_…|arch_…}` (`arch_`: an archived trip, 2.18; a shared trip's space also has `todo_…` and `heart_…`). After each save, the local state is compared with the last known remote copy (kept in
 localStorage `tripPlanner.sync`), and only the differences are sent. Only documents of the kinds this version writes are ever
 removed (`SYNCED_KINDS`), so a newer version can keep other kinds next to them. Remote snapshots are merged into
 `state`. A plan changed both here (not sent yet) and elsewhere is merged field by field (`mergeDoc`: theirs, with
@@ -354,6 +354,13 @@ and `shared/{id}/docs/…` holds the trip and its plans, in the same form as an 
   On a shared trip each packing suggestion has two buttons: "+" for the personal checklist, the people icon for
   the trip's list. Files are never shared, by the owner's choice (2026-10-10): the app says so in the
   plan form, the Tickets sheet, the Share sheet and the privacy note.
+- Hearts on ideas (2.19): on a shared trip, each account gives hearts to ideas (`trip.hearts` = `{ uid: [itemId…] }`,
+  share.js: `heartsOn`, `heartsFor`, `toggleHeart`, `byHearts`, `heartNames`). Each account's list is its own
+  `heart_<uid>` document in the trip's space (never inside the trip document), so two people tapping at once never undo
+  each other's; the current rules already allow it. Only the hearts of people still on the trip count. Ideas (and
+  the Plan's ideas tray) put the most-liked first; the Ideas list keeps its order while on screen (`ui.ideaOrder`,
+  reset by `render()` when another section or Explore is drawn) so a tapped idea doesn't jump. Own trips have no
+  hearts (`quitSharing` drops them); backups never carry them. The AI Assistant gets each idea's count.
 - An invitation is `<id>.<code>`, sent as a link `…/#join=<id>.<code>` (after the `#`, so the host never sees it;
   `checkInviteLink`, or pasted under Settings → Trips → "Join a trip"). Joining is one write that adds the account
   to `uids` and `members` with the code as `via`; the rules compare it with the trip's code, and the email with the

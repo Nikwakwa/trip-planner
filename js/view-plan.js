@@ -18,6 +18,9 @@ function itemHTML(item, trip, { showDate = false, drag = false, note = null, sch
     !startsStay(item, trip) ? cat.label : stayUntil(item) ? `${T('Check in')} · ${Tn(daysBetween(item.date, item.until), '{n} night', '{n} nights')}` : T('Check in'),
   ].filter(Boolean).join(' · ');
   const days = schedule ? tripDays(trip) : [];
+  // share.js: on a trip planned together, an idea has a heart to give, and says who likes it.
+  const hearts = schedule && !item.date && heartsOn(trip) ? heartsFor(trip, item.id) : null;
+  const liked = !!hearts && hearts.includes(sync.saved.uid);
   let chips;
   if (schedule && ui.pickDay === item.id) {
     // Picking a day for this idea: one button per trip day.
@@ -34,6 +37,7 @@ function itemHTML(item, trip, { showDate = false, drag = false, note = null, sch
       files && `<button type="button" class="assist-chip compact ripple" data-action="files" title="${filesLabel}" aria-label="${filesLabel}">${icon('confirmation_number')}<span>${filesLabel}</span></button>`,
       hasPlanInfo(item, guideFor(trip)) && `<button type="button" class="assist-chip icon-only ripple" data-action="plan-info" aria-label="${T('About {name}', { name: esc(item.title) })}" title="${T('About this place')}">${icon('info')}</button>`,
       item.date && !item.done && `<a class="assist-chip icon-only ripple" href="${esc(calendarUrl(item, trip))}" target="_blank" rel="noopener" aria-label="${T('Add {name} to Google Calendar', { name: esc(item.title) })}" title="${T('Add to Google Calendar')}">${icon('calendar_add_on')}</a>`,
+      hearts && `<button type="button" class="assist-chip heart ripple" data-action="heart" aria-pressed="${liked}" aria-label="${T('Like {name}', { name: esc(item.title) })}" title="${T('Like')}">${icon(liked ? 'favorite-fill' : 'favorite')}${hearts.length ? `<span>${hearts.length}</span>` : ''}</button>`,
     ].filter(Boolean).join('');
   }
   const check = schedule ? '' : `<button type="button" class="check ripple" data-action="toggle" role="checkbox"
@@ -51,6 +55,7 @@ function itemHTML(item, trip, { showDate = false, drag = false, note = null, sch
           ${showPlace ? `<span class="item-sub">${esc(item.place)}</span>` : ''}
           ${note && !item.done ? `<span class="item-hours ${note.warn ? 'warn' : ''}">${icon(note.warn ? 'event_busy' : 'schedule')}${esc(note.text)}</span>` : ''}
           ${book ? `<span class="item-hours book">${icon('confirmation_number')}${esc(book.text)}</span>` : ''}
+          ${hearts && hearts.length ? `<span class="item-hours hearts">${icon('favorite-fill')}${esc(heartNames(trip, hearts))}</span>` : ''}
           ${item.notes ? `<span class="item-notes">${esc(item.notes)}</span>` : ''}
         </span>
         ${photo ? `<span class="item-photo">${icon(cat.icon + '-fill')}${photoImg({ photo }, '')}</span>` : ''}
@@ -152,7 +157,8 @@ function renderPlan(trip) {
   }
 
   // Ideas not on a day yet, ready to be dragged onto one.
-  const unplanned = trip.items.filter(i => !i.date);
+  // On a trip planned together, the ones the group likes most come first (share.js).
+  const unplanned = byHearts(trip, trip.items.filter(i => !i.date));
   if (days.length && unplanned.length) {
     html += `
       <section class="idea-tray" aria-label="${T('Ideas to schedule')}">
@@ -160,10 +166,11 @@ function renderPlan(trip) {
         <ul class="tray-row">
           ${unplanned.map((it) => {
             const cat = CATEGORIES[it.category] || CATEGORIES.other;
+            const n = heartsOn(trip) ? heartsFor(trip, it.id).length : 0;
             return `
               <li class="idea-chip" data-id="${esc(it.id)}" data-drag>
                 <button type="button" class="ripple" data-action="edit">
-                  <span class="avatar" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}</span>${esc(it.title)}
+                  <span class="avatar" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}</span><span class="chip-title">${esc(it.title)}</span>${n ? `<span class="tray-hearts" title="${Tn(n, '{n} heart', '{n} hearts')}">${icon('favorite-fill')}${n}</span>` : ''}
                 </button>
               </li>`;
           }).join('')}

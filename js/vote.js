@@ -21,7 +21,6 @@ const FEATURE_IDEAS = [
   { id: 'journal', title: T('Trip journal'), text: T('Add a photo and a few words to a plan once it’s done, and look back on the trip.') },
   { id: 'print', title: T('Print the plan'), text: T('A clean page of the whole trip, to print or keep as a PDF.') },
   { id: 'copy-trip', title: T('Copy a trip'), text: T('Start a new trip from one you already made.') },
-  { id: 'idea-hearts', title: T('Hearts on ideas'), text: T('Everyone on a trip marks the ideas they like, so the group sees what to do first.') },
   { id: 'packing-lists', title: T('Packing lists to keep'), text: T('Save your checklist and use it again for the next trip.') },
   { id: 'change-email', title: T('Change your email'), text: T('Move your account to another email address.') },
 ];
@@ -56,6 +55,7 @@ function tidyIdea(doc, d) {
 // taken out of FEATURE_IDEAS.)
 const BUILT_IDEAS = [
   /\barchiv/i,          // archiving trips (2.18.0)
+  /\bhearts?\b|\bc(œ|oe)urs?\b/i,    // hearts on ideas (2.19.0)
 ];
 const isBuilt = idea => BUILT_IDEAS.some(re => re.test(idea.title));
 

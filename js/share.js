@@ -209,6 +209,57 @@ function onSharedSnapshot(snap, id) {
   }
 }
 
+/* ---------- Hearts on ideas ----------
+   On a trip planned together, everyone gives a heart to the ideas they like, and the ideas the group
+   likes most come first. trip.hearts: account → the ids of the plans it likes. sync.js sends each
+   account's list as a document of its own ("heart_<account>"). */
+
+const heartsOn = trip => !!(trip && trip.shared && sync.saved && sync.saved.uid);
+
+// Who likes a plan: the accounts on the trip (all of them, until the list of who is on it has arrived).
+function heartsFor(trip, id) {
+  const root = sharing.roots[trip.shared];
+  const on = root && new Set(root.members.map(m => m.uid));
+  return Object.entries(trip.hearts || {}).filter(([who, ids]) => (!on || on.has(who)) && ids.includes(id)).map(([who]) => who);
+}
+
+// Gives this account's heart to a plan, or takes it back. Returns true when the plan has it now.
+function toggleHeart(trip, id) {
+  const me = sync.saved.uid;
+  const live = new Set(trip.items.map(i => i.id));
+  // Plans deleted meanwhile leave the list.
+  const mine = ((trip.hearts || {})[me] || []).filter(x => live.has(x));
+  const on = !mine.includes(id);
+  const next = on ? [...mine, id] : mine.filter(x => x !== id);
+  trip.hearts = { ...trip.hearts };
+  if (next.length) trip.hearts[me] = next; else delete trip.hearts[me];
+  if (!Object.keys(trip.hearts).length) delete trip.hearts;
+  return on;
+}
+
+// The ideas with the most hearts first, the others in their own order.
+function byHearts(trip, ideas) {
+  if (!heartsOn(trip)) return ideas;
+  const n = new Map(ideas.map(i => [i.id, heartsFor(trip, i.id).length]));
+  return ideas.slice().sort((a, b) => n.get(b.id) - n.get(a.id));
+}
+
+// "You, Ann and 2 others": you first, then the others by the start of their email address
+// (the people on a trip already see each other's).
+function heartNames(trip, who) {
+  const me = sync.saved && sync.saved.uid;
+  const root = sharing.roots[trip.shared];
+  const name = (u) => {
+    if (u === me) return T('You');
+    const m = root && root.members.find(x => x.uid === u);
+    const start = m && m.email ? m.email.split('@')[0] : '';
+    return start ? start[0].toUpperCase() + start.slice(1) : T('Someone');
+  };
+  const names = who.slice().sort((a, b) => (b === me) - (a === me)).map(name);
+  if (names.length > 3) names.splice(2, names.length, Tn(names.length - 2, '{n} other', '{n} others'));
+  try { return new Intl.ListFormat(LANG, { type: 'conjunction' }).format(names); } catch { return names.join(', '); }
+}
+
 /* ---------- Changing who is on a trip (all of these need a connection) ---------- */
 
 // The address as the database knows it: the rules compare the two.
@@ -352,7 +403,7 @@ async function quitSharing(uid, keepCopies = false) {
     if (!keepCopies) dropShare(root.id);
   }
   if (keepCopies) {
-    for (const t of state.trips) delete t.shared;
+    for (const t of state.trips) { delete t.shared; delete t.hearts; }
     if (sync.saved) sync.saved.shared = {};
     saveLocal();
   }

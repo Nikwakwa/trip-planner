@@ -354,6 +354,68 @@ function runChecks() {
       [[{ id: 'x', text: 'Tent', done: false }], false, [{ id: 'x', text: 'Tent', done: true }], undefined]);
   });
 
+  // Hearts on ideas: sharing.roots is not part of the sandbox, so it is put back by hand.
+  const withRoot = (members, fn) => {
+    const real = sharing.roots;
+    try {
+      sharing.roots = { s1: { id: 's1', owner: 'selfcheck', trip: 'trip2', code: '', members: members.map(u => ({ uid: u, email: `${u}@test.org`, at: 0 })) } };
+      return fn();
+    } finally { sharing.roots = real; }
+  };
+  check('Hearts on ideas travel as one document per person, apart from the trip, and come back', () => sandbox(() => {
+    const withHearts = () => { const s = both(); romeOf(s).hearts = { ann: ['x'], selfcheck: ['x', 'y'] }; return s; };
+    state = withHearts();
+    sync.saved = { uid: 'selfcheck', email: '', linked: true, base: {}, shared: { s1: { trip: 'trip2', base: {} } } };
+    const docs = stateDocs(state, 's1');
+    romeOf(state).hearts = { eve: ['y'] };
+    applyDocs(docs, 's1');
+    return same([Object.keys(docs).filter(k => k.startsWith('heart_')), 'hearts' in JSON.parse(docs.trip_trip2), JSON.parse(docs.heart_ann),
+      Object.keys(stateDocs(state)).some(k => k.startsWith('heart_')), romeOf(state).hearts, SYNCED_KINDS.test('heart_ann')],
+    [['heart_ann', 'heart_selfcheck'], false, { ids: ['x'], k: 'heart', trip: 'trip2', uid: 'ann' }, false, { ann: ['x'], selfcheck: ['x', 'y'] }, true]);
+  }));
+  check('Two people giving hearts at the same moment both keep theirs', () => sandbox(() => {
+    state = both();
+    sync.saved = { uid: 'selfcheck', email: '', linked: true, base: stateDocs(both()), shared: { s1: { trip: 'trip2', base: stateDocs(both(), 's1') } } };
+    sync.shared.s1 = newSpace();
+    toggleHeart(romeOf(state), 'y');                    // given here, not sent yet
+    const remote = both();
+    romeOf(remote).hearts = { ann: ['x'] };              // given by Ann meanwhile
+    mergeRemote(stateDocs(remote, 's1'), new Set(), undefined, 's1');
+    return same(romeOf(state).hearts, { ann: ['x'], selfcheck: ['y'] });
+  }));
+  check('Hearts are checked when they are read, and never come back from a backup file', () =>
+    same([tidyTrip({ id: 't', hearts: { ann: ['x', '<b>', 'x', 7], '<b>': ['y'], bob: 'no', cat: [] } }).hearts, 'hearts' in tidyTrip({ id: 't', hearts: 5 }),
+      'hearts' in tidyTrip({ id: 't', hearts: ['x'] }), cleanBackup({ trips: [{ id: 't', name: 'A', hearts: { ann: ['x'] } }] }).trips[0].hearts],
+    [{ ann: ['x'] }, false, false, undefined]));
+  check('The ideas the group likes most come first, and only the hearts of people on the trip count', () => sandbox(() => withRoot(['selfcheck', 'ann'], () => {
+    state = both();
+    sync.saved = { uid: 'selfcheck', email: '', linked: true, base: {}, shared: {} };
+    const r = romeOf(state);
+    r.items.push({ ...r.items[0], id: 'z', title: 'Pantheon' });
+    r.hearts = { ann: ['z', 'y'], selfcheck: ['y'], eve: ['x', 'z'] };     // Eve has left the trip
+    const order = byHearts(r, r.items).map(i => i.title);
+    const solo = byHearts(state.trips[0], state.trips[0].items).map(i => i.id);
+    return same([order, heartsFor(r, 'x'), heartNames(r, heartsFor(r, 'y')), solo], [['Gelato', 'Pantheon', 'Forum'], [], 'You and Ann', ['a', 'b', 'c']]);
+  })));
+  check('A heart is given and taken back, and plans deleted meanwhile leave the list', () => sandbox(() => {
+    state = both();
+    sync.saved = { uid: 'selfcheck', email: '', linked: true, base: {}, shared: {} };
+    const r = romeOf(state);
+    r.hearts = { selfcheck: ['gone'], ann: ['x'] };
+    const given = [toggleHeart(r, 'x'), JSON.stringify(r.hearts)];
+    const back = [toggleHeart(r, 'x'), JSON.stringify(r.hearts)];
+    delete r.hearts.ann;
+    toggleHeart(r, 'y'); toggleHeart(r, 'y');
+    return same([given, back, 'hearts' in r], [[true, '{"selfcheck":["x"],"ann":["x"]}'], [false, '{"ann":["x"]}'], false]);
+  }));
+  check('With more than three hearts, the names are cut short', () => withRoot(['selfcheck', 'ann', 'bob', 'cat', 'dan'], () => {
+    const real = sync.saved;
+    try {
+      sync.saved = { uid: 'selfcheck', shared: {} };
+      return same(heartNames({ shared: 's1' }, ['ann', 'bob', 'selfcheck', 'cat', 'ghost']), 'You, Ann, and 3 others');
+    } finally { sync.saved = real; }
+  }));
+
   /* ---------- Archived trips (archive.js) ---------- */
   group = 'Archived trips';
   check('Which trips are archived is read back, and a bad mark is left out', () =>

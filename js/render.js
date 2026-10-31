@@ -5,7 +5,7 @@
 
 // peek: an archived trip being looked at (archive.js): { id, trip, view, step }: the trip and section it was opened
 // from, and the number of its step in the history.
-const ui = { view: 'plan', ideasTab: 'mine', filter: 'all', shuffle: {}, suggest: {}, pickDay: null, peek: null };
+const ui = { view: 'plan', ideasTab: 'mine', filter: 'all', shuffle: {}, suggest: {}, pickDay: null, peek: null, ideaOrder: null };
 
 /* ---------- The sections (Plan, Ideas, Checklist, Settings) ---------- */
 
@@ -117,6 +117,8 @@ function render() {
 
     if (trip && ui.view === 'plan') renderPlan(trip);
     if (trip && ui.view === 'ideas') renderIdeas(trip);
+    // Away from the list of ideas: their order (most hearts first) is set again when it is opened.
+    if (ui.view !== 'ideas' || ui.ideasTab !== 'mine') ui.ideaOrder = null;
     if (ui.view === 'pack') renderChecklist();
     if (ui.view === 'more') renderMore();
   } catch (e) {

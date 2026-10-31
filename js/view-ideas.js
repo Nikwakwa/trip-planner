@@ -34,9 +34,20 @@ function placeHTML(p, added, trip) {
     </li>`;
 }
 
+// The ideas, the ones the group likes most first (share.js). The order is kept while the list is on screen, so an
+// idea doesn't jump away from the finger that gave it a heart: it is set again when the list is opened (render.js),
+// or when an idea comes or goes.
+function ideaOrder(trip) {
+  const ideas = trip.items.filter(i => !i.date);
+  const key = `${trip.id} ${ideas.map(i => i.id).sort().join(' ')}`;
+  if (!ui.ideaOrder || ui.ideaOrder.key !== key) ui.ideaOrder = { key, ids: byHearts(trip, ideas).map(i => i.id) };
+  const at = new Map(ui.ideaOrder.ids.map((id, n) => [id, n]));
+  return ideas.sort((a, b) => at.get(a.id) - at.get(b.id));
+}
+
 function renderIdeas(trip) {
   const guide = guideFor(trip);
-  const ideas = trip.items.filter(i => !i.date);
+  const ideas = ideaOrder(trip);
   const tab = ui.ideasTab;
   let html = `
     <h1 class="headline">${T('Ideas')}</h1>
@@ -47,7 +58,7 @@ function renderIdeas(trip) {
 
   if (tab === 'mine') {
     html += `
-      <p class="supporting">${T('Things you might do in {trip}. Add one to a day when you’re ready, or tap it to edit.', { trip: esc(trip.name) })}</p>
+      <p class="supporting">${T('Things you might do in {trip}. Add one to a day when you’re ready, or tap it to edit.', { trip: esc(trip.name) })}${heartsOn(trip) ? ` ${T('Give a heart to the ones you like: the ideas the group likes most come first.')}` : ''}</p>
       ${ideas.length
         ? `<ul class="group plans">${ideas.map(it => itemHTML(it, trip, { schedule: true })).join('')}</ul>`
         : emptyState('travel_explore', T('No ideas yet'), T('Save places you hear about here, then schedule them later.'),
@@ -185,6 +196,15 @@ onAction('set-day', (el) => {
     save();
     render();
   });
+});
+// A heart on an idea, on a trip planned together (share.js), or taken back.
+onAction('heart', (el) => {
+  const trip = activeTrip();
+  const id = idOf(el);
+  if (!heartsOn(trip) || !trip.items.some(i => i.id === id)) return;
+  if (toggleHeart(trip, id) && navigator.vibrate) navigator.vibrate(12);
+  save();
+  render();
 });
 onAction('place-info', el => openPlaceInfo(el.dataset.place, el.dataset.date));
 // A guide place, added to a day (data-date) or saved to the ideas: from a suggestion, Explore or its sheet.

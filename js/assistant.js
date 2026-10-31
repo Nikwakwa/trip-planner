@@ -73,9 +73,12 @@ function tripContext(trip) {
       ...(stayUntil(i) ? { check_out: i.until } : {}),
       ...(i.done ? { done: true } : {}),
       ...(note ? { hours: note.text } : {}),
+      // share.js: how many people on the trip like an idea
+      ...(!i.date && heartsOn(trip) && heartsFor(trip, i.id).length ? { hearts: heartsFor(trip, i.id).length } : {}),
     };
   });
   lines.push(`Plans and ideas (an empty date means an idea, not scheduled yet):\n${JSON.stringify(plans)}`);
+  if (plans.some(p => p.hearts)) lines.push('Several people plan this trip together. "hearts" on an idea is how many of them like it: when you pick ideas for a day, prefer the ones with the most.');
 
   const weatherDays = days.map((d) => {
     const w = dayWeather(trip, d);

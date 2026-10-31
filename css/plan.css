@@ -483,6 +483,12 @@ button.assist-chip { background: none; }
   font-weight: 650;
 }
 html[data-theme="dark"] .item-hours.book { background: oklch(.42 .08 80); color: oklch(.95 .06 90); }
+/* Who likes an idea, on a trip planned together (share.js). Hearts are rose on every trip, like the amber above. */
+.item-hours.hearts { color: var(--heart); font-weight: 600; }
+.item-chips .assist-chip.heart { margin-left: auto; }
+.item-chips .assist-chip.heart[aria-pressed="true"] { background: color-mix(in oklab, var(--heart) 14%, transparent); color: var(--heart); }
+.assist-chip.heart .icon { color: var(--heart); }
+.assist-chip.heart:not(:has(span)) { width: 40px; padding: 0; justify-content: center; }
 
 /* ---------- Drag to plan (drag.js) ---------- */
 [data-drag] { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
@@ -550,6 +556,10 @@ body.dragging .fab, body.dragging .ai-fab, body.dragging .snackbar { opacity: 0;
 }
 .idea-chip .avatar { width: 36px; height: 36px; border-radius: 14px; }
 .idea-chip .avatar .icon { width: 20px; height: 20px; }
+.idea-chip .chip-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* How many people on a trip planned together like the idea (share.js) */
+.tray-hearts { flex: none; display: inline-flex; align-items: center; gap: 2px; margin-left: -2px; color: var(--heart); font-size: 13px; font-weight: 650; }
+.tray-hearts .icon { width: 16px; height: 16px; }
 .idea-tray.drop-on { outline-offset: 6px; border-radius: 20px; }
 
 
