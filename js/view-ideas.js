@@ -58,9 +58,9 @@ function renderIdeas(trip) {
 
   if (tab === 'mine') {
     html += `
-      <p class="supporting">${T('Things you might do in {trip}. Add one to a day when you’re ready, or tap it to edit.', { trip: esc(trip.name) })}${heartsOn(trip) ? ` ${T('Give a heart to the ones you like: the ideas the group likes most come first.')}` : ''}</p>
+      <p class="supporting">${T('Things you might do in {trip}. Add one to a day when you’re ready, or tap it to see more.', { trip: esc(trip.name) })}${heartsOn(trip) ? ` ${T('Give a heart to the ones you like: the ideas the group likes most come first.')}` : ''}</p>
       ${ideas.length
-        ? `<ul class="group plans">${ideas.map(it => itemHTML(it, trip, { schedule: true })).join('')}</ul>`
+        ? `<ul class="group plans">${ideas.map(it => itemHTML(it, trip, { schedule: true, photo: planPhoto(it, guide) })).join('')}</ul>`
         : emptyState('travel_explore', T('No ideas yet'), T('Save places you hear about here, then schedule them later.'),
             guide ? `<button type="button" class="btn tonal ripple" data-action="ideas-tab" data-tab="explore">${icon('explore')}${T('Explore {place}', { place: esc(guide.city) })}</button>` : '')}`;
   } else if (!guide) {
@@ -205,6 +205,7 @@ onAction('heart', (el) => {
   if (toggleHeart(trip, id) && navigator.vibrate) navigator.vibrate(12);
   save();
   render();
+  if ($('#place-dialog').open && planInfo.itemId === id) renderPlanInfo();     // the idea's sheet (info.js)
 });
 onAction('place-info', el => openPlaceInfo(el.dataset.place, el.dataset.date));
 // A guide place, added to a day (data-date) or saved to the ideas: from a suggestion, Explore or its sheet.

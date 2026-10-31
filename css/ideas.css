@@ -78,6 +78,8 @@
 .pi-links { display: flex; flex-wrap: wrap; gap: 8px; }
 .pi-added { display: inline-flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 600; }
 .pi-added .icon { width: 20px; height: 20px; }
+/* An idea's heart in its sheet: rose once given, like on its card. */
+.heart-btn[aria-pressed="true"] { background: color-mix(in oklab, var(--heart) 14%, transparent); color: var(--heart); }
 /* About a plan (info.js): a short list of facts, label above text */
 .pi-facts { display: grid; gap: 10px; margin: 0 0 10px; }
 .pi-facts dt { font-size: 12px; line-height: 16px; font-weight: 650; color: var(--primary); }

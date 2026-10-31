@@ -11,11 +11,17 @@
 function itemHTML(item, trip, { showDate = false, drag = false, note = null, schedule = false, num = 0, photo = '' } = {}) {
   const cat = CATEGORIES[item.category] || CATEGORIES.other;
   const link = safeUrl(item.link);
+  // An idea shows what the guide says about it (the time to allow, a few words), and a tap opens all of it.
+  const guide = guideFor(trip);
+  const p = schedule ? matchPlaces(item, guide)[0] : null;
+  const details = schedule && hasPlanInfo(item, guide);
   const over = [
     item.time && fmtTime(item.time),
     showDate && item.date && fmtDay(item.date),
     // today.js: the day a stay begins, and for how long when its check-out day is set
     !startsStay(item, trip) ? cat.label : stayUntil(item) ? `${T('Check in')} · ${Tn(daysBetween(item.date, item.until), '{n} night', '{n} nights')}` : T('Check in'),
+    p && p.mins < 360 && fmtDuration(p.mins),
+    p && p.tags.includes('free') && T('Free'),
   ].filter(Boolean).join(' · ');
   const days = schedule ? tripDays(trip) : [];
   // share.js: on a trip planned together, an idea has a heart to give, and says who likes it.
@@ -35,7 +41,7 @@ function itemHTML(item, trip, { showDate = false, drag = false, note = null, sch
       item.place && `<a class="assist-chip ${schedule ? 'compact ' : ''}ripple" href="${esc(mapsUrl(item.place, trip, coordsOf(item, guideFor(trip)) || awaySpot(item, trip), item.title))}" target="_blank" rel="noopener" title="${T('Directions')}">${icon('location_on')}<span>${T('Directions')}</span></a>`,
       link && `<a class="assist-chip compact ripple" href="${esc(link)}" target="_blank" rel="noopener" title="${esc(hostLabel(link))}" aria-label="${T('Link: {site}', { site: esc(hostLabel(link)) })}">${icon('link')}<span>${esc(hostLabel(link))}</span></a>`,
       files && `<button type="button" class="assist-chip compact ripple" data-action="files" title="${filesLabel}" aria-label="${filesLabel}">${icon('confirmation_number')}<span>${filesLabel}</span></button>`,
-      hasPlanInfo(item, guideFor(trip)) && `<button type="button" class="assist-chip icon-only ripple" data-action="plan-info" aria-label="${T('About {name}', { name: esc(item.title) })}" title="${T('About this place')}">${icon('info')}</button>`,
+      !details && hasPlanInfo(item, guide) && `<button type="button" class="assist-chip icon-only ripple" data-action="plan-info" aria-label="${T('About {name}', { name: esc(item.title) })}" title="${T('About this place')}">${icon('info')}</button>`,
       item.date && !item.done && `<a class="assist-chip icon-only ripple" href="${esc(calendarUrl(item, trip))}" target="_blank" rel="noopener" aria-label="${T('Add {name} to Google Calendar', { name: esc(item.title) })}" title="${T('Add to Google Calendar')}">${icon('calendar_add_on')}</a>`,
       hearts && `<button type="button" class="assist-chip heart ripple" data-action="heart" aria-pressed="${liked}" aria-label="${T('Like {name}', { name: esc(item.title) })}" title="${T('Like')}">${icon(liked ? 'favorite-fill' : 'favorite')}${hearts.length ? `<span>${hearts.length}</span>` : ''}</button>`,
     ].filter(Boolean).join('');
@@ -44,10 +50,10 @@ function itemHTML(item, trip, { showDate = false, drag = false, note = null, sch
         aria-checked="${item.done}" aria-label="${T('Done: {name}', { name: esc(item.title) })}" title="${T('Done')}"><span class="box">${icon('check')}</span></button>`;
   // The address line is skipped when it only repeats the title.
   const showPlace = item.place && norm(item.place) !== norm(item.title);
-  const book = bookingNote(item, trip, guideFor(trip));
+  const book = bookingNote(item, trip, guide);
   return `
     <li class="item ${item.done ? 'done' : ''}" data-id="${esc(item.id)}" ${drag ? 'data-drag' : ''}>
-      <button type="button" class="item-main ripple" data-action="edit">
+      <button type="button" class="item-main ripple" data-action="${details ? 'plan-info' : 'edit'}">
         ${num ? `<span class="stop-badge" aria-label="${T('Stop {n}', { n: num })}">${num}</span>` : `<span class="avatar" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}</span>`}
         <span class="item-text">
           <span class="overline">${esc(over)}</span>
@@ -56,7 +62,9 @@ function itemHTML(item, trip, { showDate = false, drag = false, note = null, sch
           ${note && !item.done ? `<span class="item-hours ${note.warn ? 'warn' : ''}">${icon(note.warn ? 'event_busy' : 'schedule')}${esc(note.text)}</span>` : ''}
           ${book ? `<span class="item-hours book">${icon('confirmation_number')}${esc(book.text)}</span>` : ''}
           ${hearts && hearts.length ? `<span class="item-hours hearts">${icon('favorite-fill')}${esc(heartNames(trip, hearts))}</span>` : ''}
+          ${p && p.blurb ? `<span class="item-notes">${esc(p.blurb)}</span>` : ''}
           ${item.notes ? `<span class="item-notes">${esc(item.notes)}</span>` : ''}
+          ${details ? `<span class="more-link">${T('More')}${icon('arrow_forward')}</span>` : ''}
         </span>
         ${photo ? `<span class="item-photo">${icon(cat.icon + '-fill')}${photoImg({ photo }, '')}</span>` : ''}
       </button>

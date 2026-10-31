@@ -534,7 +534,9 @@ Phone styles are the default. Add desktop overrides in desktop.css (loaded last)
   (`dayTint(i)` in maps.js, set as `--day` on the day's section): its stop numbers, travel lines, dot in the day strip
   and sidebar, and its pins and route on the map (day map and trip map alike). The "Book ahead" label is amber on
   every trip, so it reads as a notice, not as part of the theme. Don't recolor whole days.
-- Ideas (Ideas tab) have "Add to a day" (`pick-day` / `set-day`) in place of the done checkbox.
+- Ideas (Ideas tab) have "Add to a day" (`pick-day` / `set-day`) in place of the done checkbox. An idea from the
+  guide keeps showing what Explore showed (photo, the guide's words, time to allow: `itemHTML` with `schedule`), and a
+  tap opens its details sheet (`openPlanInfo`), not the form: there it can get a heart, go on a day, or be edited.
 - On desktop, hovering a plan highlights its pin (`hotPin`), and the docked map opens on today's route during the trip.
 - A hidden present for a friend of the owner who drums: eight taps on the title of the "What's new" sheet
   open a practice pad to play (`openPad` in pad.js; the words on it are `PAD_NAME`). Keep it out of

@@ -113,7 +113,9 @@ function renderPlanInfo() {
   const looking = c && planInfo.loading.has(infoKey(item, c));
   const note = hoursNote(item, guide);
   const over = [item.date && fmtDay(item.date), item.time && fmtTime(item.time), cat.label].filter(Boolean).join(' · ');
-  const why = p ? (p.about || p.blurb) : '';
+  // A destination's words may come from the same Wikipedia article as "What it is": said once.
+  const said = text => norm(text || '').slice(0, 60);
+  const why = p && (!wiki || !wiki.text || said(p.about || p.blurb) !== said(wiki.text)) ? (p.about || p.blurb) : '';
   const site = safeUrl((p && p.url) || item.link);
   const facts = factsHTML([
     [T('Usual hours'), p && p.hours],
@@ -162,10 +164,21 @@ function renderPlanInfo() {
       ${item.place ? `<a class="assist-chip ripple" href="${esc(mapsUrl(item.place, trip, c, item.title))}" target="_blank" rel="noopener">${icon('location_on')}${T('Directions')}</a>` : ''}
       ${site ? `<a class="assist-chip ripple" href="${esc(site)}" target="_blank" rel="noopener">${icon('link')}${esc(hostLabel(site))}</a>` : ''}
     </div>
-    <div class="sheet-actions">
+    <div class="sheet-actions" data-id="${esc(item.id)}">
+      ${item.date ? '' : ideaActionsHTML(item, trip)}
       <span class="spacer"></span>
-      <button type="button" class="btn tonal ripple" data-action="plan-edit">${icon('edit')}${T('Edit plan')}</button>
+      <button type="button" class="btn tonal ripple" data-action="plan-edit">${icon('edit')}${item.date ? T('Edit plan') : T('Edit')}</button>
     </div>`;
+}
+
+// An idea's sheet also gives it a heart (on a trip planned together) and puts it on a day.
+function ideaActionsHTML(item, trip) {
+  const hearts = heartsOn(trip) ? heartsFor(trip, item.id) : null;
+  const liked = !!hearts && hearts.includes(sync.saved.uid);
+  return `
+    ${hearts ? `<button type="button" class="btn tonal ripple heart-btn" data-action="heart" aria-pressed="${liked}" aria-label="${T('Like {name}', { name: esc(item.title) })}">
+      ${icon(liked ? 'favorite-fill' : 'favorite')}${hearts.length ? hearts.length : T('Like')}</button>` : ''}
+    ${tripDays(trip).length ? `<button type="button" class="btn filled ripple" data-action="info-pick-day">${icon('calendar_add_on')}${T('Add to a day')}</button>` : ''}`;
 }
 
 function openPlanInfo(id) {
@@ -177,6 +190,12 @@ function openPlanInfo(id) {
 }
 
 onAction('plan-info', el => openPlanInfo(idOf(el)));
+// "Add to a day" in an idea's sheet: back to the list, where the idea's buttons have turned into the trip's days.
+onAction('info-pick-day', (el) => {
+  ui.pickDay = idOf(el);
+  $('#place-dialog').close();
+  render();
+});
 // "Edit plan" in the sheet.
 onAction('plan-edit', () => {
   const found = findItem(planInfo.itemId);

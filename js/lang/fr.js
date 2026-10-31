@@ -242,7 +242,7 @@ DICTS.fr = {
   'Save {name} to your ideas': 'Garder {name} dans vos idées',
   'Ideas view': 'Vue des idées',
   'My ideas': 'Mes idées',
-  'Things you might do in {trip}. Add one to a day when you’re ready, or tap it to edit.': 'Ce que vous pourriez faire pendant « {trip} ». Ajoutez une idée à une journée quand vous voulez, ou touchez-la pour la modifier.',
+  'Things you might do in {trip}. Add one to a day when you’re ready, or tap it to see more.': 'Ce que vous pourriez faire pendant « {trip} ». Ajoutez une idée à une journée quand vous voulez, ou touchez-la pour en savoir plus.',
   'No ideas yet': 'Pas encore d’idées',
   'Save places you hear about here, then schedule them later.': 'Gardez ici les lieux dont vous entendez parler, et programmez-les plus tard.',
   'things to do in {place}': 'que faire à {place}',
@@ -412,6 +412,7 @@ DICTS.fr = {
   'e.g. Shopping at {name}': 'ex. Shopping à {name}',
   'e.g. {name}': 'ex. {name}',
   'Edit plan': 'Modifier l’activité',
+  'Edit': 'Modifier',
   'Check-in day': 'Jour d’arrivée',
   'Saved to {day}': 'Enregistré pour {day}',
   'Saved to Ideas': 'Enregistré dans les idées',
@@ -906,6 +907,7 @@ DICTS.fr = {
   'last synced {when}': 'dernière synchronisation {when}',
 
   /* ---------- What's new (version.js) ---------- */
+  'Ideas saved from Explore keep their photo, description and time to allow. Tap one to see everything about it': 'Les idées enregistrées depuis Explorer gardent leur photo, leur description et la durée à prévoir. Touchez-en une pour tout voir',
   'On a trip’s first and last day, the address search also finds places far away, like your home': 'Le premier et le dernier jour d’un voyage, la recherche d’adresse trouve aussi les lieux lointains, comme votre domicile',
   'Your flight from home and back shows on its day’s map, even far from the trip': 'Votre vol aller et retour apparaît sur la carte de sa journée, même loin du voyage',
   'The days in the trip and plan forms follow your Date setting (Settings → Appearance), like the rest of the app': 'Les jours des formulaires de voyage et d’activité s’écrivent comme dans le reste de l’app (« 26 déc. 2026 »)',
