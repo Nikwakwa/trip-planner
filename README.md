@@ -23,7 +23,8 @@ the same address shows a desktop layout on a wide screen, by itself.
 - During the trip: **Now & next** (what's on and when to leave for the next plan) and **What's near me**.
 - **Archive** a trip to take it off the top bar: once it's over, its card offers **Archive** (any trip can be
   archived from its ✎ sheet). It's kept just as it was, behind the box button at the end of the top bar (also in
-  **Settings → Trips**): open it from there to look back, or **Unarchive** it. Archiving is yours alone: on a
+  **Settings → Trips**): open it from there to look back, or **Unarchive** it. While you look at one, **Back** (on its
+card, the ✕ on its tab, or your phone's Back button) returns to where you were. Archiving is yours alone: on a
   trip you plan with other people, it doesn't move for them.
 - A **Stay** plan with an address (your hotel) becomes the **home base**: days start and end there.
 - **Photos** of places, **packing suggestions** from the forecast and your plans, **Add to calendar**,

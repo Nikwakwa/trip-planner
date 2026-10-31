@@ -53,6 +53,46 @@ function unarchiveTrip(trip) {
   snackbar(T('{trip} is back on the top bar', { trip: trip.name }));
 }
 
+/* ---------- Looking back at an archived trip ----------
+   Opened from the archive, it stays archived and is a step of its own: Back, the ✕ on its tab or Back on its
+   card return to the trip and section it was opened from (ui.peek). It ends too when another trip is picked
+   (render), and the app never starts on one (store.js). */
+
+function openArchived(trip) {
+  archiveDialog.close();
+  if (ui.peek) ui.peek.id = trip.id;      // one archived trip after another: Back still returns to the start
+  else {
+    // Its step is marked with a number of its own: a step left over from an earlier look (another trip was
+    // picked meanwhile) must not be taken for this one.
+    ui.peek = { id: trip.id, trip: state.activeTripId, view: ui.view, step: Date.now() };
+    pushView('plan', { peek: ui.peek.step });
+  }
+  leaveTrip(trip.id);
+  saveLocal();
+  render();
+  showFabs();
+}
+
+// The ✕ and Back: through the history when the step is there, so the device's Back isn't left one step behind.
+function closeArchived() {
+  if (ui.peek && history.state && history.state.peek === ui.peek.step) history.back();
+  else endPeek(ui.peek ? ui.peek.view : ui.view);
+}
+
+// Back to where the archived trip was opened from, or to the trips on the top bar.
+function endPeek(view) {
+  const from = ui.peek;
+  ui.peek = null;
+  const back = from && tripsShown().some(t => t.id === from.trip) ? from.trip : (soonestTrip() || {}).id || null;
+  if (isArchived(activeTrip())) state.activeTripId = back;
+  ui.view = VIEWS.includes(view) ? view : 'plan';
+  scrollAt = {};
+  saveLocal();
+  render();
+  window.scrollTo(0, 0);
+  showFabs();
+}
+
 // Shows another trip, from its top.
 function leaveTrip(id) {
   state.activeTripId = id;
@@ -108,10 +148,6 @@ onAction('unarchive', (el) => {
 // Opens an archived trip to look at, without bringing it back to the top bar.
 onAction('open-archived', (el) => {
   const trip = state.trips.find(t => t.id === el.dataset.tripId);
-  if (!trip) return;
-  archiveDialog.close();
-  setView('plan');
-  leaveTrip(trip.id);
-  save();
-  render();
+  if (trip) openArchived(trip);
 });
+onAction('close-archived', () => closeArchived());

@@ -3,7 +3,9 @@
 /* render.js — drawing the screen: the sections and the device's Back button, render(), the trip tabs, the
    day strip (phones) and the sidebar (computers), and what scrolling does to the top bar and the buttons. */
 
-const ui = { view: 'plan', ideasTab: 'mine', filter: 'all', shuffle: {}, suggest: {}, pickDay: null };
+// peek: an archived trip being looked at (archive.js): { id, trip, view, step }: the trip and section it was opened
+// from, and the number of its step in the history.
+const ui = { view: 'plan', ideasTab: 'mine', filter: 'all', shuffle: {}, suggest: {}, pickDay: null, peek: null };
 
 /* ---------- The sections (Plan, Ideas, Checklist, Settings) ---------- */
 
@@ -34,9 +36,18 @@ function showView(view, { top = false } = {}) {
   showFabs();
 }
 
+// A step of its own in the history, that Back closes (an archived trip being looked at: mark { peek: <its number> }).
+function pushView(view, mark) {
+  scrollAt[ui.view] = window.scrollY;
+  try { history.pushState({ view, ...mark }, ''); } catch { /* history unavailable: the ✕ still closes it */ }
+  ui.view = view;
+}
+
 // The Back (or Forward) button.
 window.addEventListener('popstate', () => {
   const view = pageView();
+  // Back from an archived trip: where it was opened from (archive.js).
+  if (ui.peek && !(history.state && history.state.peek === ui.peek.step)) { endPeek(view); return; }
   if (view === ui.view) return;
   scrollAt[ui.view] = window.scrollY;
   ui.view = view;
@@ -79,6 +90,8 @@ function onGuideReady(place, guide, quiet) {
 function render() {
   const trip = activeTrip();
   state.activeTripId = trip ? trip.id : null;
+  // No longer looking at that archived trip (another trip picked, it was unarchived or deleted).
+  if (ui.peek && (!trip || trip.id !== ui.peek.id || !isArchived(trip))) ui.peek = null;
   if (trip) ensurePlace(trip);
   applyTheme(trip ? trip.color : COLORS[0]);
 
@@ -202,17 +215,22 @@ function renderWelcome() {
 }
 
 // The trips on the top bar, then + and the archive (archive.js). An archived trip shows only while it's
-// on screen, with the archive's icon, and goes once another trip is picked.
+// on screen, with the archive's icon and a ✕ that closes it (as Back does).
 const barTrips = trip => state.trips.filter(t => !isArchived(t) || t.id === trip.id);
 function renderTripTabs(trip) {
   const archived = state.trips.filter(isArchived).length;
   const label = Tn(archived, '{n} archived trip', '{n} archived trips');
   $('#trip-tabs').innerHTML =
-    barTrips(trip).map(t => `
-      <button type="button" class="trip-chip ripple ${t.id === trip.id ? 'active' : ''} ${isArchived(t) ? 'archived' : ''}" data-trip="${esc(t.id)}"
+    barTrips(trip).map(t => (isArchived(t) ? `
+      <span class="trip-chip active archived" style="--c:${esc(t.color)}">
+        ${icon('archive', 'sm')}${esc(t.name)}${sharedMark(t)}
+        <button type="button" class="chip-close ripple" data-action="close-archived" aria-label="${T('Close {trip}', { trip: esc(t.name) })}"
+          title="${T('Close {trip}', { trip: esc(t.name) })}">${icon('close', 'sm')}</button>
+      </span>` : `
+      <button type="button" class="trip-chip ripple ${t.id === trip.id ? 'active' : ''}" data-trip="${esc(t.id)}"
         style="--c:${esc(t.color)}" aria-pressed="${t.id === trip.id}">
-        ${isArchived(t) ? icon('archive', 'sm') : '<span class="dot"></span>'}${esc(t.name)}${sharedMark(t)}
-      </button>`).join('') +
+        <span class="dot"></span>${esc(t.name)}${sharedMark(t)}
+      </button>`)).join('') +
     `<button type="button" class="trip-chip add ripple" data-action="new-trip" aria-label="${T('Add a trip')}">${icon('add', 'sm')}</button>` +
     (archived ? `<button type="button" class="trip-chip archive-chip ripple" data-action="archive-list" aria-label="${label}" title="${label}">
       ${icon('archive', 'sm')}${archived}</button>` : '');

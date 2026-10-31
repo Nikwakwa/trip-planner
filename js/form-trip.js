@@ -178,10 +178,12 @@ $('#trip-delete').addEventListener('click', async () => {
   snackbar(T('{trip} deleted', { trip: trip.name }));
 });
 
-// Archive or bring back the trip being edited (archive.js). Like Delete, it leaves the sheet without saving.
-$('#trip-archive').addEventListener('click', () => {
+// Archive or bring back the trip being edited (archive.js). It leaves the sheet without saving, like Delete.
+$('#trip-archive').addEventListener('click', async () => {
   const trip = state.trips.find(t => t.id === editingTripId);
   if (!trip) return;
+  // Something changed in the form: it isn't lost without asking (sheets.js).
+  if (draftChanged(tripDialog) && !await askConfirm({ icon: 'edit', ...DRAFTS.get(tripDialog).ask(), ok: T('Discard'), cancel: T('Keep editing') })) return;
   tripDialog.close();
   if (isArchived(trip)) unarchiveTrip(trip); else archiveTrip(trip);
 });

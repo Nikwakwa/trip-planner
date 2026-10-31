@@ -213,6 +213,8 @@ const firstTripId = () => (tripsShown()[0] || {}).id || null;
 function activeTrip() {
   return state.trips.find(t => t.id === state.activeTripId) || tripsShown()[0] || null;
 }
+// An archived trip is only looked at for a while (archive.js): the app starts on the trips of the top bar.
+if (isArchived(activeTrip())) state.activeTripId = firstTripId();
 function findItem(id) {
   for (const t of state.trips) {
     const it = t.items.find(i => i.id === id);

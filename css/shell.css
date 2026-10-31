@@ -61,6 +61,18 @@
 }
 .trip-chip.add { width: 40px; padding: 0; justify-content: center; }
 /* The archive (archive.js): its icon and how many trips are in it. It nods once when a trip goes in. */
+/* An archived trip being looked at: its tab ends with a ✕ that closes it */
+.trip-chip.archived { padding-right: 4px; }
+.chip-close {
+  width: 32px;
+  height: 32px;
+  margin-left: -2px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: inherit;
+}
+.trip-chip .chip-close .icon { margin: 0; opacity: 1; }
 .trip-chip.archive-chip { padding: 0 14px 0 11px; gap: 6px; }
 .trip-chip.archive-chip .icon { margin: 0; opacity: 1; }
 .trip-chip.archive-chip.pulse { animation: chip-pulse .7s var(--ease) 2; }

@@ -108,6 +108,12 @@ listener in render.js. Don't add another document-wide click listener for button
   `tripsShown()` (`barTrips`: plus the archived trip on screen, marked with the archive icon) and an archive button
   with the count, which opens `#archive-dialog`. `activeTrip()` keeps an archived trip that's being looked at, and
   falls back to the first shown trip; after a trip goes away, use `firstTripId()`, never `state.trips[0]`.
+  Looking at an archived trip ("peek", `openArchived`) is a way out and back: `ui.peek` = `{ id, trip, view, step }`
+  (the trip and section it was opened from), and its own history step (`pushView`, marked `peek: step`). The device's
+  Back, the ✕ on its tab (`close-archived`) and **Back** first on its card all return there (`endPeek`; else to a trip
+  on the top bar, else the start screen). The step is matched by its number: a step left from an earlier look (another
+  trip picked meanwhile, which ends the peek in `render()`) must not keep Back from closing the next one. The app never
+  starts on an archived trip (store.js). Archiving from the trip sheet asks first when its form was changed.
   Archiving the trip on screen moves to `soonestTrip()` (under way, next, undated, latest). Backups keep `archived`
   (only when there are marks, under the trips' new ids); "Restore from backup" keeps the marks of the shared trips it keeps.
   Where to archive: the trip card offers **Archive** first once the trip is over, and the trip sheet has
@@ -361,7 +367,10 @@ and `shared/{id}/docs/…` holds the trip and its plans, in the same form as an 
 **Feature voting (`vote.js`).** Settings → About → "What should come next?" (`#vote-dialog`). Apart from shared
 trips, the only data shared between accounts: `featureVotes/{uid}` (`{ ids }`, the keys that account voted for) and `featureIdeas/{uid}_{0…4}`
 (`{ title, text, uid, at }`; the document name is what caps suggestions at five per account). The app's own proposals
-are `FEATURE_IDEAS`; never reuse an id. A suggestion's vote key is `<doc>.<at>`, so a new one in the same slot starts
+are `FEATURE_IDEAS`; never reuse an id. **When a feature ships, take it off the list in the same change:** remove its
+`FEATURE_IDEAS` entry, and for a suggestion people sent (only its author can delete it) add a pattern on its title,
+English and French, to `BUILT_IDEAS` (hidden for everyone; its author's slot is freed when they send another, and a new
+suggestion that matches gets "The app does that already"). A suggestion's vote key is `<doc>.<at>`, so a new one in the same slot starts
 at zero. Both collections are listened to only while the sheet is open. `tallyVotes` counts; the order on screen is
 fixed when the votes arrive (`voting.order`) so rows don't jump while voting. No names or emails are stored or shown.
 A vote is saved by the tap itself, on the row or its button, and the sheet has to say so: the row lights up

@@ -121,7 +121,8 @@ function renderPlan(trip) {
           </div>` : ''}
       </div>
       <div class="hero-actions">
-        ${archived ? `<button type="button" class="hero-btn ripple" data-action="unarchive">${icon('unarchive')}${T('Unarchive')}</button>` : ''}
+        ${archived ? `<button type="button" class="hero-btn ripple" data-action="close-archived">${icon('arrow_back')}${T('Back')}</button>
+          <button type="button" class="hero-btn ripple" data-action="unarchive">${icon('unarchive')}${T('Unarchive')}</button>` : ''}
         ${over ? `<button type="button" class="hero-btn ripple" data-action="archive-trip">${icon('archive')}${T('Archive')}</button>` : ''}
         ${planned.length ? `<button type="button" class="hero-btn ripple" data-action="trip-map">${icon('map')}${T('Trip map')}</button>` : ''}
         ${trip.place ? `<button type="button" class="hero-btn ripple" data-action="essentials">${icon('info')}${T('Essentials')}</button>` : ''}

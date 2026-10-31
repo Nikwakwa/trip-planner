@@ -412,6 +412,26 @@ function runChecks() {
     dropShare('s1');
     return same([state.trips.map(t => t.id), state.archived], [['trip1'], { trip1: '2026-05-04' }]);
   }));
+  check('Closing an archived trip goes back to the trip and section it was opened from, else to a trip on the top bar', () => sandbox(() => {
+    const was = { view: ui.view, peek: ui.peek };
+    const day = (n) => { const d = parseDate(todayISO()); d.setDate(d.getDate() + n); return toISO(d); };
+    try {
+      const run = (from, view) => {
+        state = both();
+        romeOf(state).start = day(-1); romeOf(state).end = day(1);
+        state.trips.push({ ...sample().trips[0], id: 'trip3', name: 'Oslo', items: [] });
+        state.archived = { trip3: '2026-05-04' };
+        state.activeTripId = 'trip3';
+        ui.peek = { id: 'trip3', trip: from, view };
+        endPeek(view);
+        return [state.activeTripId, ui.view, ui.peek];
+      };
+      return same([run('trip1', 'more'), run('gone', 'plan')], [['trip1', 'more', null], ['trip2', 'plan', null]]);
+    } finally {
+      ui.view = was.view;
+      ui.peek = was.peek;
+    }
+  }));
   check('A backup keeps which trips are archived, under the ids the trips have', () => {
     const b = cleanBackup({ trips: [{ id: 't1', name: 'A' }, { id: 't2', name: 'B' }], archived: { t2: '2026-05-02', gone: '2026-05-03', t1: 'nope' } });
     const all = cleanBackup({ trips: [{ id: 't1', name: 'A' }], archived: { t1: '2026-05-02' } });
@@ -788,6 +808,15 @@ function runChecks() {
   check('The voting sheet says the votes are saved, without anything to send', () =>
     same([voteStatus(0, true), voteStatus(1, true), voteStatus(3, true), voteStatus(2, false)],
       ['Tap an idea to vote for it', '1 vote saved', '3 votes saved', '2 votes kept for when you’re online']));
+  check('A suggestion for something the app now does leaves the list, in English or French', () => {
+    const was = voting.ideas;
+    try {
+      voting.ideas = ['Archive old trips', 'Archiver les voyages finis', 'Trip budget per day'].map((title, i) => ({ key: `u_${i}.1`, doc: `u_${i}`, uid: 'u', at: 1, title, text: '' }));
+      return same(votingFeatures().slice(FEATURE_IDEAS.length).map(f => f.title), ['Trip budget per day']);
+    } finally {
+      voting.ideas = was;
+    }
+  });
   check('The app’s own proposals each have a name, a text and an id of their own', () =>
     (FEATURE_IDEAS.every(f => isId(f.id) && f.title && f.text) && new Set(FEATURE_IDEAS.map(f => f.id)).size === FEATURE_IDEAS.length) || 'a proposal is not filled in right');
 

@@ -51,11 +51,19 @@ function tidyIdea(doc, d) {
   };
 }
 
+// Suggestions people sent for something the app now does: they leave the list. Only their author can delete
+// them, so they're found by their title, in English or French. (A proposal of the app's own that ships is
+// taken out of FEATURE_IDEAS.)
+const BUILT_IDEAS = [
+  /\barchiv/i,          // archiving trips (2.18.0)
+];
+const isBuilt = idea => BUILT_IDEAS.some(re => re.test(idea.title));
+
 // The app's proposals, then people's suggestions, oldest first.
 function votingFeatures() {
   return [
     ...FEATURE_IDEAS.map(f => ({ key: f.id, title: f.title, text: f.text })),
-    ...voting.ideas.slice().sort((a, b) => a.at - b.at),
+    ...voting.ideas.filter(i => !isBuilt(i)).sort((a, b) => a.at - b.at),
   ];
 }
 
@@ -164,17 +172,24 @@ async function suggestFeature(form) {
     return voteError(T('Write your idea first. Your votes are saved already.'));
   }
   const mine = voting.ideas.filter(i => i.uid === voting.uid);
-  if (mine.length >= VOTE_MAX_IDEAS) return voteError(T('You have {n} suggestions in the list. Remove one to send another.', { n: VOTE_MAX_IDEAS }));
+  // A suggestion of yours that is now built is out of the list: its place is freed for this one.
+  const built = mine.filter(isBuilt).sort((a, b) => a.at - b.at);
+  if (mine.length - built.length >= VOTE_MAX_IDEAS) return voteError(T('You have {n} suggestions in the list. Remove one to send another.', { n: VOTE_MAX_IDEAS }));
+  if (isBuilt({ title })) return voteError(T('The app does that already: see “What’s new”.'));
   if (votingFeatures().some(f => norm(f.title) === norm(title))) return voteError(T('That one is in the list already. Vote for it!'));
   // Offline, the account's answer would never come, and the form would stay waiting.
   if (!navigator.onLine) return voteError(T('No connection. Try again when you’re online.'));
   voteError('');
   const taken = new Set(mine.map(i => i.doc));
-  const doc = [0, 1, 2, 3, 4].map(n => `${voting.uid}_${n}`).find(d => !taken.has(d));
+  let doc = [0, 1, 2, 3, 4].map(n => `${voting.uid}_${n}`).find(d => !taken.has(d));
   const at = Date.now();
   const send = form.querySelector('[type=submit]');
   send.disabled = true;
   try {
+    if (!doc) {
+      doc = built[0].doc;
+      await sync.db.collection('featureIdeas').doc(doc).delete();
+    }
     // Sent together: the suggestion, and its author's own vote for it.
     const batch = sync.db.batch();
     batch.set(sync.db.collection('featureIdeas').doc(doc), { title, text, uid: voting.uid, at });
