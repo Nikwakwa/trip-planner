@@ -11,7 +11,7 @@
    ========================================================= */
 
 const GUIDES_KEY = 'tripPlanner.guides';
-const GUIDE_VERSION = 6;          // 2: full descriptions ("about") and opening hours; 3: photos; 4: price, website, photos of destinations; 5: how well known ("fame"); 6: descriptions no longer lose text at "U.S." or "3.5". Older saved guides are refreshed.
+const GUIDE_VERSION = 7;          // 2: full descriptions ("about") and opening hours; 3: photos; 4: price, website, photos of destinations; 5: how well known ("fame"); 6: descriptions no longer lose text at "U.S." or "3.5"; 7: photos by their direct address. Older saved guides are refreshed.
 const MAX_SAVED_GUIDES = 16;
 const WIKIVOYAGE = 'https://en.wikivoyage.org/w/api.php';
 
@@ -382,9 +382,32 @@ async function fillCoordinates(list) {
   }
 }
 
-// A Wikimedia Commons photo, by its file name, at a size fit for a phone.
+// A Wikimedia Commons photo, by its file name, at a size fit for a phone. Only when fillThumbs couldn't
+// ask: this link redirects, and some browsers refuse it as an image (Chrome on a PC, 2026-10-31).
 const commonsPhoto = file => 'https://commons.wikimedia.org/wiki/Special:FilePath/'
   + encodeURIComponent(file.trim().replace(/ /g, '_')) + '?width=480';
+const isDrawing = name => /\.svg$/i.test(name);      // a map, a flag or a logo: not a photo
+
+// The direct address of each listing's Commons photo, asked of Wikipedia (which reads Commons' files).
+// x.thumb: the address, or '' when there is no such file (or it is a drawing).
+async function fillThumbs(list) {
+  const files = [...new Set(list.filter(x => x.image && !isDrawing(x.image)).map(x => x.image))];
+  const found = new Map();
+  for (let i = 0; i < files.length; i += 50) {
+    const part = files.slice(i, i + 50);
+    const data = await getJSON('https://en.wikipedia.org/w/api.php', wm({
+      action: 'query', prop: 'imageinfo', iiprop: 'url', iiurlwidth: '480', titles: part.map(f => 'File:' + f).join('|'),
+    }));
+    const normalized = new Map((data.query.normalized || []).map(r => [r.from, r.to]));
+    const thumbs = new Map((data.query.pages || []).filter(p => p.imageinfo && p.imageinfo[0].thumburl)
+      .map(p => [p.title, p.imageinfo[0].thumburl.split('?')[0]]));
+    for (const f of part) {
+      const thumb = thumbs.get(normalized.get('File:' + f) || 'File:' + f);
+      if (thumb) found.set(f, thumb);
+    }
+  }
+  for (const x of list) if (x.image) x.thumb = found.get(x.image) || '';
+}
 
 // Places without a photo in the guide: Wikidata's main image for them, when it has one.
 async function fillPhotos(list) {
@@ -480,6 +503,7 @@ async function wikivoyageGuide(place) {
   const reach = place.kind === 'city' ? 30 : place.kind === 'region' ? 400 : 1500;
   list = bestListings(list.filter(x => x.lat !== null && miles(place, x) < reach), 160);
   if (list.length < 5) return null;
+  await fillThumbs(list).catch(() => {});
 
   const isDestinations = list.filter(x => x.type === 'city' || x.type === 'vicinity').length >= list.length * 0.6;
   const places = listingPlaces(list, place.name);
@@ -550,6 +574,8 @@ function listingPlaces(list, inName) {
     usedIds.add(id);
     return id;
   };
+  // x.thumb is there once fillThumbs could ask ('' when the file wasn't found).
+  const photoOf = x => (x.thumb !== undefined ? x.thumb : x.image && !isDrawing(x.image) ? commonsPhoto(x.image) : '') || x.photoUrl || '';
   return list.map(x => ({
     id: placeId(x),
     name: x.name,
@@ -565,7 +591,7 @@ function listingPlaces(list, inName) {
       x.type !== 'city' && RAINY.test(x.name) ? 'rainy' : '',
     ].filter(Boolean),
     blurb: x.blurb || (x.type === 'city' ? T('A destination in {place}.', { place: inName }) : ''),
-    ...(x.image ? { photo: commonsPhoto(x.image) } : x.photoUrl ? { photo: x.photoUrl } : {}),
+    ...(photoOf(x) ? { photo: photoOf(x) } : {}),
     ...(x.hours ? { hours: x.hours } : {}),
     ...(x.about.length > x.blurb.length ? { about: x.about } : {}),
     ...(x.price ? { price: x.price.slice(0, 200) } : {}),
@@ -587,7 +613,9 @@ async function fillPhotosByName(list) {
     // The answer names the article, which may differ from what was asked ("NYC" → "New York City").
     const renamed = rows => new Map((rows || []).map(r => [r.from, r.to]));
     const normalized = renamed(data.query.normalized), redirects = renamed(data.query.redirects);
-    const photos = new Map((data.query.pages || []).filter(p => p.thumbnail).map(p => [p.title, p.thumbnail.source]));
+    // (an island's article may show a map of where it is: not a photo)
+    const photos = new Map((data.query.pages || []).filter(p => p.thumbnail && !/\.svg\//i.test(p.thumbnail.source))
+      .map(p => [p.title, p.thumbnail.source]));
     for (const name of names.slice(i, i + 40)) {
       const title = normalized.get(name) || name;
       const photo = photos.get(redirects.get(title) || title);
@@ -617,6 +645,7 @@ async function nearbyGuide(center) {
   await fillFame(list).catch(() => {});
   list = bestListings(list.filter(x => x.lat !== null && miles(center, x) < NEAR_REACH), 120);
   if (list.length < 3) return null;
+  await fillThumbs(list).catch(() => {});
   return {
     city: titles[0].split('/')[0].replace(/\s*\([^)]*\)$/, ''),
     source: 'Wikivoyage',

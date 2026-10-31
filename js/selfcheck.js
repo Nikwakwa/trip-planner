@@ -894,6 +894,17 @@ function runChecks() {
     const got = [sectionSummary(long), shortBlurb(long), longBlurb(long)];
     return got.every(t => t.startsWith('The size of the U.S. and the distance')) || `got ${stable(got.map(t => t.slice(0, 30)))}`;
   });
+  check('A guide photo is the direct address when known; a redirecting link only when it couldn\'t be asked; never a map', () => {
+    const x = (name, more) => ({ name, type: 'see', blurb: '', about: '', price: '', lat: 1, lng: 1, ...more });
+    const photos = listingPlaces([
+      x('A', { image: 'A.jpg', thumb: 'https://thumb.wikimedia.org/a.jpg' }),
+      x('B', { image: 'Gone.jpg', thumb: '' }),
+      x('C', { image: 'C.jpg' }),
+      x('D', { image: 'Map.svg' }),
+      x('E', { photoUrl: 'https://thumb.wikimedia.org/e.jpg' }),
+    ], 'X').map(p => p.photo || '');
+    return same(photos, ['https://thumb.wikimedia.org/a.jpg', '', commonsPhoto('C.jpg'), '', 'https://thumb.wikimedia.org/e.jpg']);
+  });
   check('Essentials show the voltage at a wall socket, not the three-phase one (France said "400 V")', () =>
     same([['400', '230'], ['220', '127'], ['120'], ['11000'], []].map(socketVolts), ['230 V', '127/220 V', '120 V', '', '']));
 
