@@ -104,6 +104,53 @@ dialog.map-sheet[open] { display: flex; flex-direction: column; }
 /* Docked map: the pin of the plan being pointed at */
 .pin.hot .pin-shape { transform: rotate(-45deg) scale(1.35); box-shadow: 0 4px 12px rgb(0 0 0 / .45); }
 
+/* Ideas on the map: a smaller round pin with the type's icon, so it never reads as a stop of the day.
+   On a trip planned together, a rose badge says how many people like it. */
+.pin-idea {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff;
+  color: oklch(.5 .14 var(--h));
+  border: 2px solid oklch(.5 .14 var(--h));
+  box-shadow: 0 1px 4px rgb(0 0 0 / .3);
+}
+.pin-idea .icon { width: 16px; height: 16px; }
+html[data-theme="dark"] .pin-idea { background: #2a2a2e; color: oklch(.8 .11 var(--h)); border-color: oklch(.8 .11 var(--h)); }
+.pin-hearts {
+  position: absolute;
+  top: -9px;
+  right: -14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  height: 17px;
+  padding: 0 5px 0 4px;
+  border-radius: 9px;
+  border: 1.5px solid #fff;
+  background: var(--heart);
+  color: #fff;
+  font: 700 10px/1 var(--font);
+}
+html[data-theme="dark"] .pin-hearts { color: #3a0a1f; border-color: #2a2a2e; }
+.pin-hearts .icon { width: 10px; height: 10px; }
+/* The switch for the ideas layer, and an idea's popup */
+.map-layers { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.idea-pop p { margin: 0; }
+.idea-pop strong { display: block; font-size: 15px; line-height: 20px; margin: 2px 0; }
+.pop-over, .pop-line { display: flex; align-items: center; gap: 4px; color: var(--on-surface-variant); }
+.pop-over { font-size: 12px; font-weight: 600; }
+.pop-line { margin-top: 2px; }
+.pop-line.hearts { color: var(--heart); font-weight: 600; }
+.idea-pop .icon { width: 14px; height: 14px; flex: none; }
+.pop-label { margin-top: 10px !important; font-size: 12px; font-weight: 600; color: var(--on-surface-variant); }
+.pop-days { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.pop-days .assist-chip { height: 30px; padding: 0 10px; font-size: 13px; }
+.idea-pop .btn { margin-top: 10px; width: 100%; justify-content: center; }
+
 /* Leaflet adjustments (its own stylesheet loads later, so these use #map) */
 #map.leaflet-container { font: 13px/1.4 var(--font); background: var(--surface-container-highest); }
 #map .leaflet-control-zoom { border: none; box-shadow: var(--elev-3); border-radius: 14px; overflow: hidden; }

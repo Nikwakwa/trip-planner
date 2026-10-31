@@ -13,6 +13,9 @@ the same address shows a desktop layout on a wide screen, by itself.
 - **Essentials** for each trip: emergency number, plugs, currency, local time, and tips
   on getting around and staying safe, saved for offline use.
 - Hold a plan or an idea and drag it onto a day, or to another spot in the day.
+- **Ideas on the map:** the day and trip maps also show your ideas, as round pins with their type's icon (the
+  day's stops are the numbered ones). Tap one to add it to a day; on a day's map it says how far it is from that
+  day's plans. The **Ideas** button over the map shows or hides them (remembered on each device).
 - Warns when a plan is on a day or at a time the place is usually closed.
 - An **AI Assistant** that plans days and edits your trip when you ask (free, see below).
 - Each trip gets around by **public transit + walk** or **drive + walk** (set in the trip; a day can differ),

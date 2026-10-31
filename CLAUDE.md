@@ -235,6 +235,15 @@ If MapLibre or the style can't load, raster tiles are used: CARTO (Voyager / dar
 `firebase-config.js`, else standard OSM tiles with a CSS invert in dark mode (`tileUrl`, `setMapTheme`). Plans are ordered by `time`, then by `slot` (written by Optimize route and by a drop, e.g. `"12:30~01"`);
 a plan with neither sorts as if at 17:00, after that hour's plans (`byPlanOrder`): at the end it came after an 8 PM
 dinner, and the route doubled back.
+Ideas on the map (2.21): the day and trip maps (sheet and docked) also draw the located ideas (`mapIdeas`, most hearts
+first) as round `.pin-idea` pins with the type's icon and hue, under the stops (`zIndexOffset`), with a rose heart
+badge on a shared trip. A layer switch (`ideasToggleHTML`, action `map-ideas`, `settings.mapIdeas`, per device, on
+unless `false`) sits over the map's list and on the docked card; none while no idea has a place. An idea's popup
+(`ideaPopupHTML`) says who likes it, on a day map how far it is from that day's nearest stop, and adds it to a day
+(`map-add-idea`: "Add to {day}" on a day map, one chip per trip day on the trip map; Undo in `mapView.note` inside the
+sheet, a snackbar when docked). The trip map fits its ideas in; a day map only its stops (unless it has none).
+Ideas with an address are looked up while the layer is on. Leaflet 1.9 lets clicks inside popups bubble, so their
+`data-action` buttons go through the action table.
 
 **Weather, hours, essentials, drag.**
 - Each of `weather.js` (Open-Meteo), `hours.js` (Overpass/OSM `opening_hours`, falling back to the Wikivoyage listing's

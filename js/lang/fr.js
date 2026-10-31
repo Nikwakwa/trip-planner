@@ -833,6 +833,11 @@ DICTS.fr = {
   'First name or nickname, shown to the people you plan trips with': 'Prénom ou surnom, visible par les personnes avec qui vous préparez vos voyages',
   'People on your trips now see “{name}”': 'Les personnes de vos voyages voient maintenant « {name} »',
   'Name removed': 'Prénom retiré',
+  /* Ideas on the map (maps.js) */
+  'Idea': 'Idée',
+  '{dist} from {name}': 'À {dist} de {name}',
+  'Show ideas on the map': 'Afficher les idées sur la carte',
+  'Hide ideas on the map': 'Masquer les idées sur la carte',
   /* Hearts on ideas (share.js) */
   'Give a heart to the ones you like: the ideas the group likes most come first.': 'Mettez un cœur à celles qui vous plaisent : les idées préférées du groupe passent en premier.',
   'Like {name}': 'J’aime {name}',
@@ -902,6 +907,7 @@ DICTS.fr = {
   'last synced {when}': 'dernière synchronisation {when}',
 
   /* ---------- What's new (version.js) ---------- */
+  'Your ideas on the map: show or hide them, and add one to a day from its pin': 'Vos idées sur la carte : affichez-les ou masquez-les, et ajoutez-en une à une journée depuis son repère',
   'Add your first name or a nickname in Settings → Account: the people on your trips see it next to your hearts': 'Ajoutez votre prénom ou un surnom dans Paramètres → Compte : les personnes de vos voyages le voient à côté de vos cœurs',
   'On a trip planned together, give a heart to the ideas you like: the group’s favorites come first': 'Sur un voyage préparé à plusieurs, mettez un cœur aux idées qui vous plaisent : les préférées du groupe passent en premier',
   'Archive a trip to take it off the top bar: it stays one tap away, just as it was': 'Archivez un voyage pour le retirer de la barre du haut : il reste à portée de main, tel quel',

@@ -457,6 +457,40 @@ function runChecks() {
     return same([shown, 'profile' in state], [['You, Bob, and Annie', 'Nico', 'Bob', ''], false]);
   })));
 
+  /* ---------- Ideas on the map (maps.js) ---------- */
+  group = 'Ideas on the map';
+  const onMap = (day, fn) => {
+    const real = mapView.day;
+    try { mapView.day = day; return fn(); } finally { mapView.day = real; }
+  };
+  check('Only ideas with a spot are on the map, the ones the group likes most first', () => sandbox(() => withRoot(['selfcheck', 'ann'], () => {
+    state = both();
+    sync.saved = { uid: 'selfcheck', email: '', linked: true, base: {}, shared: {} };
+    const r = romeOf(state);
+    r.items[0].lat = 41.89; r.items[0].lng = 12.49;           // Forum
+    r.items[1].lat = 41.9; r.items[1].lng = 12.48;            // Gelato
+    r.items.push({ ...r.items[0], id: 'z', title: 'Somewhere', lat: undefined, lng: undefined });
+    r.items.push({ ...r.items[0], id: 'w', title: 'Planned', date: '2026-05-02' });
+    r.hearts = { ann: ['y'] };
+    const shared = mapIdeas(r).map(s => s.it.title);
+    const solo = mapIdeas(state.trips[0]).length;              // Lisbon's idea has no spot
+    return same([shared, solo, ideasToggleHTML(state.trips[0]), /2 ideas/.test(ideasToggleHTML(r))], [['Gelato', 'Forum'], 0, '', true]);
+  })));
+  check('An idea’s pin says how far it is from the day’s stops, and adds it to that day or any day of the trip', () => sandbox(() => onMap('2026-05-01', () => {
+    state = sample();
+    sync.saved = null;
+    const t = state.trips[0];
+    Object.assign(t.items[0], { lat: 38.7139, lng: -9.1335 });       // the castle, on 1 May
+    Object.assign(t.items[2], { lat: 38.7110, lng: -9.1400, place: 'Martim Moniz' });     // the tram 28 idea
+    const s = { it: t.items[2], c: coordsOf(t.items[2], null) };
+    const day = ideaPopupHTML(t, s);
+    mapView.day = 'all';
+    const all = ideaPopupHTML(t, s);
+    const dates = h => [...h.matchAll(/data-action="map-add-idea" data-date="([\d-]+)"/g)].map(m => m[1]);
+    return same([dates(day), dates(all), /from Castle/.test(day), /from /.test(all), /Martim Moniz/.test(day)],
+      [['2026-05-01'], ['2026-05-01', '2026-05-02', '2026-05-03'], true, false, true]);
+  })));
+
   /* ---------- Archived trips (archive.js) ---------- */
   group = 'Archived trips';
   check('Which trips are archived is read back, and a bad mark is left out', () =>

@@ -447,6 +447,52 @@ function googleRouteUrl(points, mode) {
   return 'https://www.google.com/maps/dir/?' + params;
 }
 
+/* ---------- Ideas on the map: a layer to switch on and off (Settings, per device) ----------
+   An idea is a round pin with its type's icon, apart from the numbered stops, and its popup adds it to a day. */
+
+const ideasLayerOn = () => state.settings.mapIdeas !== false;
+
+// The ideas with a spot on the map, the ones the group likes most first (share.js).
+function mapIdeas(trip) {
+  const guide = guideFor(trip);
+  return byHearts(trip, trip.items.filter(i => !i.date)).map(it => ({ it, c: coordsOf(it, guide) })).filter(s => s.c);
+}
+
+// The switch, over the map or on the docked map's card. None while no idea has a place.
+function ideasToggleHTML(trip) {
+  const n = mapIdeas(trip).length;
+  if (!n) return '';
+  const on = ideasLayerOn();
+  return `<button type="button" class="assist-chip ideas-toggle ripple ${on ? 'selected' : ''}" data-action="map-ideas" aria-pressed="${on}"
+    title="${on ? T('Hide ideas on the map') : T('Show ideas on the map')}">${icon('lightbulb')}${Tn(n, '{n} idea', '{n} ideas')}</button>`;
+}
+
+// What an idea's pin says: who likes it, how far it is from the day's stops, and the days it can go on.
+function ideaPopupHTML(trip, s) {
+  const guide = guideFor(trip);
+  const cat = CATEGORIES[s.it.category] || CATEGORIES.other;
+  const who = heartsOn(trip) ? heartsFor(trip, s.it.id) : [];
+  let near = '';
+  if (mapView.day !== 'all') {
+    const stops = dayItems(trip, mapView.day).map(it => ({ it, c: coordsOf(it, guide) })).filter(x => x.c);
+    const best = stops.map(x => ({ x, d: miles(x.c, s.c) })).sort((a, b) => a.d - b.d)[0];
+    if (best) near = T('{dist} from {name}', { dist: fmtDist(best.d), name: best.x.it.title });
+  }
+  const days = mapView.day === 'all' ? tripDays(trip) : [mapView.day];
+  const add = days.length === 1
+    ? `<button type="button" class="btn filled ripple" data-action="map-add-idea" data-date="${days[0]}">${icon('add')}${T('Add to {day}', { day: esc(fmtDay(days[0], { weekday: 'long' })) })}</button>`
+    : days.length ? `<p class="pop-label">${T('Add to a day')}</p><div class="pop-days">${days.map(d => `
+        <button type="button" class="assist-chip ripple" data-action="map-add-idea" data-date="${d}">${esc(fmtDay(d, { weekday: 'short', day: 'numeric' }))}</button>`).join('')}</div>` : '';
+  return `<div class="idea-pop" data-id="${esc(s.it.id)}">
+    <p class="pop-over">${icon('lightbulb')}${T('Idea')} · ${esc(cat.label)}</p>
+    <strong>${esc(s.it.title)}</strong>
+    ${s.it.place && norm(s.it.place) !== norm(s.it.title) ? `<p class="pop-line">${esc(s.it.place)}</p>` : ''}
+    ${who.length ? `<p class="pop-line hearts">${icon('favorite-fill')}${esc(heartNames(trip, who))}</p>` : ''}
+    ${near ? `<p class="pop-line">${icon('near_me')}${esc(near)}</p>` : ''}
+    ${add}
+  </div>`;
+}
+
 /* On a wide window the map isn't a sheet: it stays docked on the right of the Plan tab,
    and "opening" a map just points it at that day. The same map element moves between the two. */
 const dockQuery = matchMedia('(min-width: 1200px)');
@@ -502,7 +548,7 @@ function renderMapPane() {
     const count = groups.reduce((n, g) => n + g.stops.filter(s => s.c).length, 0);
     $('#pane-title').textContent = T('All days');
     $('#pane-sub').textContent = count ? `${Tn(count, '{n} stop', '{n} stops')} · ${T('pick a day to see its route')}` : T('Plans with a place appear here');
-    $('#pane-actions').innerHTML = groups.filter(g => g.stops.some(s => s.c)).map(g => `
+    $('#pane-actions').innerHTML = ideasToggleHTML(trip) + groups.filter(g => g.stops.some(s => s.c)).map(g => `
       <button type="button" class="assist-chip ripple" data-action="day-map" data-date="${g.day}">
         <span class="legend-dot" style="background:${g.color}"></span>${esc(fmtDay(g.day, { weekday: 'short', day: 'numeric' }))}
       </button>`).join('');
@@ -519,6 +565,7 @@ function renderMapPane() {
     : Tn(located.length, '{n} stop on the map', '{n} stops on the map');
   $('#pane-actions').innerHTML = `
     <button type="button" class="assist-chip ripple" data-action="trip-map">${icon('map')}${T('All days')}</button>
+    ${ideasToggleHTML(trip)}
     ${located.length >= 3 && located.some(s => !s.it.time) ? `<button type="button" class="assist-chip ripple" data-action="optimize" data-date="${g.day}">${icon('route')}${T('Optimize route')}</button>` : ''}
     ${located.length >= 2 ? `<a class="assist-chip ripple" href="${esc(googleRouteUrl(withBase(trip, g.day, located), modeFor(trip, g.day)))}" target="_blank" rel="noopener">${icon('directions')}${T('Google Maps')}</a>` : ''}`;
 }
@@ -562,12 +609,20 @@ function renderMapBody() {
   const trip = activeTrip();
   const groups = mapGroups(trip);
   const pending = groups.some(g => g.stops.some(s => geoPending.has(s.it.id)));
+  // Above the list: what was just done (with Undo), and the switch for the ideas.
+  const toggle = ideasToggleHTML(trip);
+  const top = `${mapView.note ? `
+      <div class="map-note" role="status">
+        <span>${esc(mapView.note.text)}</span>
+        ${mapView.note.undo ? `<button type="button" class="btn text ripple" data-action="undo-optimize">${T('Undo')}</button>` : ''}
+      </div>` : ''}${toggle ? `<div class="map-layers">${toggle}</div>` : ''}`;
 
   if (mapView.day === 'all') {
     const count = groups.reduce((n, g) => n + g.stops.filter(s => s.c).length, 0);
     $('#map-title').textContent = `${trip.name} · ${T('All days')}`;
     $('#map-sub').textContent = pending ? T('Finding places on the map…') : Tn(count, '{n} stop on the map', '{n} stops on the map');
     $('#map-body').innerHTML = `
+      ${top}
       <div class="legend">
         ${groups.map((g) => {
           // The same day numbers as in the plan (a day outside the trip's dates has none).
@@ -595,11 +650,7 @@ function renderMapBody() {
   const canOptimize = located.length >= 3 && located.some(s => !s.it.time);
   let n = 0;
   $('#map-body').innerHTML = `
-    ${mapView.note ? `
-      <div class="map-note" role="status">
-        <span>${esc(mapView.note.text)}</span>
-        ${mapView.note.undo ? `<button type="button" class="btn text ripple" data-action="undo-optimize">${T('Undo')}</button>` : ''}
-      </div>` : ''}
+    ${top}
     <div class="map-actions">
       ${canOptimize ? `<button type="button" class="btn tonal ripple" data-action="optimize" data-date="${g.day}">${icon('route')}${T('Optimize route')}</button>` : ''}
       ${located.length >= 2 ? `<a class="btn filled ripple" href="${esc(googleRouteUrl(withBase(trip, g.day, located), modeFor(trip, g.day)))}" target="_blank" rel="noopener">${icon('directions')}${T('Open in Google Maps')}</a>` : ''}
@@ -667,6 +718,27 @@ function drawMap(fit) {
   mapView.layer.clearLayers();
   mapView.markers.clear();
   const all = [];
+  // The ideas, under the stops: round pins with their type's icon, and on a shared trip their hearts.
+  const ideaPts = [];
+  if (ideasLayerOn()) {
+    lookupMissing(trip, trip.items.filter(i => !i.date));
+    for (const s of mapIdeas(trip)) {
+      const cat = CATEGORIES[s.it.category] || CATEGORIES.other;
+      const hearts = heartsOn(trip) ? heartsFor(trip, s.it.id).length : 0;
+      L.marker([s.c.lat, s.c.lng], {
+        title: s.it.title,
+        zIndexOffset: -1000,
+        icon: L.divIcon({
+          className: 'pin',
+          html: `<div class="pin-idea" style="--h:${cat.hue}">${icon(cat.icon + '-fill')}${hearts ? `<span class="pin-hearts">${icon('favorite-fill')}${hearts}</span>` : ''}</div>`,
+          iconSize: [28, 28],
+          iconAnchor: [14, 14],
+          popupAnchor: [0, -14],
+        }),
+      }).bindPopup(ideaPopupHTML(trip, s), { maxWidth: 280, minWidth: 200 }).addTo(mapView.layer);
+      ideaPts.push([s.c.lat, s.c.lng]);
+    }
+  }
   for (const g of mapGroups(trip)) {
     const pts = g.stops.filter(s => s.c);
     // A day's route starts and ends at the stay (today.js); the whole-trip view only links the stops.
@@ -707,8 +779,10 @@ function drawMap(fit) {
     all.push([base.c.lat, base.c.lng]);
   }
   if (!fit) return;
-  if (all.length > 1) mapView.map.fitBounds(all, { padding: [48, 48], maxZoom: 16 });
-  else if (all.length === 1) mapView.map.setView(all[0], 15);
+  // The whole trip fits its ideas in too; a day only its own stops (its ideas around them are a bonus), unless it has none.
+  const pts = mapView.day === 'all' || !all.length ? [...all, ...ideaPts] : all;
+  if (pts.length > 1) mapView.map.fitBounds(pts, { padding: [48, 48], maxZoom: 16 });
+  else if (pts.length === 1) mapView.map.setView(pts[0], 15);
   else {
     const guide = guideFor(trip);
     const places = guide ? guide.places : [];
@@ -805,3 +879,32 @@ onAction('undo-optimize', () => {
   if (mapView.note && mapView.note.undo) mapView.note.undo();
 });
 onAction('focus-stop', el => focusStop(el.dataset.id));
+// The ideas layer, switched on or off (kept per device).
+onAction('map-ideas', () => {
+  state.settings.mapIdeas = !ideasLayerOn();
+  saveLocal();
+  refreshMap();
+});
+// An idea's pin: "Add to {day}" puts it on that day, where it becomes a numbered stop.
+onAction('map-add-idea', (el) => {
+  const found = findItem(idOf(el));
+  if (!found || found.item.date) return;
+  const { item } = found;
+  item.date = el.dataset.date;
+  if (mapView.map) mapView.map.closePopup();
+  save();
+  render();
+  const text = T('Added to {day}', { day: fmtDay(item.date, { weekday: 'long' }) });
+  const inSheet = $('#map-dialog').open;
+  const undo = () => {
+    item.date = '';
+    save();
+    render();
+    if ($('#map-dialog').open) mapView.note = null;
+    if (mapShown()) refreshMap();
+  };
+  // In the map sheet the message shows over the stops (a snackbar would be hidden under the sheet).
+  if (inSheet) mapView.note = { text, undo };
+  refreshMap();
+  if (!inSheet) snackbar(text, T('Undo'), undo);
+});
