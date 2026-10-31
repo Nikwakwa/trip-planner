@@ -474,6 +474,9 @@ function runChecks() {
 
   /* ---------- Ideas on the map (maps.js) ---------- */
   group = 'Ideas on the map';
+  check('Suggestions for ideas on the map leave the voting list, however they are worded', () =>
+    same(['Ideas on the trip map', 'Show my ideas on a map', 'Map with saved ideas', 'Voir les idées sur la carte', 'Carte des idées', 'Offline maps', 'More ideas for food']
+      .map(title => isBuilt({ title })), [true, true, true, true, true, false, false]));
   const onMap = (day, fn) => {
     const real = mapView.day;
     try { mapView.day = day; return fn(); } finally { mapView.day = real; }

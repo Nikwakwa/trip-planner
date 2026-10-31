@@ -57,7 +57,8 @@ const BUILT_IDEAS = [
   /\barchiv/i,          // archiving trips (2.18.0)
   /\bhearts?\b|\bc(œ|oe)urs?\b/i,    // hearts on ideas (2.19.0)
   /\bnick ?names?\b|\bpseudo|\bsurnom/i,     // a name of your own on shared trips (2.20.0)
-  /\bideas? on (the |a )?map|\bidées? sur (la |une )?carte/i,     // ideas on the map (2.21.0)
+  // ideas on the map (2.21.0): any title with both words, whatever comes between ("Ideas on the trip map")
+  /\bideas?\b.*\bmaps?\b|\bmaps?\b.*\bideas?\b|\bidées?\b.*\bcartes?\b|\bcartes?\b.*\bidées?\b/i,
 ];
 const isBuilt = idea => BUILT_IDEAS.some(re => re.test(idea.title));
 
