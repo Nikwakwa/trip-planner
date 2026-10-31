@@ -11,9 +11,10 @@
 function itemHTML(item, trip, { showDate = false, drag = false, note = null, schedule = false, num = 0, photo = '' } = {}) {
   const cat = CATEGORIES[item.category] || CATEGORIES.other;
   const link = safeUrl(item.link);
-  // An idea shows what the guide says about it (the time to allow, a few words), and a tap opens all of it.
+  // A plan from the guide shows what it says about it (the time to allow, a few words). On an idea, a tap opens all of it.
   const guide = guideFor(trip);
-  const p = schedule ? matchPlaces(item, guide)[0] : null;
+  // (not a flight "to Port Louis", nor a hotel)
+  const p = !['transport', 'stay'].includes(item.category) && matchPlaces(item, guide, trip)[0] || null;
   const details = schedule && hasPlanInfo(item, guide);
   const over = [
     item.time && fmtTime(item.time),

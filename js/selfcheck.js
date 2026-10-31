@@ -1010,7 +1010,7 @@ function runChecks() {
     ]).map(p => p.photo || '');
     return same(photos, ['https://thumb.wikimedia.org/a.jpg', '', commonsPhoto('C.jpg'), '', 'https://thumb.wikimedia.org/e.jpg']);
   });
-  check('An idea saved from Explore keeps the guide\'s words and time to allow on its card, and a tap opens its details', () => sandbox(() => {
+  check('A plan or idea from the guide keeps its words and time to allow on its card; a tap on an idea opens its details', () => sandbox(() => {
     const guide = prepGuide({ id: 'check', kind: 'city', places: [
       { id: 'cas', name: 'Castle', cat: 'sight', lat: 38.71, lng: -9.13, mins: 90, tags: ['free'], blurb: 'A <castle> on the hill.' }] });
     const s = sample();
@@ -1022,7 +1022,7 @@ function runChecks() {
     const card = itemHTML(idea, trip, { schedule: true });
     const plan = itemHTML(trip.items[1], trip, {});
     return same([card.includes('A &lt;castle&gt; on the hill.'), card.includes(fmtDuration(90)), card.includes(`· ${T('Free')}`), /item-main[^>]*data-action="plan-info"/.test(card),
-      plan.includes('on the hill'), /item-main[^>]*data-action="edit"/.test(plan)], [true, true, true, true, false, true]);
+      plan.includes('on the hill'), plan.includes(fmtDuration(90)), /item-main[^>]*data-action="edit"/.test(plan)], [true, true, true, true, true, true, true]);
   }));
   check('A destination\'s words read whole: no comma first, the name back before "is", a period at the end', () =>
     same([markerText('Flic en Flac', ', a local fishing village'), markerText('Curepipe', ' is the largest highland city.'),

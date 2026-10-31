@@ -907,6 +907,7 @@ DICTS.fr = {
   'last synced {when}': 'dernière synchronisation {when}',
 
   /* ---------- What's new (version.js) ---------- */
+  'Plans from the travel guide show its description on their card, like ideas': 'Les activités tirées du guide de voyage affichent sa description sur leur carte, comme les idées',
   'Ideas saved from Explore keep their photo, description and time to allow. Tap one to see everything about it': 'Les idées enregistrées depuis Explorer gardent leur photo, leur description et la durée à prévoir. Touchez-en une pour tout voir',
   'On a trip’s first and last day, the address search also finds places far away, like your home': 'Le premier et le dernier jour d’un voyage, la recherche d’adresse trouve aussi les lieux lointains, comme votre domicile',
   'Your flight from home and back shows on its day’s map, even far from the trip': 'Votre vol aller et retour apparaît sur la carte de sa journée, même loin du voyage',
