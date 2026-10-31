@@ -231,7 +231,12 @@ is always looked up (`needsLookup`), a plan on the map only matches a place of t
 (5 miles; a destination of a country guide gets `MATCH_REACH`), and a plan without a spot only one near the plans
 around it (`plansAround`: its day, the day before and after). When the address found is a whole town or park and
 the guide place with the plan's name is inside it, the pin goes on that place. A short address on a country or
-region trip ("Hauptbahnhof") is first searched around the day's plans. The basemap is a MapLibre GL (6.x, an ES module) vector layer inside Leaflet (`L.maplibreGL`, vendored in `vendor/maplibre`),
+region trip ("Hauptbahnhof") is first searched around the day's plans. A plan whose address was not found
+(`geoMiss`) is never pinned on a guide place named in its title ("Vol de Paris Orly à Port Louis" was pinned on Port
+Louis). The journey from home (`isHomeLeg`: a transport plan on the trip's first or last day) may be found far outside
+the trip (Paris Orly on a trip to Mauritius); pinned there, it is `isAway` (guide.js): `coordsOf` returns null for it,
+so no route, travel time, suggestion, weather or nearby guide uses it, and only its own day's map shows it
+(`awaySpot`, a pin with its type's icon, fitted only when the day has nothing else on the map). The basemap is a MapLibre GL (6.x, an ES module) vector layer inside Leaflet (`L.maplibreGL`, vendored in `vendor/maplibre`),
 using OpenFreeMap's "liberty" style as adjusted by `tuneMapStyle(style, theme)` in `mapstyle.js` (earlier POI labels;
 the dark theme is derived by recoloring every paint color, see `nightColor`). Pins, routes and popups stay Leaflet.
 If MapLibre or the style can't load, raster tiles are used: CARTO (Voyager / dark) when `window.CARTO_KEY` is set in

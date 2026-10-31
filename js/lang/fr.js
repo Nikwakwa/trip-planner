@@ -907,6 +907,7 @@ DICTS.fr = {
   'last synced {when}': 'dernière synchronisation {when}',
 
   /* ---------- What's new (version.js) ---------- */
+  'Your flight from home and back shows on its day’s map, even far from the trip': 'Votre vol aller et retour apparaît sur la carte de sa journée, même loin du voyage',
   'The days in the trip and plan forms follow your Date setting (Settings → Appearance), like the rest of the app': 'Les jours des formulaires de voyage et d’activité s’écrivent comme dans le reste de l’app (« 26 déc. 2026 »)',
   'Your ideas on the map: show or hide them, and add one to a day from its pin': 'Vos idées sur la carte : affichez-les ou masquez-les, et ajoutez-en une à une journée depuis son repère',
   'Add your first name or a nickname in Settings → Account: the people on your trips see it next to your hearts': 'Ajoutez votre prénom ou un surnom dans Paramètres → Compte : les personnes de vos voyages le voient à côté de vos cœurs',

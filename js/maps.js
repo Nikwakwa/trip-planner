@@ -117,6 +117,9 @@ function lookupMissing(trip, items) {
         ? [norm(addr).includes(norm(city)) ? addr : `${addr}, ${where}`]
         : [addr, `${addr}, ${where}`];
       const fits = nearTrip(trip, guide);
+      // The flight from home on the first day, or back home on the last: found far away is fine
+      // (Paris Orly on a trip to Mauritius). The address as written, or the looser search, says where.
+      const home = isHomeLeg(item, trip);
       // One question to OpenStreetMap's address search (at most one a second). box: only inside it.
       const ask = async (q, box) => {
         const waitMs = geoLast + 1100 - Date.now();
@@ -148,7 +151,7 @@ function lookupMissing(trip, items) {
       // The plans around it (the day before to the day after) that are on the map: a looser search
       // can answer with a place of the same name far away, so its answer has to be near them.
       const around = plansAround(item, trip);
-      const plausible = p => fits(p) && (!around.length || around.some(i => miles(i, p) < AROUND_REACH));
+      const plausible = p => (home && !fits(p)) || (fits(p) && (!around.length || around.some(i => miles(i, p) < AROUND_REACH)));
       // The closest of them: the plans of its own day, when some are on the map.
       const sameDay = around.filter(i => item.date && i.date === item.date);
       const close = sameDay.length ? sameDay : around;
@@ -177,7 +180,7 @@ function lookupMissing(trip, items) {
         let street = null; // only the street of the address: kept in case nothing better turns up
         for (const q of tries) {
           const found = (nearby && await ask(q, nearby)) || await ask(q);
-          if (found && (tries.length === 1 || fits(found))) {
+          if (found && (tries.length === 1 || fits(found) || (home && q === addr))) {
             if (!found.street) { hit = found; break; }
             street = street || found;
           }
@@ -326,7 +329,8 @@ function dayToolsHTML(trip, day, items, guide) {
   const located = items.filter(it => coordsOf(it, guide));
   const fill = canAutoFill(day, guide)
     ? `<button type="button" class="assist-chip ripple" data-action="autofill" data-date="${day}">${icon('auto_awesome')}${T('Auto-fill day')}</button>` : '';
-  if (!located.length) return fill ? `<div class="day-tools">${fill}</div>` : '';
+  // A day with only the flight from home far away on the map (guide.js) still has its map.
+  if (!located.length && !items.some(it => isAway(it, trip))) return fill ? `<div class="day-tools">${fill}</div>` : '';
   const canOptimize = located.length >= 3 && located.some(it => !it.time);
   // With 2+ stops there are travel times: this day can get around differently from the rest of the trip.
   const mode = TRAVEL_MODES[modeFor(trip, day)];
@@ -395,7 +399,8 @@ function cssColor(expr) {
 const dayTint = i => `oklch(.6 .16 ${DAY_HUES[Math.max(0, i) % DAY_HUES.length]})`;
 const dayColor = i => toHex(dayTint(i));
 
-// The stops to show: one day, or every day of the trip ("all").
+// The stops to show: one day, or every day of the trip ("all"). A flight from home far outside the
+// trip (guide.js) is only on its own day's map, marked away: no route goes to it.
 function mapGroups(trip) {
   const guide = guideFor(trip);
   const days = mapView.day === 'all' ? tripDays(trip) : [mapView.day];
@@ -404,10 +409,12 @@ function mapGroups(trip) {
     return {
       day,
       color: dayColor(mapView.day === 'all' ? i : tripDays(trip).indexOf(day)),
-      stops: items.map(it => ({ it, c: coordsOf(it, guide) })),
+      stops: items.map(it => ({ it, c: coordsOf(it, guide) || (mapView.day === 'all' ? null : awaySpot(it, trip)) })),
     };
   });
 }
+// The stops a day's route goes through.
+const routeStops = stops => stops.filter(s => s.c && !s.c.away);
 
 // A day's stops for the route, starting and ending at the hotel when there is one (today.js);
 // on the day of a move to another stay, from the one being left to the new one.
@@ -556,8 +563,9 @@ function renderMapPane() {
   }
   const g = groups[0];
   const located = g.stops.filter(s => s.c);
+  const stops = routeStops(g.stops);
   // The day's journey, from the stay and back to it when there is one.
-  const route = withBase(trip, g.day, located);
+  const route = withBase(trip, g.day, stops);
   const { total, time } = routeTravel(route, modeFor(trip, g.day));
   $('#pane-title').textContent = fmtDay(g.day, { weekday: 'long', month: 'short', day: 'numeric' });
   $('#pane-sub').textContent = route.length > 1
@@ -566,8 +574,8 @@ function renderMapPane() {
   $('#pane-actions').innerHTML = `
     <button type="button" class="assist-chip ripple" data-action="trip-map">${icon('map')}${T('All days')}</button>
     ${ideasToggleHTML(trip)}
-    ${located.length >= 3 && located.some(s => !s.it.time) ? `<button type="button" class="assist-chip ripple" data-action="optimize" data-date="${g.day}">${icon('route')}${T('Optimize route')}</button>` : ''}
-    ${located.length >= 2 ? `<a class="assist-chip ripple" href="${esc(googleRouteUrl(withBase(trip, g.day, located), modeFor(trip, g.day)))}" target="_blank" rel="noopener">${icon('directions')}${T('Google Maps')}</a>` : ''}`;
+    ${stops.length >= 3 && stops.some(s => !s.it.time) ? `<button type="button" class="assist-chip ripple" data-action="optimize" data-date="${g.day}">${icon('route')}${T('Optimize route')}</button>` : ''}
+    ${stops.length >= 2 ? `<a class="assist-chip ripple" href="${esc(googleRouteUrl(route, modeFor(trip, g.day)))}" target="_blank" rel="noopener">${icon('directions')}${T('Google Maps')}</a>` : ''}`;
 }
 
 // A pin was clicked on the docked map: show its plan in the list.
@@ -639,21 +647,22 @@ function renderMapBody() {
 
   const g = groups[0];
   const located = g.stops.filter(s => s.c);
+  const stops = routeStops(g.stops);
   // The day's journey, from the stay and back to it when there is one.
-  const route = withBase(trip, g.day, located);
+  const route = withBase(trip, g.day, stops);
   const { total, time } = routeTravel(route, modeFor(trip, g.day));
   $('#map-title').textContent = fmtDay(g.day, { weekday: 'long', month: 'short', day: 'numeric' });
   $('#map-sub').textContent = pending ? T('Finding places on the map…')
     : route.length > 1 ? `${Tn(located.length, '{n} stop', '{n} stops')} · ${fmtDist(total)} · ${T('{time} of travel', { time })}`
     : Tn(located.length, '{n} stop on the map', '{n} stops on the map');
 
-  const canOptimize = located.length >= 3 && located.some(s => !s.it.time);
+  const canOptimize = stops.length >= 3 && stops.some(s => !s.it.time);
   let n = 0;
   $('#map-body').innerHTML = `
     ${top}
     <div class="map-actions">
       ${canOptimize ? `<button type="button" class="btn tonal ripple" data-action="optimize" data-date="${g.day}">${icon('route')}${T('Optimize route')}</button>` : ''}
-      ${located.length >= 2 ? `<a class="btn filled ripple" href="${esc(googleRouteUrl(withBase(trip, g.day, located), modeFor(trip, g.day)))}" target="_blank" rel="noopener">${icon('directions')}${T('Open in Google Maps')}</a>` : ''}
+      ${stops.length >= 2 ? `<a class="btn filled ripple" href="${esc(googleRouteUrl(route, modeFor(trip, g.day)))}" target="_blank" rel="noopener">${icon('directions')}${T('Open in Google Maps')}</a>` : ''}
     </div>
     <ol class="stops">
       ${g.stops.map(s => {
@@ -668,9 +677,12 @@ function renderMapBody() {
               <span class="stop-text"><span class="stop-title">${esc(s.it.title)}</span><span class="stop-sub">${esc(why)}</span></span></li>`;
         }
         const stay = s.it.category === 'stay';
+        const mark = stay ? `<span class="stop-num base">${icon('hotel')}</span>`
+          : s.c.away ? `<span class="stop-num away" style="background:${g.color}">${icon((CATEGORIES[s.it.category] || CATEGORIES.other).icon)}</span>`
+          : `<span class="stop-num" style="background:${g.color}">${++n}</span>`;
         return `
           <li><button type="button" class="stop ripple" data-action="focus-stop" data-id="${esc(s.it.id)}">
-            ${stay ? `<span class="stop-num base">${icon('hotel')}</span>` : `<span class="stop-num" style="background:${g.color}">${++n}</span>`}
+            ${mark}
             <span class="stop-text"><span class="stop-title">${esc(s.it.title)}</span>${sub ? `<span class="stop-sub">${esc(sub)}</span>` : ''}</span>
           </button></li>`;
       }).join('')}
@@ -739,15 +751,20 @@ function drawMap(fit) {
       ideaPts.push([s.c.lat, s.c.lng]);
     }
   }
+  const awayPts = [];
+  let onRoute = 0;
   for (const g of mapGroups(trip)) {
     const pts = g.stops.filter(s => s.c);
+    const stops = routeStops(g.stops);
+    onRoute += stops.length;
     // A day's route starts and ends at the stay (today.js); the whole-trip view only links the stops.
-    const line = mapView.day === 'all' ? pts.map(s => s.c) : withBase(trip, g.day, pts);
+    const line = mapView.day === 'all' ? stops.map(s => s.c) : withBase(trip, g.day, stops);
     if (line.length > 1) {
       L.polyline(line.map(c => [c.lat, c.lng]), { color: g.color, weight: 4, opacity: .85, dashArray: '1 9', lineCap: 'round' })
         .addTo(mapView.layer);
     }
-    // A stay is the hotel pin, also on the day it is a plan (check-in); the other stops are numbered.
+    // A stay is the hotel pin, also on the day it is a plan (check-in); the other stops are numbered,
+    // apart from a flight from home far away (its type's icon).
     let n = 0;
     pts.forEach((s) => {
       const marker = L.marker([s.c.lat, s.c.lng], {
@@ -755,6 +772,7 @@ function drawMap(fit) {
         icon: L.divIcon({
           className: 'pin',
           html: s.it.category === 'stay' ? `<div class="pin-shape base">${icon('hotel')}</div>`
+            : s.c.away ? `<div class="pin-shape away" style="background:${g.color}">${icon((CATEGORIES[s.it.category] || CATEGORIES.other).icon)}</div>`
             : `<div class="pin-shape" style="background:${g.color}"><b>${++n}</b></div>`,
           iconSize: [32, 32],
           iconAnchor: [16, 32],
@@ -764,12 +782,12 @@ function drawMap(fit) {
       marker.on('click', () => { if (mapDocked()) showPlanInList(s.it.id); });
       marker.addTo(mapView.layer);
       mapView.markers.set(s.it.id, marker);
-      all.push([s.c.lat, s.c.lng]);
+      (s.c.away ? awayPts : all).push([s.c.lat, s.c.lng]);
     });
   }
-  // The hotel on a day's map (today.js).
-  // On the day of a move or a check-out, the stay being left.
-  const ends = mapView.day !== 'all' ? dayEnds(trip, mapView.day, dayItems(trip, mapView.day)) : {};
+  // The hotel on a day's map (today.js). On the day of a move or a check-out, the stay being left.
+  // Not on a day spent getting there from home (only the far-away flight is on the map), as in the plan.
+  const ends = mapView.day !== 'all' && (onRoute || !awayPts.length) ? dayEnds(trip, mapView.day, dayItems(trip, mapView.day)) : {};
   for (const [base, what] of [[ends.start, ends.out ? T('Check out') : T('Your home base')], [ends.end, T('Your home base')]]) {
     if (!base || all.some(([la, ln]) => la === base.c.lat && ln === base.c.lng)) continue;
     L.marker([base.c.lat, base.c.lng], {
@@ -780,6 +798,8 @@ function drawMap(fit) {
   }
   if (!fit) return;
   // The whole trip fits its ideas in too; a day only its own stops (its ideas around them are a bonus), unless it has none.
+  // A flight from home far away is only fitted on a day with nothing else on the map: otherwise the map would show half the world.
+  if (!all.length) all.push(...awayPts);
   const pts = mapView.day === 'all' || !all.length ? [...all, ...ideaPts] : all;
   if (pts.length > 1) mapView.map.fitBounds(pts, { padding: [48, 48], maxZoom: 16 });
   else if (pts.length === 1) mapView.map.setView(pts[0], 15);

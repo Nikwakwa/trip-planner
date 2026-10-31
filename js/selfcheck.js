@@ -804,6 +804,46 @@ function runChecks() {
   check('A plan with an address is looked up on the map, also when its name is a place in the guide', () =>
     same([{ place: 'Residenzplatz 2, Würzburg' }, { place: 'Residenzplatz 2', lat: 49.79, lng: 9.94 }, { place: 'Nowhere 1', geoMiss: true }, { place: '' }]
       .map(i => !!needsLookup({ title: 'Residenz', ...i })), [true, false, false, false]));
+  // A trip to Mauritius, with the flights from Paris Orly and back.
+  check('A flight from home far away is only on its own day’s map, and a plan not found isn’t pinned on a place in its title', () => sandbox(() => {
+    const orly = [48.73, 2.37];
+    const plan = (id, title, category, date, at, more) => ({ id, title, category, date, time: '', place: 'Aéroport de Paris-Orly (ORY), Orly, France', link: '', notes: '', done: false, ...(at ? { lat: at[0], lng: at[1] } : {}), ...more });
+    const s = sample();
+    const t = s.trips[0];
+    Object.assign(t, { start: '2026-12-26', end: '2027-01-04', place: { kind: 'country', name: 'Mauritius', label: 'Mauritius', lat: -20.28, lng: 57.57, bbox: [56.38, -20.73, 63.72, -10.14] } });
+    t.items = [
+      plan('out', 'Flight from Paris', 'transport', '2026-12-26', orly),
+      plan('miss', 'Flight to Port Louis', 'transport', '2026-12-26', null, { geoMiss: true }),
+      plan('hotel', 'Hotel', 'stay', '2026-12-27', [-20.198, 57.775], { place: 'Belle Mare' }),
+      plan('home', 'Back in Paris', 'transport', '2027-01-04', orly),
+      plan('lunch', 'Lunch', 'food', '2026-12-30', orly),          // not the way from home: stays on the map
+    ];
+    state = s;
+    const guide = prepGuide({ id: 'check', kind: 'destinations', places: [{ id: 'pl', name: 'Port Louis', lat: -20.1667, lng: 57.5 }] });
+    const key = placeKey(t.place);
+    const had = readyGuides.has(key), real = readyGuides.get(key);
+    readyGuides.set(key, null);               // no guide to fetch for this made-up trip
+    const shown = day => onMap(day, () => mapGroups(t)[0].stops.filter(x => x.c).map(x => `${x.it.id}${x.c.away ? ' away' : ''}`));
+    try {
+      return same([
+        ['out', 'hotel', 'home', 'lunch'].map(id => isAway(item(s, id), t)),
+        [coordsOf(item(s, 'out'), guide), coordsOf(item(s, 'miss'), guide), coordsOf({ ...item(s, 'miss'), geoMiss: false }, guide)],
+        shown('2026-12-26'), onMap('all', () => mapGroups(t).flatMap(g => g.stops.filter(x => x.c).map(x => x.it.id))),
+        plansAround(item(s, 'hotel'), t).map(i => i.id), planGroups(t).length,
+        new URL(mapsUrl(item(s, 'out').place, t, awaySpot(item(s, 'out'), t))).searchParams.get('query'),
+        /data-action="day-map"/.test(dayToolsHTML(t, '2026-12-26', dayItems(t, '2026-12-26'), null)),
+      ], [
+        [true, false, true, false],
+        [null, null, { lat: -20.1667, lng: 57.5 }],
+        ['out away'], ['hotel', 'lunch'],
+        [], 0,
+        'Aéroport de Paris-Orly (ORY), Orly, France',
+        true,
+      ]);
+    } finally {
+      if (had) readyGuides.set(key, real); else readyGuides.delete(key);
+    }
+  }));
   check('Travel times and distances grow with the distance, without a jump', () => {
     for (const mode of ['drive', 'transit']) {
       let last = travel(1.3, mode);

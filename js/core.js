@@ -169,6 +169,8 @@ function mapsUrl(place, trip, at, title = '') {
   const where = trip.place ? trip.place.label : trip.name;
   const city = trip.place ? trip.place.name : trip.name;
   const search = q => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
+  // The flight from home, far outside the trip (guide.js): its address says where, not the trip's country.
+  if (at && at.away) return search(place);
   // Only the town as address ("Daun"): the plan's name says which place in it.
   if (title && norm(place).trim() === norm(city).trim()) return search(norm(title).includes(norm(city)) ? title : `${title}, ${where}`);
   if (norm(place).includes(norm(city))) return search(place);

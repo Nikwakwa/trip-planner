@@ -218,6 +218,13 @@ if (!(state.settings.geoRetry >= 5)) {
   });
 }
 // (geoRetry 6 is repinNumbered in maps.js: it needs the internet, and runs once the app has started.)
+// Once after the flight from home and back (a transport plan on a trip's first or last day) could be found
+// far outside the trip (Paris Orly on a trip to Mauritius): those not found are looked up again.
+// After repinNumbered, which skips its turn once the mark is past 6.
+if (state.settings.geoRetry === 6) {
+  state.settings.geoRetry = 7;
+  for (const t of state.trips) t.items.forEach((i) => { if (isHomeLeg(i, t)) delete i.geoMiss; });
+}
 saveLocal();
 
 /* ---------- Finding a trip or a plan ---------- */

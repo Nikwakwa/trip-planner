@@ -32,7 +32,7 @@ function itemHTML(item, trip, { showDate = false, drag = false, note = null, sch
     const filesLabel = files === 1 ? T('Ticket') : Tn(files, '{n} file', '{n} files');
     chips = [
       schedule && days.length && `<button type="button" class="assist-chip primary ripple" data-action="pick-day">${icon('calendar_add_on')}${T('Add to a day')}</button>`,
-      item.place && `<a class="assist-chip ${schedule ? 'compact ' : ''}ripple" href="${esc(mapsUrl(item.place, trip, coordsOf(item, guideFor(trip)), item.title))}" target="_blank" rel="noopener" title="${T('Directions')}">${icon('location_on')}<span>${T('Directions')}</span></a>`,
+      item.place && `<a class="assist-chip ${schedule ? 'compact ' : ''}ripple" href="${esc(mapsUrl(item.place, trip, coordsOf(item, guideFor(trip)) || awaySpot(item, trip), item.title))}" target="_blank" rel="noopener" title="${T('Directions')}">${icon('location_on')}<span>${T('Directions')}</span></a>`,
       link && `<a class="assist-chip compact ripple" href="${esc(link)}" target="_blank" rel="noopener" title="${esc(hostLabel(link))}" aria-label="${T('Link: {site}', { site: esc(hostLabel(link)) })}">${icon('link')}<span>${esc(hostLabel(link))}</span></a>`,
       files && `<button type="button" class="assist-chip compact ripple" data-action="files" title="${filesLabel}" aria-label="${filesLabel}">${icon('confirmation_number')}<span>${filesLabel}</span></button>`,
       hasPlanInfo(item, guideFor(trip)) && `<button type="button" class="assist-chip icon-only ripple" data-action="plan-info" aria-label="${T('About {name}', { name: esc(item.title) })}" title="${T('About this place')}">${icon('info')}</button>`,

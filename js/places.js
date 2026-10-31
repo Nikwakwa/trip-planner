@@ -663,7 +663,7 @@ async function nearbyGuide(center) {
 function planGroups(trip) {
   const groups = [];
   for (const it of trip.items) {
-    if (typeof it.lat !== 'number' || typeof it.lng !== 'number') continue;
+    if (typeof it.lat !== 'number' || typeof it.lng !== 'number' || isAway(it, trip)) continue;
     const g = groups.find(x => miles(x, it) < NEAR_REACH);
     if (g) { g.lat = (g.lat * g.n + it.lat) / (g.n + 1); g.lng = (g.lng * g.n + it.lng) / (g.n + 1); g.n++; }
     else groups.push({ lat: it.lat, lng: it.lng, n: 1 });

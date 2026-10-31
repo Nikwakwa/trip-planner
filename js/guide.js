@@ -36,7 +36,7 @@ const AROUND_REACH = 40;             // miles: how far a plan can be from the pl
 function plansAround(item, trip = state.trips.find(t => t.items.includes(item))) {
   if (!trip) return [];
   return trip.items.filter(i => i !== item && typeof i.lat === 'number' && typeof i.lng === 'number'
-    && (!item.date || (i.date && Math.abs(daysBetween(i.date, item.date)) <= 1)));
+    && (!item.date || (i.date && Math.abs(daysBetween(i.date, item.date)) <= 1)) && !isAway(i, trip));
 }
 
 // A name alone doesn't say where: a trip across a country has a "Rathaus", a "Residenz" and a "Castle" in
@@ -74,8 +74,24 @@ function placesNamed(item, guide) {
   return found;
 }
 
+// The journey from home on the trip's first day, or back home on its last: its address can be far
+// outside the trip (a flight from Paris Orly on a trip to Mauritius).
+const isHomeLeg = (item, trip) => item.category === 'transport' && !!item.date && !!trip && (item.date === trip.start || item.date === trip.end);
+
+// Such a plan pinned far outside the trip: it is on its own day's map and nowhere else (no way to it from the
+// stay, no suggestions or guide around it, not on the whole trip's map), so coordsOf leaves it out.
+function isAway(item, trip = state.trips.find(t => t.items.includes(item))) {
+  return typeof item.lat === 'number' && typeof item.lng === 'number' && isHomeLeg(item, trip)
+    && !!trip.place && !nearTrip(trip, null)(item);
+}
+// Its pin on its day's map (marked away), or null.
+const awaySpot = (item, trip) => (isAway(item, trip) ? { lat: item.lat, lng: item.lng, away: true } : null);
+
 function coordsOf(item, guide) {
-  if (typeof item.lat === 'number' && typeof item.lng === 'number') return { lat: item.lat, lng: item.lng };
+  if (typeof item.lat === 'number' && typeof item.lng === 'number') return isAway(item) ? null : { lat: item.lat, lng: item.lng };
+  // Its address was looked up and not found: a guide place named in its title is only a guess
+  // ("Vol de Paris Orly à Port Louis" was pinned on Port Louis).
+  if (item.place && item.geoMiss) return null;
   const p = matchPlaces(item, guide)[0];
   return p ? { lat: p.lat, lng: p.lng } : null;
 }
