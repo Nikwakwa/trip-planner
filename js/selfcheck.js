@@ -416,6 +416,47 @@ function runChecks() {
     } finally { sync.saved = real; }
   }));
 
+  check('A chosen name goes to the account, and into each shared trip as one document per person', () => sandbox(() => {
+    state = both();
+    state.profile = { name: 'Nico' };
+    romeOf(state).names = { ann: 'Annie', selfcheck: 'Old name' };
+    sync.saved = { uid: 'selfcheck', email: '', linked: true, base: {}, shared: { s1: { trip: 'trip2', base: {} } } };
+    const own = stateDocs(state), docs = stateDocs(state, 's1');
+    sync.saved.linked = false;                // a new device, before the account's documents arrive: it changes nothing
+    const early = JSON.parse(stateDocs(state, 's1').name_selfcheck).name;
+    sync.saved.linked = true;
+    delete state.profile;                     // the name taken away
+    const gone = 'name_selfcheck' in stateDocs(state, 's1');
+    return same([JSON.parse(own.profile_me), JSON.parse(docs.name_selfcheck).name, JSON.parse(docs.name_ann), 'names' in JSON.parse(docs.trip_trip2),
+      Object.keys(own).some(k => k.startsWith('name_')), early, gone, SYNCED_KINDS.test('name_ann') && SYNCED_KINDS.test('profile_me')],
+    [{ k: 'profile', name: 'Nico' }, 'Nico', { k: 'name', name: 'Annie', trip: 'trip2', uid: 'ann' }, false, false, 'Old name', false, true]);
+  }));
+  check('Names are checked when they are read, and come back from the account', () => sandbox(() => {
+    state = both();
+    sync.saved = { uid: 'selfcheck', email: '', linked: true, base: {}, shared: { s1: { trip: 'trip2', base: {} } } };
+    const own = stateDocs(sample());
+    own.profile_me = stable({ k: 'profile', name: '  Nico \n las ' });
+    applyDocs(own);
+    const docs = stateDocs(both(), 's1');
+    docs.name_ann = stable({ k: 'name', trip: 'trip2', uid: 'ann', name: 'Annie' });
+    docs.name_bob = stable({ k: 'name', trip: 'trip2', uid: 'bob', name: '   ' });
+    docs['name_<b>'] = stable({ k: 'name', trip: 'trip2', uid: '<b>', name: 'Evil' });
+    applyDocs(docs, 's1');
+    return same([state.profile, romeOf(state).names, tidyName('Ann\u0007ie'), tidyName('x'.repeat(50)).length, 'profile' in tidyState({ trips: [], profile: { name: ' ' } }),
+      tidyTrip({ id: 't', names: { ann: 'Annie', bob: 5, '<b>': 'Eve' } }).names, cleanBackup({ trips: [], profile: { name: 'Nico' } }).profile],
+    [{ name: 'Nico las' }, { ann: 'Annie' }, 'Annie', 30, false, { ann: 'Annie' }, undefined]);
+  }));
+  check('Hearts and the people on a trip show the names they chose, else the start of their email', () => sandbox(() => withRoot(['selfcheck', 'ann', 'bob'], () => {
+    state = both();
+    state.profile = { name: 'Nico' };
+    sync.saved = { uid: 'selfcheck', email: '', linked: true, base: {}, shared: {} };
+    const r = romeOf(state);
+    r.names = { ann: 'Annie' };
+    const shown = [heartNames(r, ['bob', 'ann', 'selfcheck']), personName(r, 'selfcheck'), personName(r, 'bob'), personName(r, 'ghost')];
+    dropProfile();
+    return same([shown, 'profile' in state], [['You, Bob, and Annie', 'Nico', 'Bob', ''], false]);
+  })));
+
   /* ---------- Archived trips (archive.js) ---------- */
   group = 'Archived trips';
   check('Which trips are archived is read back, and a bad mark is left out', () =>

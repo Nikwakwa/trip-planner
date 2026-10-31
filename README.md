@@ -181,6 +181,8 @@ Good to know:
 - **Hearts on ideas:** in **Ideas**, tap the heart on an idea you like. Everyone sees how many hearts each idea
   has and who gave them, and the ideas the group likes most come first (also in the row of ideas on the Plan).
   The AI Assistant knows about them too. Tap the heart again to take it back.
+- **Your name:** in **Settings → Account**, add your first name or a nickname. The people on your trips see it
+  next to your hearts and in the Share sheet, instead of the start of your email address.
 - **Not** shared: your own checklist, AI Assistant chats, and your other trips.
 - **Files can't be shared in the app.** Tickets & bookings attached to a plan stay on the device they were added
   on. To pass one on, send it yourself (email, WhatsApp…).

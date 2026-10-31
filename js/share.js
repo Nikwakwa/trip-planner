@@ -244,17 +244,21 @@ function byHearts(trip, ideas) {
   return ideas.slice().sort((a, b) => n.get(b.id) - n.get(a.id));
 }
 
-// "You, Ann and 2 others": you first, then the others by the start of their email address
-// (the people on a trip already see each other's).
+// What someone on a trip is called: the name they chose (Settings → Account), else the start of their email
+// address (the people on a trip already see each other's). '' when neither is known.
+function personName(trip, uid) {
+  if (sync.saved && uid === sync.saved.uid && state.profile) return state.profile.name;
+  if (trip.names && trip.names[uid]) return trip.names[uid];
+  const root = sharing.roots[trip.shared];
+  const m = root && root.members.find(x => x.uid === uid);
+  const start = m && m.email ? m.email.split('@')[0] : '';
+  return start ? start[0].toUpperCase() + start.slice(1) : '';
+}
+
+// "You, Ann and 2 others": you first, then the others.
 function heartNames(trip, who) {
   const me = sync.saved && sync.saved.uid;
-  const root = sharing.roots[trip.shared];
-  const name = (u) => {
-    if (u === me) return T('You');
-    const m = root && root.members.find(x => x.uid === u);
-    const start = m && m.email ? m.email.split('@')[0] : '';
-    return start ? start[0].toUpperCase() + start.slice(1) : T('Someone');
-  };
+  const name = u => (u === me ? T('You') : personName(trip, u) || T('Someone'));
   const names = who.slice().sort((a, b) => (b === me) - (a === me)).map(name);
   if (names.length > 3) names.splice(2, names.length, Tn(names.length - 2, '{n} other', '{n} others'));
   try { return new Intl.ListFormat(LANG, { type: 'conjunction' }).format(names); } catch { return names.join(', '); }
@@ -403,7 +407,7 @@ async function quitSharing(uid, keepCopies = false) {
     if (!keepCopies) dropShare(root.id);
   }
   if (keepCopies) {
-    for (const t of state.trips) { delete t.shared; delete t.hearts; }
+    for (const t of state.trips) { delete t.shared; delete t.hearts; delete t.names; }
     if (sync.saved) sync.saved.shared = {};
     saveLocal();
   }
@@ -559,11 +563,15 @@ function renderShare() {
       <ul class="share-people">${root.members.map((m) => {
         const me = m.uid === sharing.uid;
         const role = m.uid === root.owner ? T('Started the trip') : m.at ? T('Joined {day}', { day: fmtDay(toISO(new Date(m.at)), { day: 'numeric', month: 'short' }) }) : T('On the trip');
+        // The name they chose (Settings → Account) first, with their email address under it.
+        const chosen = me ? (state.profile || {}).name : (trip.names || {})[m.uid];
+        const sub = [me && T('You'), chosen && esc(m.email), esc(role)].filter(Boolean).join(' · ');
         return `<li>
           <span class="row-icon">${icon('person')}</span>
-          <span class="row-text"><span class="row-title">${esc(m.email || T('Someone'))}</span>
-            <span class="row-sub">${me ? `${T('You')} · ` : ''}${esc(role)}</span></span>
+          <span class="row-text"><span class="row-title">${esc(chosen || m.email || T('Someone'))}</span>
+            <span class="row-sub">${sub}</span></span>
           ${mine && !me ? `<button type="button" class="btn text danger ripple" data-action="share-remove" data-uid="${esc(m.uid)}">${T('Remove')}</button>` : ''}
+          ${me && !chosen ? `<button type="button" class="btn text ripple" data-action="edit-name">${T('Add your name')}</button>` : ''}
         </li>`;
       }).join('')}</ul>
       ${root.members.length >= SHARE_MAX ? `<p>${T('A trip takes {n} people at most.', { n: SHARE_MAX })}</p>` : link ? `

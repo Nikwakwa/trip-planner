@@ -516,7 +516,7 @@ DICTS.fr = {
   'In your account': 'Dans votre compte',
   'If you sign in, your email address, trips, plans and checklist are also stored with Google Firebase, so that your devices share them.': 'Si vous vous connectez, votre adresse e-mail, vos voyages, vos activités et votre liste sont aussi enregistrés chez Google Firebase, pour que vos appareils les partagent.',
   'The person who runs this copy of the app can see them there. Your password is stored scrambled: nobody can read it.': 'La personne qui gère cette copie de l’app peut les y voir. Votre mot de passe est enregistré chiffré : personne ne peut le lire.',
-  'A trip you plan with other people is stored there once, for all of you. Everyone on it sees its plans, the list for everyone in the Checklist, who gave a heart to which idea, and the email addresses of the others. Your own checklist and your other trips stay yours. Tickets and other files can’t be shared: they never leave the device.': 'Un voyage préparé à plusieurs y est enregistré une seule fois, pour vous tous. Chacun y voit ses activités, la liste commune de l’onglet Liste, qui a mis un cœur à quelle idée et les adresses e-mail des autres. Votre propre liste et vos autres voyages restent à vous. Les billets et autres fichiers ne peuvent pas être partagés : ils ne quittent jamais l’appareil.',
+  'A trip you plan with other people is stored there once, for all of you. Everyone on it sees its plans, the list for everyone in the Checklist, who gave a heart to which idea, and the others’ email addresses and the names they chose. Your own checklist and your other trips stay yours. Tickets and other files can’t be shared: they never leave the device.': 'Un voyage préparé à plusieurs y est enregistré une seule fois, pour vous tous. Chacun y voit ses activités, la liste commune de l’onglet Liste, qui a mis un cœur à quelle idée, ainsi que les adresses e-mail des autres et les prénoms qu’ils ont choisis. Votre propre liste et vos autres voyages restent à vous. Les billets et autres fichiers ne peuvent pas être partagés : ils ne quittent jamais l’appareil.',
   'Your votes for new features, and the suggestions you send, are stored there too. Everyone who is signed in can read the suggestions, without your name or email.': 'Vos votes pour de nouvelles fonctions, et les suggestions que vous envoyez, y sont aussi enregistrés. Toute personne connectée peut lire les suggestions, sans votre nom ni votre e-mail.',
   'Sent to other services': 'Envoyé à d’autres services',
   'To do its job, the app asks free outside services. They get only what the question needs, never your account.': 'Pour fonctionner, l’app interroge des services extérieurs gratuits. Ils ne reçoivent que ce dont la question a besoin, jamais votre compte.',
@@ -825,6 +825,14 @@ DICTS.fr = {
   'On the trip': 'Participe au voyage',
   'Someone': 'Quelqu’un',
   'You': 'Vous',
+  /* The name shown to the people on a trip (account.js, share.js, index.html) */
+  'Your name': 'Votre prénom',
+  'Your first name or a nickname. The people you plan a trip with see it next to the ideas you like, and on the list of who is on the trip.': 'Votre prénom ou un surnom. Les personnes avec qui vous préparez un voyage le voient à côté des idées que vous aimez, et dans la liste des participants.',
+  'First name or nickname': 'Prénom ou surnom',
+  'Add your name': 'Ajouter votre prénom',
+  'First name or nickname, shown to the people you plan trips with': 'Prénom ou surnom, visible par les personnes avec qui vous préparez vos voyages',
+  'People on your trips now see “{name}”': 'Les personnes de vos voyages voient maintenant « {name} »',
+  'Name removed': 'Prénom retiré',
   /* Hearts on ideas (share.js) */
   'Give a heart to the ones you like: the ideas the group likes most come first.': 'Mettez un cœur à celles qui vous plaisent : les idées préférées du groupe passent en premier.',
   'Like {name}': 'J’aime {name}',
@@ -894,6 +902,7 @@ DICTS.fr = {
   'last synced {when}': 'dernière synchronisation {when}',
 
   /* ---------- What's new (version.js) ---------- */
+  'Add your first name or a nickname in Settings → Account: the people on your trips see it next to your hearts': 'Ajoutez votre prénom ou un surnom dans Paramètres → Compte : les personnes de vos voyages le voient à côté de vos cœurs',
   'On a trip planned together, give a heart to the ideas you like: the group’s favorites come first': 'Sur un voyage préparé à plusieurs, mettez un cœur aux idées qui vous plaisent : les préférées du groupe passent en premier',
   'Archive a trip to take it off the top bar: it stays one tap away, just as it was': 'Archivez un voyage pour le retirer de la barre du haut : il reste à portée de main, tel quel',
   'Plans without a time go before the day’s evening plans, not after them': 'Les activités sans heure passent avant celles du soir, et non plus après',

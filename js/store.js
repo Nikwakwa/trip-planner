@@ -40,6 +40,9 @@ const deviceMarks = () => ({ geoRetry: state.settings.geoRetry, seenVersion: sta
    relies on get the right type; anything else is left alone (a newer version may have added it).
    Something without a usable id gets a new one (newId), or is left out (returns null). */
 
+// The name someone shows to the people they plan trips with (share.js): one line, 30 characters at most.
+const tidyName = v => (typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 30) : '');
+
 function tidyTrip(t, newId = false) {
   if (!t || typeof t !== 'object' || (!isId(t.id) && !newId)) return null;
   // Both days or none, the first one first.
@@ -73,6 +76,12 @@ function tidyTrip(t, newId = false) {
     const own = Object.entries(h).map(([who, ids]) => [who, Array.isArray(ids) ? [...new Set(ids.filter(isId))] : []])
       .filter(([who, ids]) => isId(who) && ids.length);
     if (own.length) out.hearts = Object.fromEntries(own); else delete out.hearts;
+  }
+  // share.js: on a trip planned together, the names the people on it chose (account → name).
+  if ('names' in out) {
+    const n = out.names && typeof out.names === 'object' && !Array.isArray(out.names) ? out.names : {};
+    const own = Object.entries(n).map(([who, name]) => [who, tidyName(name)]).filter(([who, name]) => isId(who) && name);
+    if (own.length) out.names = Object.fromEntries(own); else delete out.names;
   }
   if ('dayTravel' in out) {
     const own = out.dayTravel && typeof out.dayTravel === 'object'
@@ -124,10 +133,13 @@ function tidyState(data) {
     else if (trip) delete trip.todos;
     return trip;
   }).filter(Boolean);
+  const { profile, ...rest } = data;
   return {
-    ...data,
+    ...rest,
     trips,
     archived: tidyArchived(data.archived),
+    // The account's own name, for the people it plans trips with (share.js). Only kept when there is one.
+    ...(tidyName(profile && profile.name) ? { profile: { name: tidyName(profile.name) } } : {}),
     checklist: (Array.isArray(data.checklist) ? data.checklist : []).map(c => tidyCheck(c, true)).filter(Boolean),
     settings: data.settings && typeof data.settings === 'object' ? data.settings : {},
   };

@@ -312,7 +312,7 @@ dinner, and the route doubled back.
 
 **Sync (`sync.js`).** This is optional and switched on only when `firebase-config.js` sets `window.FIREBASE_CONFIG`.
 Firebase compat SDKs are vendored and loaded lazily. The state is split into Firestore documents
-`users/{uid}/docs/{trip_…|item_…|check_…|arch_…}` (`arch_`: an archived trip, 2.18; a shared trip's space also has `todo_…` and `heart_…`). After each save, the local state is compared with the last known remote copy (kept in
+`users/{uid}/docs/{trip_…|item_…|check_…|arch_…}` (`arch_`: an archived trip, 2.18; `profile_me`: the name, 2.20; a shared trip's space also has `todo_…`, `heart_…` and `name_…`). After each save, the local state is compared with the last known remote copy (kept in
 localStorage `tripPlanner.sync`), and only the differences are sent. Only documents of the kinds this version writes are ever
 removed (`SYNCED_KINDS`), so a newer version can keep other kinds next to them. Remote snapshots are merged into
 `state`. A plan changed both here (not sent yet) and elsewhere is merged field by field (`mergeDoc`: theirs, with
@@ -361,6 +361,13 @@ and `shared/{id}/docs/…` holds the trip and its plans, in the same form as an 
   the Plan's ideas tray) put the most-liked first; the Ideas list keeps its order while on screen (`ui.ideaOrder`,
   reset by `render()` when another section or Explore is drawn) so a tapped idea doesn't jump. Own trips have no
   hearts (`quitSharing` drops them); backups never carry them. The AI Assistant gets each idea's count.
+- Names (2.20): an account may choose a first name or nickname (Settings → Account, `#name-dialog`, account.js;
+  `tidyName`: one line, 30 characters). It is `state.profile = { name }`, the account's own: synced as `profile_me` in
+  its own space, dropped when the account goes (`dropProfile`: signing out, deleting, another account), kept by
+  "Erase everything" and "Restore from backup". In each shared trip it is a `name_<uid>` document (`trip.names`), written by
+  `stateDocs` from `state.profile` only once the account is linked (a new device would otherwise remove it). The current
+  rules already allow it. `personName` (share.js) is the chosen name, else the start of the email; hearts and the
+  Share sheet use it.
 - An invitation is `<id>.<code>`, sent as a link `…/#join=<id>.<code>` (after the `#`, so the host never sees it;
   `checkInviteLink`, or pasted under Settings → Trips → "Join a trip"). Joining is one write that adds the account
   to `uids` and `members` with the code as `via`; the rules compare it with the trip's code, and the email with the

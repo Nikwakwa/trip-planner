@@ -150,6 +150,8 @@ document.addEventListener('change', async (e) => {
     if (isArchived(t)) restored.archived[t.id] = state.archived[t.id];
     else delete restored.archived[t.id];
   }
+  // The name shown on shared trips is the account's, not part of the plans.
+  if (state.profile) restored.profile = state.profile;
   state = restored;
   save();
   scrollAt = {};
@@ -186,8 +188,10 @@ onAction('reset', async () => {
     }
   }
   const marks = deviceMarks();
+  const profile = state.profile;      // the account's name (share.js) is not one of the plans
   state = defaultState();
   Object.assign(state.settings, marks);
+  if (profile) state.profile = profile;
   eraseDeviceData();
   save();
   scrollAt = {};

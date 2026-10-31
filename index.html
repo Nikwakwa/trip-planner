@@ -514,6 +514,28 @@
     </form>
   </dialog>
 
+  <!-- Bottom sheet: the name shown to the people you plan trips with (account.js) -->
+  <dialog id="name-dialog" class="sheet">
+    <form id="name-form" method="dialog" novalidate>
+      <div class="handle" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 tabindex="-1" autofocus>Your name</h2>
+        <button type="button" class="icon-btn ripple" data-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#close"/></svg>
+        </button>
+      </div>
+      <p class="sheet-text">Your first name or a nickname. The people you plan a trip with see it next to the ideas you like, and on the list of who is on the trip.</p>
+      <label class="field">
+        <span class="field-label">First name or nickname</span>
+        <input name="name" maxlength="30" autocomplete="nickname" autocapitalize="words" enterkeyhint="done">
+      </label>
+      <div class="sheet-actions">
+        <span class="spacer"></span>
+        <button type="submit" class="btn filled lg ripple">Save</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- Centered dialog for big decisions -->
   <dialog id="confirm-dialog" class="alert">
     <form method="dialog">

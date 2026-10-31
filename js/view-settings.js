@@ -33,6 +33,11 @@ function renderMore() {
         <span class="row-text"><span class="row-title">${T('Confirm your email')}</span>
           <span class="row-sub">${T('Tap the link we emailed you, so “Forgot password?” can reach you. Tap here if you did, or to get a new link.')}</span></span>
       </button></li>` : ''}
+      <li><button type="button" class="row ripple" data-action="edit-name">
+        <span class="row-icon">${icon('person')}</span>
+        <span class="row-text"><span class="row-title">${state.profile ? esc(state.profile.name) : T('Add your name')}</span>
+          <span class="row-sub">${T('First name or nickname, shown to the people you plan trips with')}</span></span>
+      </button></li>
       <li><button type="button" class="row ripple" data-action="change-password">
         <span class="row-icon">${icon('shield')}</span>
         <span class="row-text"><span class="row-title">${T('Change password')}</span></span>

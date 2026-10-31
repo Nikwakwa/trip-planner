@@ -143,9 +143,33 @@ accountForm.addEventListener('submit', async (e) => {
   }
 });
 
+/* ---------- The name shown to the people you plan trips with (share.js) ---------- */
+
+function openNameForm() {
+  const form = $('#name-form');
+  form.reset();
+  form.elements.name.value = (state.profile || {}).name || '';
+  $('#name-dialog').showModal();
+  form.elements.name.focus();
+}
+
+$('#name-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const name = tidyName(e.currentTarget.elements.name.value);
+  const before = (state.profile || {}).name || '';
+  $('#name-dialog').close();
+  if (name === before) return;
+  if (name) state.profile = { name }; else delete state.profile;
+  save();
+  render();
+  renderShare();      // it may be open underneath
+  snackbar(name ? T('People on your trips now see “{name}”', { name }) : T('Name removed'));
+});
+
 /* ---------- Taps in Settings → Account ---------- */
 
 onAction('sign-in', () => openAuthForm());
+onAction('edit-name', () => openNameForm());
 onAction('change-password', () => openAccountForm('password'));
 onAction('delete-account', () => openAccountForm('delete'));
 onAction('verify-email', async () => {

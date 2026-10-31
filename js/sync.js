@@ -20,7 +20,7 @@
 
 const SYNC_KEY = 'tripPlanner.sync';
 const FIREBASE_FILES = ['app', 'auth', 'firestore'].map(p => `vendor/firebase/firebase-${p}-compat.js`);
-const SYNCED_KINDS = /^(trip|item|check|todo|arch|heart)_/;      // the documents this version of the app writes and removes
+const SYNCED_KINDS = /^(trip|item|check|todo|arch|heart|name|profile)_/;      // the documents this version of the app writes and removes
 
 const sync = {
   configured: !!(window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.apiKey),
@@ -97,7 +97,7 @@ function stateDocs(s, space = '') {
   let pos = 0;
   for (const t of s.trips) {
     if ((t.shared || '') !== space) continue;
-    const { items, todos, shared, hearts, ...trip } = t;
+    const { items, todos, shared, hearts, names, ...trip } = t;
     // A shared trip has no place in the list of trips: everyone on it keeps their own order.
     out[docKey('trip', t.id)] = stable({ k: 'trip', pos: space ? 0 : pos++, ...trip });
     items.forEach((it, i) => { out[docKey('item', it.id)] = stable({ k: 'item', trip: t.id, pos: i, ...it }); });
@@ -107,11 +107,21 @@ function stateDocs(s, space = '') {
     // The ideas each person on the trip likes (share.js): one document per account, so that two people giving
     // hearts at the same moment never undo each other's. Only a shared trip has them.
     if (space) for (const [who, ids] of Object.entries(hearts || {})) out[docKey('heart', who)] = stable({ k: 'heart', trip: t.id, uid: who, ids });
+    // The names the people on it chose (share.js), one document each too. This account's own comes from its
+    // profile, once the account's documents have arrived (before that, a new device would take it away).
+    if (space) {
+      const all = { ...names };
+      const me = sync.saved && sync.saved.linked && sync.saved.uid;
+      if (me) { if (s.profile && s.profile.name) all[me] = s.profile.name; else delete all[me]; }
+      for (const [who, name] of Object.entries(all)) out[docKey('name', who)] = stable({ k: 'name', trip: t.id, uid: who, name });
+    }
   }
   if (!space) s.checklist.forEach((c, i) => { out[docKey('check', c.id)] = stable({ k: 'check', pos: i, ...c }); });
   // The archived trips (archive.js): the account's own marks, a shared trip's too. They stay while that trip's
   // documents haven't arrived yet: a mark is only removed with its trip (deleting or leaving it).
   if (!space) for (const [id, at] of Object.entries(s.archived || {})) out[docKey('arch', id)] = stable({ k: 'arch', id, at });
+  // The name this account shows to the people it plans trips with (share.js).
+  if (!space && s.profile && s.profile.name) out[docKey('profile', 'me')] = stable({ k: 'profile', name: s.profile.name });
   return out;
 }
 
@@ -121,7 +131,9 @@ function applyDocs(docs, space = '') {
   // Each document is checked first (store.js): one the app can't use is left out.
   const tidy = d => (!d ? null : d.k === 'trip' ? tidyTrip(d) : d.k === 'item' ? tidyItem(d) : d.k === 'check' || d.k === 'todo' ? tidyCheck(d)
     : d.k === 'arch' && !space && isId(d.id) && isDate(d.at) ? d
-    : d.k === 'heart' && space && isId(d.uid) && Array.isArray(d.ids) ? d : null);
+    : d.k === 'heart' && space && isId(d.uid) && Array.isArray(d.ids) ? d
+    : d.k === 'name' && space && isId(d.uid) && tidyName(d.name) ? { ...d, name: tidyName(d.name) }
+    : d.k === 'profile' && !space && tidyName(d.name) ? { k: 'profile', name: tidyName(d.name) } : null);
   const all = Object.values(docs).map(j => tidy(JSON.parse(j))).filter(Boolean);
   const byPos = (a, b) => (a.pos - b.pos) || (a.id < b.id ? -1 : 1);
   const here = t => (t.shared || '') === space;
@@ -141,7 +153,7 @@ function applyDocs(docs, space = '') {
   const oldItems = new Map(before.flatMap(t => t.items).map(i => [i.id, i]));
   const oldTodos = new Map(before.flatMap(t => t.todos || []).map(c => [c.id, c]));
 
-  const trips = tripDocs.map(({ k, pos, shared, todos, hearts, ...t }) => {
+  const trips = tripDocs.map(({ k, pos, shared, todos, hearts, names, ...t }) => {
     const old = oldTrips.get(t.id);
     const items = old ? old.items : [];
     items.length = 0;
@@ -161,6 +173,10 @@ function applyDocs(docs, space = '') {
     const liked = [...new Set(ids.filter(isId))];
     if (t && liked.length) (t.hearts = t.hearts || {})[who] = liked;
   }
+  for (const { trip, uid: who, name } of all.filter(d => d.k === 'name')) {
+    const t = tripById.get(trip);
+    if (t) (t.names = t.names || {})[who] = name;
+  }
   // The trips of the other spaces stay where they are in the list.
   const list = trips.slice();
   state.trips.forEach((t, i) => {
@@ -171,6 +187,8 @@ function applyDocs(docs, space = '') {
     const oldChecks = new Map(state.checklist.map(c => [c.id, c]));
     state.checklist = all.filter(d => d.k === 'check').sort(byPos).map(({ k, pos, ...c }) => reuse(oldChecks.get(c.id), c));
     state.archived = Object.fromEntries(all.filter(d => d.k === 'arch').map(d => [d.id, d.at]));
+    const profile = all.find(d => d.k === 'profile');
+    if (profile) state.profile = { name: profile.name }; else delete state.profile;
   }
   if (!list.some(t => t.id === state.activeTripId)) state.activeTripId = firstTripId();
   return true;
@@ -411,16 +429,24 @@ function startSync() {
   if (sync.saved) loadFirebase().catch(() => setSyncStatus('error', T('Couldn’t load sync. Check your connection.')));
 }
 
+// The name (share.js) belongs to the account: it goes when the account does (signed out, deleted, another one signed in).
+function dropProfile() {
+  if (!state.profile) return;
+  delete state.profile;
+  saveLocal();
+}
+
 function onUser(user) {
   if (sync.own.stop) sync.own.stop();
   sync.own = newSpace();
   stopSharing();      // share.js
   if (!user) {
-    if (sync.saved) { sync.saved = null; writeSyncInfo(); }
+    if (sync.saved) { sync.saved = null; writeSyncInfo(); dropProfile(); }
     setSyncStatus('off');
     return;
   }
   if (!sync.saved || sync.saved.uid !== user.uid) {
+    dropProfile();
     sync.saved = { uid: user.uid, email: user.email, base: {}, linked: false, shared: {} };
     writeSyncInfo();
   }
@@ -533,6 +559,7 @@ async function deleteAccount(password) {
   }
   sync.saved = null;
   writeSyncInfo();
+  dropProfile();
   setSyncStatus('off');
 }
 
@@ -542,6 +569,7 @@ async function signOut() {
   if (sync.auth) await sync.auth.signOut();
   sync.saved = null;
   writeSyncInfo();
+  dropProfile();
   setSyncStatus('off');
 }
 
