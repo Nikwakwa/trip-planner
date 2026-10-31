@@ -125,6 +125,41 @@ function applyTheme(seed) {
   $('meta[name="theme-color"]').setAttribute('content', toHex(bg));
 }
 
+/* ---------- Date fields ---------- */
+
+// A browser's date field writes the date the device's way ("12/26/2026" on an American computer), whatever
+// the app's Date setting says. So the field's own text is hidden and the date is written over it in the app's
+// style ("26 Dec 2026"); tapping still opens the device's own calendar. Typing the date with the keyboard
+// shows the field's own text again until it loses focus.
+const shownDate = v => (isDate(v) ? fmtDay(v, { day: 'numeric', month: 'short', year: 'numeric' }) : '');
+function dressDateField(input) {
+  const label = document.createElement('span');
+  label.className = 'date-shown';
+  label.setAttribute('aria-hidden', 'true');
+  input.after(label);
+  input.classList.add('dressed');
+  const show = () => { label.textContent = shownDate(input.value); };
+  // The forms fill their fields by setting `value`, which sends no event: catch it here.
+  const own = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+  Object.defineProperty(input, 'value', {
+    configurable: true,
+    get() { return own.get.call(this); },
+    set(v) { own.set.call(this, v); show(); },
+  });
+  input.addEventListener('input', show);
+  input.addEventListener('change', show);
+  input.addEventListener('keydown', (e) => {
+    if (/^(\d|Backspace|Delete|ArrowUp|ArrowDown)$/.test(e.key)) input.classList.add('typing');
+  });
+  input.addEventListener('blur', () => input.classList.remove('typing'));
+  // With a mouse, a click on the date would only pick its month or day to type: open the calendar instead.
+  input.addEventListener('click', () => {
+    if (matchMedia('(pointer: fine)').matches && input.showPicker) try { input.showPicker(); } catch { /* already open */ }
+  });
+  show();
+}
+document.querySelectorAll('input[type="date"]').forEach(dressDateField);
+
 /* ---------- Ticking things off (animated in place, then re-sorted) ---------- */
 
 let rerenderTimer;

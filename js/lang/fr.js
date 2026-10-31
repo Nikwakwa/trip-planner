@@ -907,6 +907,7 @@ DICTS.fr = {
   'last synced {when}': 'dernière synchronisation {when}',
 
   /* ---------- What's new (version.js) ---------- */
+  'The days in the trip and plan forms follow your Date setting (Settings → Appearance), like the rest of the app': 'Les jours des formulaires de voyage et d’activité s’écrivent comme dans le reste de l’app (« 26 déc. 2026 »)',
   'Your ideas on the map: show or hide them, and add one to a day from its pin': 'Vos idées sur la carte : affichez-les ou masquez-les, et ajoutez-en une à une journée depuis son repère',
   'Add your first name or a nickname in Settings → Account: the people on your trips see it next to your hearts': 'Ajoutez votre prénom ou un surnom dans Paramètres → Compte : les personnes de vos voyages le voient à côté de vos cœurs',
   'On a trip planned together, give a heart to the ideas you like: the group’s favorites come first': 'Sur un voyage préparé à plusieurs, mettez un cœur aux idées qui vous plaisent : les préférées du groupe passent en premier',

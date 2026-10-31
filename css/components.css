@@ -365,6 +365,24 @@ dialog::backdrop { background: rgb(0 0 0 / .42); animation: fade-in .3s var(--ea
 .field textarea { resize: none; field-sizing: content; min-height: 56px; }
 .field input::placeholder, .field textarea::placeholder { color: var(--on-surface-variant); opacity: .65; }
 .field input::-webkit-calendar-picker-indicator { opacity: .6; }
+/* A date field shows the date in the app's style over its own (ui.js, dressDateField). */
+.field > input.dressed, .field > .date-shown { grid-area: 2 / 1; }
+.date-shown {
+  align-self: start;
+  padding: 2px 32px 6px 0;     /* clear of the calendar icon */
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--on-surface);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+input.dressed:not(.typing)::-webkit-datetime-edit,
+input.dressed:not(.typing)::-webkit-date-and-time-value { opacity: 0; }
+@supports (-moz-appearance: none) { input.dressed:not(.typing) { color: transparent; } }
+input.dressed.typing + .date-shown { visibility: hidden; }
+input.dressed:disabled + .date-shown { opacity: .38; }
 /* Two fields side by side. They share the width evenly even when a date or a time would like more
    (otherwise the form grows wider than a narrow phone). */
 .row2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }

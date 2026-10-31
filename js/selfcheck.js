@@ -117,6 +117,21 @@ function runChecks() {
     const mdy = fmtDay('2026-10-31');
     return (/^Sat,? 31 Oct$/.test(dmy) && /^Sat, Oct 31$/.test(mdy)) || `got "${dmy}" and "${mdy}"`;
   }));
+  check('The forms’ date fields show the date in the chosen order', () => sandbox(() => {
+    state = sample();
+    const fields = [...document.querySelectorAll('input[type="date"]')];
+    if (!fields.length || fields.some(f => !f.classList.contains('dressed'))) return 'a date field is not dressed';
+    const f = fields[0], was = f.value, got = [];
+    for (const order of ['dmy', 'mdy']) {
+      state.settings.dateOrder = order;
+      f.value = '2026-12-26';
+      got.push(f.nextElementSibling.textContent);
+    }
+    f.value = '';
+    got.push(f.nextElementSibling.textContent);
+    f.value = was;
+    return same(got, ['26 Dec 2026', 'Dec 26, 2026', '']) || `got ${stable(got)}`;
+  }));
   check('Times are written with the chosen clock', () => sandbox(() => {
     state = sample();
     state.settings.clock = '24';

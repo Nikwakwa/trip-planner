@@ -188,6 +188,9 @@ localStorage `tripPlanner.guides` (up to 10). `planSuggestions` (guide.js) and E
   `state.settings.dateOrder` (`'dmy'`/`'mdy'`) and `state.settings.clock` (`'24'`/`'12'`), per phone, defaulting
   from the device (`deviceFormats`); in French the date is always day first (`LOCALES`, the Date choice is hidden),
   the clock still follows the setting. Don't call `toLocale…String(undefined, …)`: it follows the device's language.
+  The forms' `<input type="date">` fields write the date the device's way, so `dressDateField` (ui.js) hides their
+  text and writes the date over it ("26 Dec 2026"); it catches `value =` itself. Typing with the keyboard shows the
+  field's own text until it loses focus.
 - User-facing text says "device", not "phone" (the app also runs on computers); in French "appareil". A plan is
   an "activité", the Plan tab "Programme", the Checklist "Liste", a stay "hébergement".
 
