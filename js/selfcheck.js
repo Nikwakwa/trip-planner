@@ -844,6 +844,19 @@ function runChecks() {
       if (had) readyGuides.set(key, real); else readyGuides.delete(key);
     }
   }));
+  check('On a trip’s first or last day, the plan form also lists places far away (the way from home), after those near the trip', () => {
+    const trip = { items: [], place: { kind: 'country', name: 'Mauritius', label: 'Mauritius', lat: -20.28, lng: 57.57, bbox: [56.38, -20.73, 63.72, -10.14] } };
+    // A house, as Photon answers: a street and a number, but no name.
+    const house = (city, lat, lng, country, countrycode) => ({ geometry: { coordinates: [lng, lat] },
+      properties: { street: 'Rue de la Gare', housenumber: '12', city, country, countrycode, type: 'house', osm_key: 'building' } });
+    const port = house('Port Louis', -20.16, 57.5, 'Mauritius', 'MU');
+    const list = far => sortMatches(trip, null, [], [port], [house('Strassen', 49.62, 6.07, 'Luxembourg', 'LU'), port], far)
+      .map(m => `${m.name} | ${m.sub} | ${m.place}${m.far ? ' | far' : ''}`);
+    return same([list(false), list(true)], [
+      ['Rue de la Gare 12 | Port Louis | Rue de la Gare 12, Port Louis'],
+      ['Rue de la Gare 12 | Port Louis | Rue de la Gare 12, Port Louis', '12 Rue de la Gare | Strassen · Luxembourg | 12 Rue de la Gare, Strassen | far'],
+    ]);
+  });
   check('Travel times and distances grow with the distance, without a jump', () => {
     for (const mode of ['drive', 'transit']) {
       let last = travel(1.3, mode);

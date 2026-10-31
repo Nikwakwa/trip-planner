@@ -243,10 +243,14 @@ function dayListHTML(day, items, trip, guide) {
     <li class="stay-pill"><button type="button" class="ripple" data-action="edit" data-id="${esc(start.item.id)}"
       aria-label="${out ? T('Check out of') : T('Your stay:')} ${esc(start.item.title)}">${icon('hotel')}<span>${out ? `<b>${T('Check out')}</b> · ` : ''}${esc(start.item.title)}</span></button></li>` : '';
   let prev = start ? start.c : null;
+  let prevAway = null;      // the way from home, far from the trip (guide.js): only linked to its own kind
   let num = 0;
   for (const item of items) {
     const c = coordsOf(item, guide);
+    const away = !c && awaySpot(item, trip);
     if (prev && c) html += legHTML(prev, c, mode);
+    if (prevAway && away) html += legHTML(prevAway, away, mode);
+    if (away) prevAway = away;
     // Stops are numbered like their map pins; a stay keeps its hotel icon, as on the map.
     html += itemHTML(item, trip, { drag: true, note: hoursNote(item, guide), num: c && item.category !== 'stay' ? ++num : 0, photo: planPhoto(item, guide) });
     if (c) prev = c;

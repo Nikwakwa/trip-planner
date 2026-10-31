@@ -236,7 +236,10 @@ region trip ("Hauptbahnhof") is first searched around the day's plans. A plan wh
 Louis). The journey from home (`isHomeLeg`: a transport plan on the trip's first or last day) may be found far outside
 the trip (Paris Orly on a trip to Mauritius); pinned there, it is `isAway` (guide.js): `coordsOf` returns null for it,
 so no route, travel time, suggestion, weather or nearby guide uses it, and only its own day's map shows it
-(`awaySpot`, a pin with its type's icon, fitted only when the day has nothing else on the map). The basemap is a MapLibre GL (6.x, an ES module) vector layer inside Leaflet (`L.maplibreGL`, vendored in `vendor/maplibre`),
+(`awaySpot`, a pin with its type's icon, fitted only when the day has nothing else on the map); two of them on one day
+(home → the airport) are linked by their own leg and line. On the first or last day, the plan form also asks Photon
+without a spot and lists up to two places far from the trip after the near ones (`sortMatches`, `far`); picking one
+makes the plan a Transport plan. A house is listed by its street and number (Photon gives it no name). The basemap is a MapLibre GL (6.x, an ES module) vector layer inside Leaflet (`L.maplibreGL`, vendored in `vendor/maplibre`),
 using OpenFreeMap's "liberty" style as adjusted by `tuneMapStyle(style, theme)` in `mapstyle.js` (earlier POI labels;
 the dark theme is derived by recoloring every paint color, see `nightColor`). Pins, routes and popups stay Leaflet.
 If MapLibre or the style can't load, raster tiles are used: CARTO (Voyager / dark) when `window.CARTO_KEY` is set in

@@ -759,8 +759,10 @@ function drawMap(fit) {
     onRoute += stops.length;
     // A day's route starts and ends at the stay (today.js); the whole-trip view only links the stops.
     const line = mapView.day === 'all' ? stops.map(s => s.c) : withBase(trip, g.day, stops);
-    if (line.length > 1) {
-      L.polyline(line.map(c => [c.lat, c.lng]), { color: g.color, weight: 4, opacity: .85, dashArray: '1 9', lineCap: 'round' })
+    // The way from home far away (driving to the airport) is a line of its own, apart from the stay.
+    for (const way of [line, pts.filter(s => s.c.away).map(s => s.c)]) {
+      if (way.length < 2) continue;
+      L.polyline(way.map(c => [c.lat, c.lng]), { color: g.color, weight: 4, opacity: .85, dashArray: '1 9', lineCap: 'round' })
         .addTo(mapView.layer);
     }
     // A stay is the hotel pin, also on the day it is a plan (check-in); the other stops are numbered,

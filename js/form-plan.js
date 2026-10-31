@@ -50,7 +50,7 @@ function nearTrip(trip, guide) {
    below (from the guide, then OpenStreetMap). Picking one fills in the address and pins the
    plan on the map at that exact spot. */
 const planMatch = { chosen: null, results: [], field: '', timer: 0, ctl: null, typeSet: false, press: false, late: false };
-const NUMBER_FIRST = new Set(['US', 'CA', 'GB', 'IE', 'AU', 'NZ', 'FR']);   // "9 West Street", not "West Street 9"
+const NUMBER_FIRST = new Set(['US', 'CA', 'GB', 'IE', 'AU', 'NZ', 'FR', 'LU']);   // "9 West Street", not "West Street 9"
 const OSM_CATEGORY = {
   shop: 'shopping',
   restaurant: 'food', cafe: 'food', bar: 'food', pub: 'food', fast_food: 'food', ice_cream: 'food', food_court: 'food', biergarten: 'food',
@@ -67,11 +67,13 @@ function matchFromPhoton(f) {
   const town = p.city || p.district || p.county || p.state || '';
   const address = [street, town !== p.name && town].filter(Boolean).join(', ');
   return {
-    name: p.name,
+    // A house has no name of its own: its street and number are the name, and its town is said under it.
+    name: p.name || street,
     // With a street, the address alone; a park or a square keeps its name ("Central Park, New York").
     place: (street ? address : [p.name, address].filter(Boolean).join(', ')).slice(0, 200),
-    sub: address || p.country || '',
+    sub: (p.name ? address : town) || p.country || '',
     cat: OSM_CATEGORY[p.osm_key] || OSM_CATEGORY[p.osm_value] || '',
+    country: p.country || '',
     lat: Math.round(f.geometry.coordinates[1] * 1e5) / 1e5,
     lng: Math.round(f.geometry.coordinates[0] * 1e5) / 1e5,
   };
@@ -86,24 +88,39 @@ function matchCenter(trip, guide, item, day) {
     || trip.items.find(spot) || spot(trip.place) || (guide && guide.places[0]) || null;
 }
 
-async function findMatches(trip, q, signal, by) {
+// far: the plan is on the trip's first or last day, so it can be the way from home or back (guide.js):
+// places anywhere are asked for too, and up to two of them follow the ones near the trip.
+async function findMatches(trip, q, signal, by, far = false) {
   const guide = guideFor(trip);
   const fromGuide = guide ? guide.places.filter(p => norm(p.name).includes(norm(q))).slice(0, 3).map(p => ({
     name: p.name, place: p.place || p.name, sub: p.area || guide.city || '', cat: p.cat, lat: p.lat, lng: p.lng, guideId: p.id,
   })) : [];
   if (!navigator.onLine) return fromGuide;
-  const params = new URLSearchParams({ q, limit: '8', lang: LANG === 'fr' ? 'fr' : 'en' });
-  // Results close to the plan come first.
-  if (by) { params.set('lat', by.lat); params.set('lon', by.lng); }
-  const res = await fetch('https://photon.komoot.io/api/?' + params, { signal });
-  if (!res.ok) return fromGuide;
+  // Results close to the plan come first (at). Without at, the best known places anywhere.
+  const ask = async (at) => {
+    const params = new URLSearchParams({ q, limit: '8', lang: LANG === 'fr' ? 'fr' : 'en' });
+    if (at) { params.set('lat', at.lat); params.set('lon', at.lng); }
+    const res = await fetch('https://photon.komoot.io/api/?' + params, { signal });
+    return res.ok ? (await res.json()).features : [];
+  };
+  const [around, anywhere] = await Promise.all([ask(by), far ? ask(null) : []]);
+  return sortMatches(trip, guide, fromGuide, around, anywhere, far);
+}
+
+// The places to list: the guide's, then OpenStreetMap's near the trip (around: Photon's answer), and
+// with far, up to two from anywhere (anywhere: its answer without a spot to look around).
+function sortMatches(trip, guide, fromGuide, around, anywhere, far) {
   const fits = nearTrip(trip, guide);
   const seen = new Set(fromGuide.map(m => norm(m.name)));
-  const found = (await res.json()).features
-    .filter(f => f.properties.name && !['country', 'state', 'county', 'city'].includes(f.properties.type))
+  const pick = (features, keep) => features
+    .filter(f => (f.properties.name || (f.properties.street && f.properties.housenumber)) && !['country', 'state', 'county', 'city'].includes(f.properties.type))
     .map(matchFromPhoton)
-    .filter(m => fits(m) && !seen.has(norm(m.name) + m.sub) && !seen.has(norm(m.name)) && seen.add(norm(m.name) + m.sub));
-  return [...fromGuide, ...found].slice(0, 5);
+    .filter(m => keep(m) && !seen.has(norm(m.name) + m.sub) && !seen.has(norm(m.name)) && seen.add(norm(m.name) + m.sub));
+  const near = [...fromGuide, ...pick(around, fits)];
+  // A place far away says its country ("Rue de la Gare 12, Strassen · Luxembourg").
+  const away = !far ? [] : pick([...around, ...anywhere], m => !fits(m)).slice(0, 2)
+    .map(m => ({ ...m, far: true, sub: [m.sub, !norm(m.sub).includes(norm(m.country)) && m.country].filter(Boolean).join(' · ') }));
+  return [...near.slice(0, 5 - away.length), ...away];
 }
 
 function showMatches(field, results) {
@@ -131,8 +148,9 @@ function onMatchInput(e) {
     const ctl = planMatch.ctl = new AbortController();
     try {
       const editing = editingItemId && trip.items.find(i => i.id === editingItemId);
-      const by = matchCenter(trip, guideFor(trip), editing, itemForm.elements.date.value);
-      showMatches(field, await findMatches(trip, q, ctl.signal, by));
+      const day = itemForm.elements.date.value;
+      const by = matchCenter(trip, guideFor(trip), editing, day);
+      showMatches(field, await findMatches(trip, q, ctl.signal, by, !!day && (day === trip.start || day === trip.end)));
     } catch (err) {
       if (err.name !== 'AbortError') showMatches(field, []);
     }
@@ -162,7 +180,9 @@ itemForm.addEventListener('click', (e) => {
   const f = itemForm.elements;
   if (planMatch.field === 'title') f.title.value = titleAfterPick(f.title.value, m).slice(0, 120);
   f.place.value = m.place;
-  if (m.cat && !editingItemId && !planMatch.typeSet) { f.category.value = m.cat; setPlanExamples(); showStayFields(); }
+  // A place far from the trip, on its first or last day: the way from home or back (guide.js), a Transport plan.
+  const cat = m.far ? 'transport' : m.cat;
+  if (cat && (m.far || (!editingItemId && !planMatch.typeSet))) { f.category.value = cat; setPlanExamples(); showStayFields(); }
   planMatch.chosen = m;
   showMatches('', []);
 });
