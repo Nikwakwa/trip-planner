@@ -13,7 +13,8 @@
    ========================================================= */
 
 // The app's own proposals. Keep an id for good once it has shipped: votes are kept by id.
-// Built since, so off the list (don't use these ids again): share-trip, languages (French, 2026-10).
+// Built since, so off the list (don't use these ids again): share-trip, languages (French, 2026-10),
+// packing-lists (lines kept for every trip, 2026-11).
 const FEATURE_IDEAS = [
   { id: 'offline-maps', title: T('Maps without a connection'), text: T('Download a trip’s map before leaving, for when there is no signal.') },
   { id: 'meals', title: T('Lunch and dinner ideas'), text: T('Places to eat near each day’s plans, from the travel guide.') },
@@ -21,7 +22,6 @@ const FEATURE_IDEAS = [
   { id: 'journal', title: T('Trip journal'), text: T('Add a photo and a few words to a plan once it’s done, and look back on the trip.') },
   { id: 'print', title: T('Print the plan'), text: T('A clean page of the whole trip, to print or keep as a PDF.') },
   { id: 'copy-trip', title: T('Copy a trip'), text: T('Start a new trip from one you already made.') },
-  { id: 'packing-lists', title: T('Packing lists to keep'), text: T('Save your checklist and use it again for the next trip.') },
   { id: 'change-email', title: T('Change your email'), text: T('Move your account to another email address.') },
 ];
 const VOTE_MAX_IDEAS = 5;

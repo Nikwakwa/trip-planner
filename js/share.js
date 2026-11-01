@@ -170,6 +170,7 @@ function dropShare(id) {
   if (trip) {
     state.trips = state.trips.filter(t => t !== trip);
     if (state.archived) delete state.archived[trip.id];
+    dropTripChecks(trip.id);    // view-checklist.js
     if (state.activeTripId === trip.id) {
       state.activeTripId = firstTripId();
       scrollAt = {};

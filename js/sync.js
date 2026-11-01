@@ -187,6 +187,7 @@ function applyDocs(docs, space = '') {
     const oldChecks = new Map(state.checklist.map(c => [c.id, c]));
     state.checklist = all.filter(d => d.k === 'check').sort(byPos).map(({ k, pos, ...c }) => reuse(oldChecks.get(c.id), c));
     state.archived = Object.fromEntries(all.filter(d => d.k === 'arch').map(d => [d.id, d.at]));
+    settleChecks();     // view-checklist.js: a tick from an older version counts for one trip
     const profile = all.find(d => d.k === 'profile');
     if (profile) state.profile = { name: profile.name }; else delete state.profile;
   }
@@ -328,9 +329,9 @@ function mergeRemote(remote, pending, keepLocal, id = '') {
 }
 
 // Every device starts with the same checklist ("ID / wallet", …), each line with an id of its own. A line
-// the account already has in the same words isn't added a second time.
+// the account already has in the same words, for the same trip or for every trip, isn't added a second time.
 function dropSameChecks(keep, local, remote) {
-  const text = j => { const d = JSON.parse(j); return d.k === 'check' ? norm(d.text).trim() : null; };
+  const text = j => { const d = JSON.parse(j); return d.k === 'check' ? `${d.trip || ''} ${norm(d.text).trim()}` : null; };
   const theirs = new Set(Object.values(remote).map(text).filter(Boolean));
   for (const k of [...keep]) if (theirs.has(text(local[k]))) keep.delete(k);
 }

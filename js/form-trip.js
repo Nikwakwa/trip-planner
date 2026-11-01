@@ -170,6 +170,7 @@ $('#trip-delete').addEventListener('click', async () => {
   if (!ok) return;
   state.trips = state.trips.filter(t => t.id !== trip.id);
   if (state.archived) delete state.archived[trip.id];
+  dropTripChecks(trip.id);      // view-checklist.js
   if (state.activeTripId === trip.id) state.activeTripId = firstTripId();
   scrollAt = {};
   save();

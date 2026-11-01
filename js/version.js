@@ -8,6 +8,11 @@
    each, five at most. Fixes are never described, not even one people would notice: they are a
    single line, "Bug fixes", and a version with fixes only says just that. */
 const CHANGELOG = [
+  { v: '2.28.0', date: '2026-11-01', items: [
+    'Each trip has its own checklist: what you add and tick off stays on that trip',
+    'What you take every time stays on every trip, ticked off separately on each one',
+    'Hold an item and drag it to “On every trip” to take it on every trip',
+  ] },
   { v: '2.27.0', date: '2026-10-31', items: [
     'In French, the descriptions from the travel guide, Wikipedia and the essentials are translated',
     'In French, the map shows place names in French',

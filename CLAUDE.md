@@ -100,6 +100,14 @@ listener in render.js. Don't add another document-wide click listener for button
 - `state.trips` can be empty (a fresh install starts with no trips). Then `activeTrip()` returns `null`, and the Plan
   and Ideas tabs show `renderWelcome()` ("Where do you want to go?") instead of a trip. Code reachable without a trip
   must handle `null`.
+- The personal checklist (`state.checklist`, 2.28) is per trip: a line with `trip` (an id) belongs to that trip and is
+  ticked with `done`; a line without one is for every trip (the starting ones, "On every trip") and is ticked per trip
+  in `doneOn` (trip ids). Read and change them through `listNamed('own' | 'every' | 'trip')` (view-checklist.js: `get`,
+  `set`, `ticked`, `tick`), never `c.done` directly. A trip that goes away takes its lines and ticks with it
+  (`dropTripChecks`: deleting it, `dropShare`); backups keep them under the trips' new ids. Before 2.28 it was one
+  list for all trips: an old `done: true` on a line for every trip (also one an older version still writes) counts
+  for `soonestTrip()` (`settleChecks`, at start, in `applyDocs` and after a restore). Lines stay in the account's own
+  space, a shared trip's too. "Clear" only removes the trip's own ticked lines.
 - Archived trips (`archive.js`): `state.archived` maps a trip id to the day it was archived. It is the account's,
   not the trip's: synced as `arch_<tripId>` documents in the account's own space (`stateDocs`/`applyDocs` with space
   `''`), a shared trip's too, and never written into a trip document. So archiving a shared trip only changes your
@@ -375,9 +383,10 @@ and `shared/{id}/docs/…` holds the trip and its plans, in the same form as an 
   removed at the next save. Only the trip named in `shared/{id}.trip` is taken from a shared space.
 - A shared trip has a list of its own for everyone on it: `trip.todos` (`[{ id, text, done }]`), synced as `todo_…`
   documents next to the trip's plans (not `check_…`: version 2.10 would remove those). The Checklist tab shows it
-  for the trip that is open, above the personal checklist (`tripListHTML`; `listAt(el)` / `listNamed('trip' | 'own')`
-  tell which list a row, button or form belongs to). Rows are dragged between the two lists, or to another spot in
-  their own (`listTarget` / `dropOnList` in drag.js; the places to drop are `[data-list]`, the open items `ul.tasks`).
+  for the trip that is open, above the personal checklist (`tripListHTML`; `listAt(el)` / `listNamed('trip' | 'own' | 'every')`
+  tell which list a row, button or form belongs to; a row says it in `data-home`). Rows are dragged between the three
+  lists, or to another spot in their own (`listTarget` / `dropOnList` in drag.js; the places to drop are `[data-list]`,
+  the open items `:scope > ul.tasks`); a moved line keeps its tick.
   On a shared trip each packing suggestion has two buttons: "+" for the personal checklist, the people icon for
   the trip's list. Files are never shared, by the owner's choice (2026-10-10): the app says so in the
   plan form, the Tickets sheet, the Share sheet and the privacy note.

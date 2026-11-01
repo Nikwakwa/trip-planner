@@ -593,6 +593,68 @@ function runChecks() {
     return same([b.archived, b.activeTripId, all.activeTripId, 'archived' in cleanBackup(copy(sample()))], [{ t2: '2026-05-02' }, 't1', null, false]);
   });
 
+  /* ---------- The checklist: each trip's own lines, and lines for every trip ---------- */
+  group = 'Checklist';
+  // Lisbon (trip1) and Rome (trip2), a line for every trip and one for each trip.
+  const lines = () => [{ id: 'e1', text: 'Passport', done: false }, { id: 'o1', text: 'Sunscreen', done: false, trip: 'trip1' },
+    { id: 'o2', text: 'Umbrella', done: false, trip: 'trip2' }];
+  const onTrip = (id, fn) => { state.activeTripId = id; return fn(listNamed('own'), listNamed('every')); };
+  check('Each trip has its own lines and ticks; a line for every trip is ticked off on each trip apart', () => sandbox(() => {
+    state = { ...both(), checklist: lines() };
+    onTrip('trip1', (own, every) => { every.tick(every.get()[0], true); own.tick(own.get()[0], true); });
+    const seen = id => onTrip(id, (own, every) => [own.get().map(c => `${c.text}${own.ticked(c) ? ' (done)' : ''}`), every.ticked(every.get()[0])]);
+    return same([seen('trip1'), seen('trip2'), state.checklist[0].done], [[['Sunscreen (done)'], true], [['Umbrella'], false], false]);
+  }));
+  check('A line moved to “On every trip” and back keeps its tick, and Undo puts it back', () => sandbox(() => {
+    const real = snackbar;
+    let undo = null;
+    try {
+      snackbar = (text, label, fn) => { undo = fn; };
+      state = { ...both(), checklist: lines() };
+      state.checklist[1].done = true;           // Sunscreen, ticked on Lisbon
+      state.activeTripId = 'trip1';
+      Object.assign(drag, { home: 'own', id: 'o1' });
+      dropOnList({ zone: { dataset: { list: 'every' } } });
+      const moved = state.checklist.find(c => c.id === 'o1');
+      const after = ['trip' in moved, moved.doneOn, onTrip('trip1', (own, every) => every.get().length)];
+      undo();
+      return same([after, state.checklist.find(c => c.id === 'o1')], [[false, ['trip1'], 2], { id: 'o1', text: 'Sunscreen', done: true, trip: 'trip1', doneOn: ['trip1'] }]);
+    } finally { snackbar = real; }
+  }));
+  check('A tick from before the checklist was per trip counts for the trip under way or next, once', () => sandbox(() => {
+    state = { ...both(), checklist: [{ id: 'e1', text: 'Passport', done: true }, { id: 'o1', text: 'Sunscreen', done: true, trip: 'trip1' }] };
+    const changed = [settleChecks(), settleChecks()];
+    return same([changed, state.checklist], [[true, false],
+      [{ id: 'e1', text: 'Passport', done: false, doneOn: ['trip2'] }, { id: 'o1', text: 'Sunscreen', done: true, trip: 'trip1' }]]);
+  }));
+  check('A trip that goes away takes its own lines and its ticks with it', () => sandbox(() => {
+    state = { ...both(), checklist: lines() };
+    state.checklist[0].doneOn = ['trip1', 'trip2'];
+    dropTripChecks('trip2');
+    return same(state.checklist.map(c => [c.id, c.doneOn]), [['e1', ['trip1']], ['o1', undefined]]);
+  }));
+  check('A line’s trip and ticks are checked when read, and travel between devices', () => sandbox(() => {
+    const read = [tidyCheck({ id: 'a', text: 'A', trip: '<b>', doneOn: ['t1', 't1', '<b>', 5] }), tidyCheck({ id: 'b', text: 'B', doneOn: 'x' })];
+    const s = { ...both(), checklist: lines() };
+    s.checklist[0].doneOn = ['trip1'];
+    state = { ...both(), checklist: [] };
+    applyDocs(stateDocs(s));
+    return same([read, state.checklist], [[{ id: 'a', text: 'A', done: false, doneOn: ['t1'] }, { id: 'b', text: 'B', done: false }],
+      [{ id: 'e1', text: 'Passport', done: false, doneOn: ['trip1'] }, ...lines().slice(1)]]);
+  }));
+  check('A backup keeps each line’s trip, and leaves out the lines of a trip it doesn’t have', () => {
+    const b = cleanBackup({ trips: [{ id: 't1', name: 'A' }], checklist: [{ id: 'a', text: 'A', trip: 't1' }, { id: 'b', text: 'B', trip: 'gone' },
+      { id: 'c', text: 'C', doneOn: ['t1', 'gone'] }, { id: 'd', text: 'D', trip: '<b>' }] });
+    return same(b.checklist, [{ id: 'a', text: 'A', done: false, trip: 't1' }, { id: 'c', text: 'C', done: false, doneOn: ['t1'] }]);
+  });
+  check('Signing in keeps a line in the same words for another trip', () => {
+    const doc = (id, text, trip) => stable({ k: 'check', pos: 0, id, text, done: false, trip });
+    const local = { check_a: doc('a', 'Sunscreen', 't1'), check_b: doc('b', 'Sunscreen', 't2') };
+    const keep = new Set(Object.keys(local));
+    dropSameChecks(keep, local, { check_z: doc('z', 'Sunscreen', 't1') });
+    return same([...keep], ['check_b']);
+  });
+
   /* ---------- Order of the plans in a day ---------- */
   group = 'Plans';
   check('Plans go by time, then by their spot on the route; the rest in the afternoon, before the evening', () =>

@@ -115,7 +115,12 @@ function tidyItem(i, newId = false) {
 
 function tidyCheck(c, newId = false) {
   if (!c || typeof c !== 'object' || typeof c.text !== 'string' || !c.text || (!isId(c.id) && !newId)) return null;
-  return { ...c, id: isId(c.id) ? c.id : uid(), done: c.done === true };
+  const line = { ...c, id: isId(c.id) ? c.id : uid(), done: c.done === true };
+  // A line of the personal checklist is for one trip (its id), or for every trip, ticked on some (view-checklist.js).
+  if (!isId(line.trip)) delete line.trip;
+  const on = Array.isArray(c.doneOn) ? [...new Set(c.doneOn.filter(isId))] : [];
+  if (on.length) line.doneOn = on; else delete line.doneOn;
+  return line;
 }
 
 // The archived trips (archive.js): trip id → the day it was archived.

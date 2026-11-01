@@ -30,6 +30,9 @@ the same address shows a desktop layout on a wide screen, by itself.
 card, the ✕ on its tab, or your phone's Back button) returns to where you were. Archiving is yours alone: on a
   trip you plan with other people, it doesn't move for them.
 - A **Stay** plan with an address (your hotel) becomes the **home base**: days start and end there.
+- Each trip has its own **Checklist**: what you add and tick off stays on that trip. The things you take every
+  time are under **On every trip**: they show on each trip and are ticked off separately on each one. Hold an item
+  and drag it there to keep it for every trip, or out of it to keep it for this trip only.
 - **Photos** of places, **packing suggestions** from the forecast and your plans, **Add to calendar**,
   **tickets & bookings** attached to plans, and **booking emails** turned into plans by the AI Assistant.
 - Works offline once it has been opened one time.

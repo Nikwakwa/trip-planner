@@ -60,8 +60,9 @@ function packingIdeas(trip) {
 }
 
 function packingSuggestions(trip) {
-  // Already on the checklist, or on the trip's own list: not suggested again.
-  const have = [...state.checklist, ...(trip.todos || [])].map(c => norm(c.text));
+  // Already on this trip's checklist (its own lines, or those for every trip), or on its list for everyone:
+  // not suggested again.
+  const have = [...state.checklist.filter(c => !c.trip || c.trip === trip.id), ...(trip.todos || [])].map(c => norm(c.text));
   const hidden = new Set(packingHidden[trip.id] || []);
   return packingIdeas(trip).filter(s => !hidden.has(s.key) && !have.some(t => s.match.test(t)));
 }
@@ -99,7 +100,7 @@ function onPackAction(name, run) {
   });
 }
 onPackAction('pack-add', (s, trip) => {
-  state.checklist.push({ id: uid(), text: s.text, done: false });
+  state.checklist.push({ id: uid(), text: s.text, done: false, trip: trip.id });   // for this trip only
   save();
   snackbar(trip.shared ? T('Added to your own checklist: {name}', { name: s.text }) : T('Added: {name}', { name: s.text }));
 });

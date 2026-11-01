@@ -4,6 +4,20 @@
 .task { display: flex; align-items: center; min-height: 56px; padding-left: 4px; }
 .task .check { margin: 0; }
 .task-text { flex: 1; min-width: 0; padding: 14px 0; font-size: 16px; line-height: 22px; overflow-wrap: anywhere; }
+/* A line that can't be ticked (the lines for every trip, while no trip is open) */
+.task.no-tick { padding-left: 16px; }
+/* "Every trip", on a ticked line for every trip: it stays when the trip's ticked lines are cleared */
+.task-tag {
+  flex: none;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: var(--surface-container-high);
+  color: var(--on-surface-variant);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
 
 
 /* ---------- Checklist ---------- */
@@ -61,6 +75,8 @@
   color: var(--primary);
 }
 .label-row .group-label { margin: 0; }
+/* The lines for every trip, under the trip's own */
+.every-list .supporting { margin: -4px 16px 10px; }
 
 
 /* ---------- Packing suggestions (packing.js) ---------- */

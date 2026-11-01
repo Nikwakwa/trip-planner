@@ -58,10 +58,11 @@ function cleanBackup(data) {
     };
   };
   if (!data || !Array.isArray(data.trips)) throw new Error('not a backup');
-  // The lines of a checklist, or of a trip's own list.
-  const checks = list => (Array.isArray(list) ? list : [])
+  // The lines of a checklist, or of a trip's own list. `more` adds fields to a line, or leaves it out (null).
+  const checks = (list, more = () => ({})) => (Array.isArray(list) ? list : [])
     .filter(c => c && typeof c === 'object' && str(c.text, 200))
-    .map(c => ({ id: id(c.id), text: str(c.text, 200), done: c.done === true }));
+    .map(c => { const extra = more(c); return extra && { id: id(c.id), text: str(c.text, 200), done: c.done === true, ...extra }; })
+    .filter(Boolean);
   const tripIds = new Map();      // the file's trip id → the id it has here
   // A trip's days: both or none, the first one first.
   const span = (t) => {
@@ -98,7 +99,14 @@ function cleanBackup(data) {
     // The list a trip planned with other people had: kept, as this trip's own list.
     todos: Array.isArray(t.todos) && t.todos.length ? checks(t.todos) : undefined,
   }));
-  const checklist = checks(data.checklist);
+  // The personal checklist: a line for one trip keeps it (under its id here), and is left out when the file
+  // doesn't have that trip. A line for every trip keeps the trips it was ticked on.
+  const tripOf = was => (isId(was) && tripIds.has(was) ? tripIds.get(was) : undefined);
+  const checklist = checks(data.checklist, (c) => {
+    if (c.trip !== undefined) return tripOf(c.trip) ? { trip: tripOf(c.trip) } : null;
+    const on = [...new Set((Array.isArray(c.doneOn) ? c.doneOn : []).map(tripOf).filter(Boolean))];
+    return on.length ? { doneOn: on } : {};
+  });
   // The archived trips, under the ids their trips have here.
   const archived = Object.fromEntries(Object.entries(tidyArchived(data.archived))
     .filter(([was]) => tripIds.has(was)).map(([was, day]) => [tripIds.get(was), day]));
@@ -151,9 +159,13 @@ document.addEventListener('change', async (e) => {
     if (isArchived(t)) restored.archived[t.id] = state.archived[t.id];
     else delete restored.archived[t.id];
   }
+  // So do your own checklist lines for them.
+  const keptIds = new Set(kept.map(t => t.id));
+  restored.checklist = restored.checklist.filter(c => !keptIds.has(c.trip)).concat(state.checklist.filter(c => keptIds.has(c.trip)));
   // The name shown on shared trips is the account's, not part of the plans.
   if (state.profile) restored.profile = state.profile;
   state = restored;
+  settleChecks();      // view-checklist.js: a file from before the checklist was per trip
   save();
   scrollAt = {};
   showView('plan', { top: true });

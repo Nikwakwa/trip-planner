@@ -85,6 +85,7 @@ $('#fab').addEventListener('click', () => {
 history.scrollRestoration = 'manual';
 ui.view = pageView();
 translatePage();   // i18n.js: the page's own texts, in the app's language
+if (settleChecks()) saveLocal();   // view-checklist.js: ticks from before the checklist was per trip
 render();
 startSync();
 loadFileIndex();   // files.js: which plans have tickets attached

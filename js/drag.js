@@ -19,8 +19,9 @@ document.addEventListener('pointerdown', (e) => {
   // A line of a checklist is dragged by its text, not by its buttons.
   drag.check = !!el.dataset.check;
   if (drag.check && e.target.closest('button')) return;
-  // Which of the two lists it is in, and whether it is ticked: kept, in case the page is redrawn meanwhile.
-  drag.home = drag.check ? (el.closest('[data-list]') || el).dataset.list : '';
+  // Which list it is in (the row says: a ticked one is drawn apart from its list), and whether it is ticked:
+  // kept, in case the page is redrawn meanwhile.
+  drag.home = drag.check ? el.dataset.home : '';
   drag.done = el.classList.contains('done');
   drag.src = el;
   drag.id = el.dataset.id || el.dataset.check;
@@ -114,14 +115,14 @@ function clearMarks() {
   document.querySelectorAll('.drop-on').forEach(el => el.classList.remove('drop-on'));
 }
 
-// For a line of the Checklist: a spot among the open items of the trip's own list or of the personal
-// one. A ticked line only changes list (it joins the other ticked ones there).
+// For a line of the Checklist: a spot among the open items of one of its lists (the trip's list for everyone,
+// the trip's own lines, the lines for every trip). A ticked line only changes list (it joins the other ticked ones there).
 function listTarget(under) {
   const zone = under && under.closest('#view-pack [data-list]');
   if (!zone) return null;
-  const list = zone.querySelector('ul.tasks');
+  const list = zone.querySelector(':scope > ul.tasks');
   if (drag.done) return zone.dataset.list === drag.home ? null : { kind: 'list', zone, index: -1, el: zone };
-  if (!list) return { kind: 'list', zone, index: 0, el: zone.querySelector('.add-bar') || zone };
+  if (!list) return { kind: 'list', zone, index: 0, el: zone.querySelector(':scope > .add-bar') || zone };
   const rows = [...list.querySelectorAll(':scope > .task:not(.done)')].filter(li => li.dataset.check !== drag.id);
   let index = 0;
   for (const li of rows) {
@@ -193,14 +194,15 @@ function endDrag(drop) {
   if (drop && target) dropOn(target);
 }
 
-// A line of the Checklist dropped in a list: it moves there (from the list for everyone on the trip to
-// the personal one, or back), or to another spot in its own list.
+// A line of the Checklist dropped in a list: it moves there (between the list for everyone on the trip, the
+// trip's own lines and those for every trip), or to another spot in its own list. It stays ticked, or not.
 function dropOnList(target) {
   const there = target.zone.dataset.list;
   const from = listNamed(drag.home), to = listNamed(there);       // view-checklist.js
   const at = from.get().findIndex(c => c.id === drag.id);
   if (at < 0) return;
   const line = from.get()[at];
+  const ticked = from.ticked(line);
   const crossing = drag.home !== there;
   const rest = from.get().filter(c => c !== line);
   const dest = crossing ? to.get().slice() : rest.slice();
@@ -210,16 +212,19 @@ function dropOnList(target) {
   if (!crossing && dest.every((c, k) => c === from.get()[k])) return;
   if (crossing) from.set(rest);
   to.set(dest);
+  if (crossing) to.tick(line, ticked);
   save();
   render();
   if (navigator.vibrate) navigator.vibrate(10);
-  const message = !crossing ? T('Moved') : there === 'trip' ? T('Moved to the list for everyone') : T('Moved to your own list');
+  const message = !crossing ? T('Moved') : there === 'trip' ? T('Moved to the list for everyone') : there === 'every' ? T('Now on every trip')
+    : drag.home === 'every' ? T('Now only on this trip') : T('Moved to your own list');
   snackbar(message, T('Undo'), () => {
     // Back to its list and its spot there, whatever else changed meanwhile.
     to.set(to.get().filter(c => c.id !== line.id));
     const back = from.get().filter(c => c.id !== line.id);
     back.splice(Math.min(at, back.length), 0, line);
     from.set(back);
+    if (crossing) from.tick(line, ticked);
     save();
     render();
   });
