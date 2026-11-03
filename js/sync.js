@@ -352,7 +352,7 @@ async function askHowToLink() {
     keep = new Set();                          // Nothing new here: use the account's plans.
   } else {
     sync.asking = true;
-    const names = list => list.map(t => t.name).join(', ');
+    const names = list => list.map(t => tripName(t)).join(', ');
     const ok = await askConfirm({
       icon: 'sync',
       title: T('Add this device’s trips?'),

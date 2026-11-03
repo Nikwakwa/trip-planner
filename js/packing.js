@@ -73,7 +73,7 @@ function packingHTML(trip) {
   if (!list.length) return '';
   return `
     <section class="pack-ideas" aria-label="${T('Suggestions')}">
-      <h2 class="group-label">${icon('auto_awesome', 'sm')}${T('Suggested for {trip}', { trip: esc(trip.name) })}</h2>
+      <h2 class="group-label">${icon('auto_awesome', 'sm')}${T('Suggested for {trip}', { trip: esc(tripName(trip)) })}</h2>
       ${trip.shared ? `<p class="supporting">${T('Tap one to add it to your own checklist, or {icon} to add it for everyone on the trip.', { icon: icon('group', 'sm') })}</p>` : ''}
       <ul class="group">${list.map(s => `
         <li class="pack-idea">

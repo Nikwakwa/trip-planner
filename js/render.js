@@ -80,7 +80,7 @@ function onGuideReady(place, guide, quiet) {
   renderSoon();
   const trip = activeTrip();
   if (!quiet && trip && trip.place && placeKey(trip.place) === placeKey(place) && ui.view !== 'ideas') {
-    snackbar(Tn(guide.places.length, '{n} idea for {place} ready', '{n} ideas for {place} ready', { place: place.name }), T('Explore'), () => {
+    snackbar(Tn(guide.places.length, '{n} idea for {place} ready', '{n} ideas for {place} ready', { place: placeName(place) }), T('Explore'), () => {
       ui.ideasTab = 'explore';
       showView('ideas', { top: true });
     });
@@ -93,6 +93,7 @@ function render() {
   // No longer looking at that archived trip (another trip picked, it was unarchived or deleted).
   if (ui.peek && (!trip || trip.id !== ui.peek.id || !isArchived(trip))) ui.peek = null;
   if (trip) ensurePlace(trip);
+  state.trips.forEach(ensurePlaceName);     // places.js: every trip's tab shows its name in this language
   applyTheme(trip ? trip.color : COLORS[0]);
 
   for (const v of VIEWS) {
@@ -186,7 +187,7 @@ function renderSidebar(trip) {
   $('#side-extra').innerHTML = !trip ? '' : `
     <button type="button" class="side-ai ripple" data-action="assistant">${icon('auto_awesome')}${T('AI Assistant')}</button>
     ${days.length ? `
-      <p class="side-label">${esc(trip.name)}</p>
+      <p class="side-label">${esc(tripName(trip))}</p>
       <ul class="side-days">
         ${days.map((d, k) => {
           const n = trip.items.filter(i => i.date === d).length;
@@ -225,13 +226,13 @@ function renderTripTabs(trip) {
   $('#trip-tabs').innerHTML =
     barTrips(trip).map(t => (isArchived(t) ? `
       <span class="trip-chip active archived" style="--c:${esc(t.color)}">
-        ${icon('archive', 'sm')}${esc(t.name)}${sharedMark(t)}
-        <button type="button" class="chip-close ripple" data-action="close-archived" aria-label="${T('Close {trip}', { trip: esc(t.name) })}"
-          title="${T('Close {trip}', { trip: esc(t.name) })}">${icon('close', 'sm')}</button>
+        ${icon('archive', 'sm')}${esc(tripName(t))}${sharedMark(t)}
+        <button type="button" class="chip-close ripple" data-action="close-archived" aria-label="${T('Close {trip}', { trip: esc(tripName(t)) })}"
+          title="${T('Close {trip}', { trip: esc(tripName(t)) })}">${icon('close', 'sm')}</button>
       </span>` : `
       <button type="button" class="trip-chip ripple ${t.id === trip.id ? 'active' : ''}" data-trip="${esc(t.id)}"
         style="--c:${esc(t.color)}" aria-pressed="${t.id === trip.id}">
-        <span class="dot"></span>${esc(t.name)}${sharedMark(t)}
+        <span class="dot"></span>${esc(tripName(t))}${sharedMark(t)}
       </button>`)).join('') +
     `<button type="button" class="trip-chip add ripple" data-action="new-trip" aria-label="${T('Add a trip')}">${icon('add', 'sm')}</button>` +
     (archived ? `<button type="button" class="trip-chip archive-chip ripple" data-action="archive-list" aria-label="${label}" title="${label}">

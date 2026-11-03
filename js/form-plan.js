@@ -13,7 +13,7 @@ $('#item-category').insertAdjacentHTML('beforeend', Object.entries(CATEGORIES).m
 // Example texts for the plan form, from the trip's own guide and the type of plan chosen
 // (a sight in Lisbon → "e.g. Visit Praça do Comércio"). Plain wording when there's no guide yet.
 function planExamples(trip, category) {
-  const city = trip ? (trip.place ? trip.place.name : trip.name) : '';
+  const city = trip ? (trip.place ? placeName(trip.place) : tripName(trip)) : '';
   if (category === 'transport') return { title: T('e.g. Train to the airport'), place: city ? T('e.g. the main station in {city}', { city }) : T('e.g. the main station') };
   if (category === 'stay') return { title: T('e.g. Hotel check-in'), place: T('The address of your hotel or apartment') };
   const guide = trip && guideFor(trip);

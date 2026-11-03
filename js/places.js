@@ -38,9 +38,11 @@ function placeFromPhoton(f) {
   // A city named like its country keeps the country ("Luxembourg, Luxembourg"), so it isn't mistaken for it.
   const within = [kind === 'city' && p.countrycode === 'US' && p.state !== p.name ? p.state : '', kind !== 'country' ? p.country : '']
     .filter(Boolean);
+  const label = [p.name, ...within].join(', ');
   return {
     name: p.name,
-    label: [p.name, ...within].join(', '),
+    label,
+    names: { [photonLang()]: { name: p.name, label } },     // in the language Photon was asked in
     kind,
     lat: Math.round(lat * 1e5) / 1e5,
     lng: Math.round(lng * 1e5) / 1e5,
@@ -53,8 +55,10 @@ function placeFromPhoton(f) {
 // (so "Luxemburg" shows Luxembourg City before Luxemburg, Iowa). Otherwise the search's own order.
 const PLACE_RANK = { country: 0, city: 1, state: 2, region: 2, province: 2, county: 3, town: 3 };
 
+const photonLang = () => (LANG === 'fr' ? 'fr' : 'en');
+
 async function searchPlaces(q, signal) {
-  const params = new URLSearchParams({ q, limit: '12', lang: LANG === 'fr' ? 'fr' : 'en' });
+  const params = new URLSearchParams({ q, limit: '12', lang: photonLang() });
   params.append('osm_tag', 'place');
   params.append('osm_tag', 'boundary:administrative');
   const res = await fetch('https://photon.komoot.io/api/?' + params, { signal });
@@ -87,6 +91,51 @@ async function findPlace(name) {
 }
 
 const KIND_LABEL = { city: T('City'), region: T('Region'), country: T('Country') };
+
+/* A trip's place in the app's language: a trip made in English as "Mauritius" says "Maurice" in French.
+   The place keeps its name in each language it was seen in (`names`, synced with the trip); `name` and
+   `label` stay as they were first found, since the guide and the saved data go by them. */
+const nameInLang = p => {
+  const n = p.names && p.names[photonLang()];
+  return n && typeof n.name === 'string' && n.name && typeof n.label === 'string' ? n : null;
+};
+const placeName = p => (nameInLang(p) ? nameInLang(p).name : p.name);
+const localLabel = p => (nameInLang(p) ? nameInLang(p).label : p.label);
+const placeNames = p => [p.name, ...Object.values(p.names || {}).map(n => n && n.name)].filter(n => typeof n === 'string' && n);
+
+// A trip named after its place shows the place's name in the app's language. A name of its own stays.
+function tripName(trip) {
+  const p = trip.place;
+  if (!p || !nameInLang(p)) return trip.name;
+  return placeNames(p).some(n => norm(n) === norm(trip.name)) ? placeName(p).slice(0, 40) : trip.name;
+}
+
+// A guide's place as the screen names it: the trip's own place in the app's language. A guide near the
+// plans keeps its travel guide's name, like the other place names from there.
+const guideCity = (guide, trip) => (trip && trip.place && placeNames(trip.place).some(n => norm(n) === norm(guide.city))
+  ? placeName(trip.place) : guide.city);
+
+// The trip's place isn't known in this language yet: asked once per visit, from the same search.
+const namesAsked = new Set();
+function ensurePlaceName(trip) {
+  const p = trip.place;
+  const lang = photonLang();
+  if (!p || !p.osm || (p.names && p.names[lang]) || namesAsked.has(p.osm + lang) || !navigator.onLine) return;
+  namesAsked.add(p.osm + lang);
+  const params = new URLSearchParams({ q: p.name, limit: '15', lang, lat: p.lat, lon: p.lng });
+  fetch('https://photon.komoot.io/api/?' + params)
+    .then(res => (res.ok ? res.json() : Promise.reject(new Error('place search failed'))))
+    .then((data) => {
+      const f = data.features.find(x => `${x.properties.osm_type}${x.properties.osm_id}` === p.osm && x.properties.name);
+      // Not found under that name: the name it has is kept for this language too, so it isn't asked again.
+      const found = f ? placeFromPhoton(f).names[lang] : { name: p.name, label: p.label };
+      if (trip.place !== p || !state.trips.includes(trip)) return;
+      p.names = { ...p.names, [lang]: found };
+      save();
+      renderSoon();
+    })
+    .catch(() => {});     // asked again at the next visit
+}
 
 /* ---------- Reading Wikivoyage pages (wikitext) ---------- */
 

@@ -58,34 +58,34 @@ function renderIdeas(trip) {
 
   if (tab === 'mine') {
     html += `
-      <p class="supporting">${T('Things you might do in {trip}. Add one to a day when you’re ready, or tap it to see more.', { trip: esc(trip.name) })}${heartsOn(trip) ? ` ${T('Give a heart to the ones you like: the ideas the group likes most come first.')}` : ''}</p>
+      <p class="supporting">${T('Things you might do in {trip}. Add one to a day when you’re ready, or tap it to see more.', { trip: esc(tripName(trip)) })}${heartsOn(trip) ? ` ${T('Give a heart to the ones you like: the ideas the group likes most come first.')}` : ''}</p>
       ${ideas.length
         ? `<ul class="group plans">${ideas.map(it => itemHTML(it, trip, { schedule: true, photo: planPhoto(it, guide) })).join('')}</ul>`
         : emptyState('travel_explore', T('No ideas yet'), T('Save places you hear about here, then schedule them later.'),
-            guide ? `<button type="button" class="btn tonal ripple" data-action="ideas-tab" data-tab="explore">${icon('explore')}${T('Explore {place}', { place: esc(guide.city) })}</button>` : '')}`;
+            guide ? `<button type="button" class="btn tonal ripple" data-action="ideas-tab" data-tab="explore">${icon('explore')}${T('Explore {place}', { place: esc(guideCity(guide, trip)) })}</button>` : '')}`;
   } else if (!guide) {
     const googleIdeas = `<a class="btn tonal ripple" href="https://www.google.com/maps/search/${encodeURIComponent(T('things to do in {place}', { place: placeLabel(trip) }))}" target="_blank" rel="noopener">${icon('map')}${T('Things to do on Google Maps')}</a>`;
     const changePlace = `<button type="button" class="btn tonal ripple" data-action="edit-trip">${icon('search')}${T('Change place')}</button>`;
     const status = guideState(trip);
     if (status === 'loading') {
-      html += emptyState('travel_explore', `${T('Finding things to do in {place}…', { place: esc(trip.place.name) })}`,
+      html += emptyState('travel_explore', `${T('Finding things to do in {place}…', { place: esc(placeName(trip.place)) })}`,
         T('Looking up sights, food and more in the Wikivoyage travel guide.'));
     } else if (!trip.place && !navigator.onLine) {
-      html += emptyState('cloud_off', T('Ideas for {trip} need a connection', { trip: esc(trip.name) }),
+      html += emptyState('cloud_off', T('Ideas for {trip} need a connection', { trip: esc(tripName(trip)) }),
         T('Connect to the internet once, and the guide is saved on your device for later.'));
     } else if (!trip.place) {
-      html += emptyState('location_off', T('Couldn’t find {trip} on the map', { trip: esc(trip.name) }),
+      html += emptyState('location_off', T('Couldn’t find {trip} on the map', { trip: esc(tripName(trip)) }),
         T('Edit the trip and pick the city or country from the list to get ideas for it.'),
         `<div class="empty-actions">${changePlace}${googleIdeas}</div>`);
     } else if (status === 'failed') {
-      html += emptyState('travel_explore', T('No guide found for {place}', { place: esc(trip.place.label) }),
+      html += emptyState('travel_explore', T('No guide found for {place}', { place: esc(localLabel(trip.place)) }),
         T('The travel guide may not cover it, or the connection dropped. You can still look for ideas on Google Maps.'),
         `<div class="empty-actions">
           <button type="button" class="btn tonal ripple" data-action="retry-guide">${icon('restart_alt')}${T('Try again')}</button>
           ${changePlace}${googleIdeas}
         </div>`);
     } else {
-      html += emptyState('cloud_off', T('Ideas for {trip} need a connection', { trip: esc(trip.place.name) }),
+      html += emptyState('cloud_off', T('Ideas for {trip} need a connection', { trip: esc(placeName(trip.place)) }),
         T('Connect to the internet once, and the guide is saved on your device for later.'));
     }
   } else {
@@ -93,7 +93,7 @@ function renderIdeas(trip) {
     const destinations = guide.kind === 'destinations' && !guide.joined;
     const filter = destinations ? FILTERS[0] : FILTERS.find(f => f[0] === ui.filter) || FILTERS[0];
     const list = guide.places.filter(filter[2]);
-    const count = { n: guide.places.length, place: esc(guide.city), source: guide.source };
+    const count = { n: guide.places.length, place: esc(guideCity(guide, trip)), source: guide.source };
     const intro = guide.joined ? T('{n} places near your plans and in {place}, from {source}.', count)
       : !guide.source ? T('{n} hand-picked places in {place}.', count)
       : destinations ? T('{n} cities and destinations in {place}, from the {source} travel guide.', count)
@@ -102,7 +102,7 @@ function renderIdeas(trip) {
       <p class="supporting">${intro} ${T('Tap + to save one to your ideas.')}</p>
       ${trip.place && guide.source ? `
         <div class="place-row">
-          <span class="place-pin">${icon('location_on')}<span>${esc(trip.place.label)}</span></span>
+          <span class="place-pin">${icon('location_on')}<span>${esc(localLabel(trip.place))}</span></span>
           <button type="button" class="btn text ripple" data-action="near-me">${icon('my_location')}${T('Near me')}</button>
           <button type="button" class="btn text ripple" data-action="edit-trip">${T('Change')}</button>
         </div>` : ''}

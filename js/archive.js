@@ -33,7 +33,7 @@ function archiveTrip(trip) {
       if (on) on.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
     }, { once: true });
   }
-  const text = trip.shared && sync.saved ? T('{trip} archived, only for you', { trip: trip.name }) : T('{trip} archived', { trip: trip.name });
+  const text = trip.shared && sync.saved ? T('{trip} archived, only for you', { trip: tripName(trip) }) : T('{trip} archived', { trip: tripName(trip) });
   snackbar(text, T('Undo'), () => {
     if (!state.trips.includes(trip)) return;
     delete state.archived[trip.id];
@@ -50,7 +50,7 @@ function unarchiveTrip(trip) {
   save();
   render();
   if (archiveDialog.open) renderArchive();
-  snackbar(T('{trip} is back on the top bar', { trip: trip.name }));
+  snackbar(T('{trip} is back on the top bar', { trip: tripName(trip) }));
 }
 
 /* ---------- Looking back at an archived trip ----------
@@ -119,14 +119,14 @@ function renderArchive() {
   $('#archive-list').innerHTML = trips.map(t => `
     <li class="archive-row">
       <button type="button" class="row ripple" data-action="open-archived" data-trip-id="${esc(t.id)}">
-        <span class="trip-avatar" style="--c:${esc(t.color)}">${esc(t.name.charAt(0).toUpperCase())}</span>
+        <span class="trip-avatar" style="--c:${esc(t.color)}">${esc(tripName(t).charAt(0).toUpperCase())}</span>
         <span class="row-text">
-          <span class="row-title">${esc(t.name)}</span>
+          <span class="row-title">${esc(tripName(t))}</span>
           <span class="row-sub">${esc(tripSpan(t))} · ${Tn(t.items.length, '{n} plan', '{n} plans')}${t.shared && signedIn ? ` · ${T('shared')}` : ''}</span>
         </span>
       </button>
       <button type="button" class="icon-btn ripple" data-action="unarchive" data-trip-id="${esc(t.id)}"
-        aria-label="${T('Unarchive {trip}', { trip: esc(t.name) })}" title="${T('Unarchive')}">${icon('unarchive')}</button>
+        aria-label="${T('Unarchive {trip}', { trip: esc(tripName(t)) })}" title="${T('Unarchive')}">${icon('unarchive')}</button>
     </li>`).join('');
 }
 

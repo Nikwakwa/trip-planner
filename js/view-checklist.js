@@ -31,9 +31,9 @@ function tripListHTML(trip, typed) {
   const todos = list.get();
   const done = todos.filter(c => c.done);
   return `
-    <section class="trip-list" data-list="trip" aria-label="${T('List for everyone on {trip}', { trip: esc(trip.name) })}">
+    <section class="trip-list" data-list="trip" aria-label="${T('List for everyone on {trip}', { trip: esc(tripName(trip)) })}">
       <div class="label-row">
-        <h2 class="group-label">${icon('group', 'sm')}${esc(trip.name)}${trip.shared ? T(', together') : ''}${todos.length ? ` · ${done.length}/${todos.length}` : ''}</h2>
+        <h2 class="group-label">${icon('group', 'sm')}${esc(tripName(trip))}${trip.shared ? T(', together') : ''}${todos.length ? ` · ${done.length}/${todos.length}` : ''}</h2>
         ${done.length ? `<button type="button" class="btn text ripple" data-action="clear-checked">${T('Clear done')}</button>` : ''}
       </div>
       ${trip.shared ? `<p class="supporting">${T('Everyone on this trip sees this list, adds to it and ticks things off.')}
@@ -132,7 +132,7 @@ function renderChecklist() {
   // With no trip open, there is only the list for every trip.
   $('#view-pack').innerHTML = `
     <h1 class="headline">${T('Checklist')}</h1>
-    <p class="supporting">${trip ? T('Packing and to-dos for {trip}.', { trip: esc(trip.name) }) : T('Things to take on every trip.')}</p>
+    <p class="supporting">${trip ? T('Packing and to-dos for {trip}.', { trip: esc(tripName(trip)) }) : T('Things to take on every trip.')}</p>
     ${together}
     <section class="own-list" aria-label="${T('Your own checklist')}">
     ${together ? `<h2 class="group-label">${T('Just for you')}</h2>` : ''}

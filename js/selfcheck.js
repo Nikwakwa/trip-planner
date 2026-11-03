@@ -1164,6 +1164,15 @@ function runChecks() {
     return same(inLang('fr', () => [fmtDay('2026-05-01', { weekday: 'long', day: 'numeric', month: 'long' }), fmtDist(1), fmtDuration(90)]),
       ['vendredi 1 mai', '1,6 km', '~1,5 h']);
   }));
+  check('A trip named after its place shows the place’s name in the app’s language; a name of its own stays', () => {
+    const place = tidyTrip({ id: 't', name: 'x', place: { name: 'Mauritius', label: 'Mauritius', kind: 'country', lat: -20.2, lng: 57.5,
+      names: { en: { name: 'Mauritius', label: 'Mauritius' }, fr: { name: 'Maurice', label: 'Maurice' }, xx: 5, de: { name: 3 } } } }).place;
+    const trip = name => ({ name, place });
+    const own = { name: 'Mauritius', place: { ...place, names: { en: place.names.en } } };      // not known in French yet
+    return same([Object.keys(place.names), inLang('fr', () => [tripName(trip('Mauritius')), tripName(trip('Maurice')), tripName(trip('Mauritius 2026')),
+      placeLabel(trip('Mauritius')), tripName(own)]), tripName(trip('Maurice'))],
+    [['en', 'fr'], ['Maurice', 'Maurice', 'Mauritius 2026', 'Maurice', 'Mauritius'], 'Mauritius']);
+  });
   // The {names} and the markup (<b>, <span class="ok">) have to be the same in every language.
   const parts = s => [...(s.match(/\{\w+\}/g) || []), ...(s.match(/<[^>]+>/g) || [])].sort().join(' ');
   for (const [lang, dict] of Object.entries(DICTS)) {

@@ -206,11 +206,11 @@ function renderNearMe() {
       `<button type="button" class="btn tonal ripple" data-action="near-me">${icon('restart_alt')}${T('Try again')}</button>`);
     return;
   }
-  if (!guide) { body.innerHTML = emptyState('travel_explore', T('No guide yet'), T('The guide for {trip} isn’t ready. Open the trip while online first.', { trip: esc(trip.name) })); return; }
+  if (!guide) { body.innerHTML = emptyState('travel_explore', T('No guide yet'), T('The guide for {trip} isn’t ready. Open the trip while online first.', { trip: esc(tripName(trip)) })); return; }
   const here = near.pos;
   const ranked = guide.places.map(p => ({ p, d: miles(here, p) })).sort((a, b) => a.d - b.d);
   if (!ranked.length || ranked[0].d > 30) {
-    body.innerHTML = emptyState('my_location', ranked.length ? T('You’re {dist} from {place}', { dist: fmtDist(ranked[0].d), place: esc(guide.city) }) : T('You’re far from {place}', { place: esc(guide.city) }),
+    body.innerHTML = emptyState('my_location', ranked.length ? T('You’re {dist} from {place}', { dist: fmtDist(ranked[0].d), place: esc(guideCity(guide, trip)) }) : T('You’re far from {place}', { place: esc(guideCity(guide, trip)) }),
       T('This shows places around you once you’re there.'));
     return;
   }
@@ -221,7 +221,7 @@ function renderNearMe() {
     .sort((a, b) => (a.open === false) - (b.open === false) || a.d - b.d);
   const day = trip.start && todayISO() >= trip.start && todayISO() <= trip.end ? todayISO() : '';
   body.innerHTML = `
-    <p class="supporting">${close.length >= 5 ? T('Within {dist}, from the {place} guide. Tap one for more.', { dist: fmtDist(1.5), place: esc(guide.city) }) : T('Closest to you, from the {place} guide. Tap one for more.', { place: esc(guide.city) })}</p>
+    <p class="supporting">${close.length >= 5 ? T('Within {dist}, from the {place} guide. Tap one for more.', { dist: fmtDist(1.5), place: esc(guideCity(guide, trip)) }) : T('Closest to you, from the {place} guide. Tap one for more.', { place: esc(guideCity(guide, trip)) })}</p>
     <ul class="group">${list.map(({ p, d, open }) => {
       const cat = CATEGORIES[p.cat] || CATEGORIES.other;
       const t = travel(d, mode);

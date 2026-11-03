@@ -124,7 +124,7 @@ function onRoots(snap) {
     // Started or joined here a moment ago, and never named by the list: it may not have caught up yet.
     if (rec && !rec.seen && Date.now() - (rec.at || 0) < 60000) continue;
     const trip = dropShare(id);
-    if (trip && rec && !sharing.quiet.has(id)) snackbar(T('“{trip}” is no longer shared with you', { trip: trip.name }));
+    if (trip && rec && !sharing.quiet.has(id)) snackbar(T('“{trip}” is no longer shared with you', { trip: tripName(trip) }));
   }
   writeSyncInfo();
   refreshShare();
@@ -200,7 +200,7 @@ function onSharedSnapshot(snap, id) {
     saveLocal();
     scrollAt = {};
     showView('plan', { top: true });
-    snackbar(T('You’re on {trip} now', { trip: trip.name }));
+    snackbar(T('You’re on {trip} now', { trip: tripName(trip) }));
   }
   // Ours, a day old and with nothing in it: what an "Invite" or a "Delete" that was cut short left behind.
   const root = sharing.roots[id];
@@ -536,7 +536,7 @@ function renderShare() {
   if (!$('#share-dialog').open) return;
   const trip = activeTrip();
   if (!trip) return $('#share-dialog').close();
-  $('#share-title').textContent = T('Share {trip}', { trip: trip.name });
+  $('#share-title').textContent = T('Share {trip}', { trip: tripName(trip) });
   const root = shareOf(trip);
   const note = (ic, text, more = '', bad = false) => `<p class="vote-note ${bad ? 'bad' : ''}">${icon(ic)}<span>${text}</span>${more}</p>`;
   const intro = `<p>${T('Invite people to this trip. They see it and change it from their own account: its days, plans and ideas, and a list for everyone in the Checklist.')}</p>`;
@@ -624,7 +624,7 @@ async function sendInvite(copy) {
   const url = inviteLink(root);
   try {
     if (!copy && navigator.share) {
-      await navigator.share({ title: T('Plan {trip} with me', { trip: trip.name }), text: T('Join my trip to {trip} in Dotted Line:', { trip: trip.name }), url });
+      await navigator.share({ title: T('Plan {trip} with me', { trip: tripName(trip) }), text: T('Join my trip to {trip} in Dotted Line:', { trip: tripName(trip) }), url });
       return;
     }
     await navigator.clipboard.writeText(url);
@@ -642,7 +642,7 @@ async function removeFromTrip(uid) {
   const ok = await askConfirm({
     icon: 'delete',
     title: who.email ? T('Take {email} off the trip?', { email: who.email }) : T('Take this person off the trip?'),
-    text: T('{trip} goes away from their devices. The invitation link changes too: the old one stops working.', { trip: trip.name }),
+    text: T('{trip} goes away from their devices. The invitation link changes too: the old one stops working.', { trip: tripName(trip) }),
     ok: T('Remove'),
   });
   if (!ok) return;
@@ -661,13 +661,13 @@ async function endSharedTrip(trip) {
   const others = root.members.length - 1;
   const ok = await askConfirm(mine ? {
     icon: 'delete',
-    title: others ? T('Delete {trip} for everyone?', { trip: trip.name }) : T('Delete {trip}?', { trip: trip.name }),
+    title: others ? T('Delete {trip} for everyone?', { trip: tripName(trip) }) : T('Delete {trip}?', { trip: tripName(trip) }),
     text: Tn(trip.items.length, 'This removes the trip and its {n} plan.', 'This removes the trip and its {n} plans.') + ' ' +
       (others ? Tn(others, 'It goes for the other person on it too.', 'It goes for the {n} other people on it too.') : T('It goes away from your devices.')),
     ok: T('Delete'),
   } : {
     icon: 'logout',
-    title: T('Leave {trip}?', { trip: trip.name }),
+    title: T('Leave {trip}?', { trip: tripName(trip) }),
     text: T('It goes away from your devices. The others keep it, and can invite you again.'),
     ok: T('Leave'),
   });
@@ -687,7 +687,7 @@ async function endSharedTrip(trip) {
   }
   dropShare(id);
   render();
-  snackbar(mine ? T('{trip} deleted', { trip: trip.name }) : T('You left {trip}', { trip: trip.name }));
+  snackbar(mine ? T('{trip} deleted', { trip: tripName(trip) }) : T('You left {trip}', { trip: tripName(trip) }));
   return true;
 }
 

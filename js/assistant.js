@@ -48,7 +48,7 @@ function tripContext(trip) {
   const days = tripDays(trip);
   const lines = [];
   lines.push(`Today is ${todayISO()} (${fmtDay(todayISO(), { weekday: 'long' })}).`);
-  lines.push(`Trip: "${trip.name}"${trip.place ? ` — ${trip.place.label} (${trip.place.kind})` : ''}.`);
+  lines.push(`Trip: "${tripName(trip)}"${trip.place ? ` — ${trip.place.label} (${trip.place.kind})` : ''}.`);
   lines.push(trip.start && trip.end
     ? `Dates: ${trip.start} to ${trip.end}. Days: ${days.map(d => `${d} (${fmtDay(d, { weekday: 'short' })})`).join(', ')}.`
     : 'The trip has no dates yet. Plans can still be saved as ideas (date "").');
@@ -508,7 +508,7 @@ function renderChat() {
     ${aiReady() ? `<p class="ai-notice">${icon('info')}<span>${T('This chat uses Google Gemini’s free service. Google may use what you send, including your trip details, to improve its AI, so leave out anything private.')}</span></p>` : ''}
     ${chat.length ? '' : `
       <div class="ai-intro">
-        <p>${T('Ask me to plan days, suggest places, or change your plans in {trip}. I’ll show you the changes first — nothing changes until you tap <b>Apply</b>.', { trip: esc(trip.name) })}</p>
+        <p>${T('Ask me to plan days, suggest places, or change your plans in {trip}. I’ll show you the changes first — nothing changes until you tap <b>Apply</b>.', { trip: esc(tripName(trip)) })}</p>
         <div class="ai-starters">${AI_STARTERS.map(s => `<button type="button" class="filter-chip ripple" data-action="ai-starter">${esc(s)}</button>`).join('')}
           <button type="button" class="filter-chip ripple" data-action="ai-booking">${icon('confirmation_number')}${T('Add from a booking email')}</button></div>
       </div>`}

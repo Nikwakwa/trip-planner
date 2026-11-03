@@ -627,7 +627,7 @@ function renderMapBody() {
 
   if (mapView.day === 'all') {
     const count = groups.reduce((n, g) => n + g.stops.filter(s => s.c).length, 0);
-    $('#map-title').textContent = `${trip.name} · ${T('All days')}`;
+    $('#map-title').textContent = `${tripName(trip)} · ${T('All days')}`;
     $('#map-sub').textContent = pending ? T('Finding places on the map…') : Tn(count, '{n} stop on the map', '{n} stops on the map');
     $('#map-body').innerHTML = `
       ${top}
@@ -845,7 +845,7 @@ function runOptimize(day) {
 /* ---------- Share the trip as text ---------- */
 
 function tripText(trip) {
-  const lines = [trip.name + (trip.start && trip.end ? ' — ' + T('{start} to {end}', { start: fmtDay(trip.start), end: fmtDay(trip.end) }) : '')];
+  const lines = [tripName(trip) + (trip.start && trip.end ? ' — ' + T('{start} to {end}', { start: fmtDay(trip.start), end: fmtDay(trip.end) }) : '')];
   for (const day of tripDays(trip)) {
     const items = dayItems(trip, day);
     lines.push('', fmtDay(day, { weekday: 'long', month: 'short', day: 'numeric' }));
@@ -866,7 +866,7 @@ async function shareTrip() {
   const text = tripText(trip);
   try {
     if (navigator.share) {
-      await navigator.share({ title: trip.name, text });
+      await navigator.share({ title: tripName(trip), text });
       return;
     }
     await navigator.clipboard.writeText(text);

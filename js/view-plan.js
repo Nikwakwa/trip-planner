@@ -123,7 +123,7 @@ function renderPlan(trip) {
       <p class="hero-overline">${hasDates
         ? esc(`${fmtDay(trip.start, { month: 'short', day: 'numeric' })} – ${fmtDay(trip.end, { month: 'short', day: 'numeric' })} · ${Tn(n, '{n} day', '{n} days')}`)
         : T('No dates yet')}</p>
-      <h1 class="hero-title">${esc(trip.name)}</h1>
+      <h1 class="hero-title">${esc(tripName(trip))}</h1>
       <div class="hero-row">
         ${status
           ? `<span class="status-chip">${icon(status.icon, 'sm')}${esc(status.text)}</span>`
@@ -152,16 +152,16 @@ function renderPlan(trip) {
   // Suggestions are open for the first day from today that has some; the rest open with a tap.
   const focusDay = days.find(d => d >= today && suggestions.get(d) && suggestions.get(d).cards.length);
   if (!guide && guideState(trip) === 'loading' && state.settings.suggestions) {
-    html += `<p class="guide-note" role="status">${icon('auto_awesome')}${T('Finding things to do in {place}…', { place: esc(trip.place.name) })}</p>`;
+    html += `<p class="guide-note" role="status">${icon('auto_awesome')}${T('Finding things to do in {place}…', { place: esc(placeName(trip.place)) })}</p>`;
   }
 
   let noDays = '';
   if (!days.length) {
     noDays = emptyState('event_available', T('Your days will appear here'),
-      T('Add the dates for {trip} and you’ll see the trip day by day.', { trip: esc(trip.name) }),
+      T('Add the dates for {trip} and you’ll see the trip day by day.', { trip: esc(tripName(trip)) }),
       `<div class="empty-actions">
         ${ideas ? `<button type="button" class="btn tonal ripple" data-action="open-ideas" data-tab="mine">${icon('lightbulb')}${Tn(ideas, 'See {n} idea', 'See {n} ideas')}</button>` : ''}
-        ${guide ? `<button type="button" class="btn tonal ripple" data-action="open-ideas" data-tab="explore">${icon('explore')}${T('Explore {place}', { place: esc(guide.city) })}</button>` : ''}
+        ${guide ? `<button type="button" class="btn tonal ripple" data-action="open-ideas" data-tab="explore">${icon('explore')}${T('Explore {place}', { place: esc(guideCity(guide, trip)) })}</button>` : ''}
       </div>`);
   }
 

@@ -62,9 +62,9 @@ function renderMore() {
     <ul class="group">
       ${tripsShown().map(t => `
         <li><button type="button" class="row ripple" data-action="edit-trip" data-trip-id="${esc(t.id)}">
-          <span class="trip-avatar" style="--c:${esc(t.color)}">${esc(t.name.charAt(0).toUpperCase())}</span>
+          <span class="trip-avatar" style="--c:${esc(t.color)}">${esc(tripName(t).charAt(0).toUpperCase())}</span>
           <span class="row-text">
-            <span class="row-title">${esc(t.name)}</span>
+            <span class="row-title">${esc(tripName(t))}</span>
             <span class="row-sub">${t.start && t.end ? esc(fmtDay(t.start, { month: 'short', day: 'numeric' }) + ' – ' + fmtDay(t.end, { month: 'short', day: 'numeric' })) : T('No dates')} · ${Tn(t.items.length, '{n} plan', '{n} plans')}${t.shared && signedIn ? ` · ${T('shared')}` : ''}</span>
           </span>
           <span class="row-trail">${icon('edit')}</span>

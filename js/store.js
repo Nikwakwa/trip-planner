@@ -65,6 +65,12 @@ function tidyTrip(t, newId = false) {
       bbox: Array.isArray(p.bbox) && p.bbox.length === 4 && p.bbox.every(v => typeof v === 'number') ? p.bbox : null,
       osm: /^[NWR]\d+$/.test(p.osm) ? p.osm : '',
     };
+    // Its name in each language (places.js, placeName): a language code → { name, label }.
+    const names = p.names && typeof p.names === 'object' && !Array.isArray(p.names)
+      ? Object.entries(p.names).filter(([lang, n]) => /^[a-z]{2}$/.test(lang) && n && typeof n.name === 'string' && n.name)
+        .map(([lang, n]) => [lang, { name: n.name, label: (typeof n.label === 'string' && n.label) || n.name }])
+      : [];
+    if (names.length) out.place.names = Object.fromEntries(names); else delete out.place.names;
   } else {
     delete out.place;
   }

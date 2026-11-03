@@ -57,7 +57,7 @@ function eventTimes(item, guide) {
 }
 
 function eventDetails(item, trip) {
-  return [item.notes, safeUrl(item.link), `${trip.name} — Dotted Line`].filter(Boolean).join('\n\n');
+  return [item.notes, safeUrl(item.link), `${tripName(trip)} — Dotted Line`].filter(Boolean).join('\n\n');
 }
 
 function calendarUrl(item, trip) {
@@ -93,7 +93,7 @@ function downloadTripCalendar(trip) {
   const plans = trip.items.filter(i => i.date);
   if (!plans.length) { snackbar(T('No plans with a day yet')); return; }
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
-  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Dotted Line//EN', 'CALSCALE:GREGORIAN', `X-WR-CALNAME:${icsText(trip.name)}`];
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Dotted Line//EN', 'CALSCALE:GREGORIAN', `X-WR-CALNAME:${icsText(tripName(trip))}`];
   for (const item of plans) {
     const t = eventTimes(item, guide);
     const tz = t.allDay ? '' : tripTimeZone(trip, item.date);
@@ -109,7 +109,7 @@ function downloadTripCalendar(trip) {
   const blob = new Blob([lines.map(icsLine).join('\r\n') + '\r\n'], { type: 'text/calendar' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `${trip.name.replace(/[^\w\- ]+/g, '').trim() || 'trip'}.ics`;
+  a.download = `${tripName(trip).replace(/[^\w\- ]+/g, '').trim() || 'trip'}.ics`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
   snackbar(Tn(plans.length, 'Calendar file saved — {n} plan', 'Calendar file saved — {n} plans'));

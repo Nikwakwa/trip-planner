@@ -23,7 +23,7 @@ function guideFor(trip) {
   return withNearby(trip, placeGuide(trip));
 }
 
-const placeLabel = trip => (trip.place ? trip.place.label : trip.name);
+const placeLabel = trip => (trip.place ? localLabel(trip.place) : tripName(trip));
 
 // Which guide places does a plan refer to? (a plan named after a sight → that sight's entry)
 const matchMemo = new WeakMap();     // plan → the places with its name (this is asked many times per redraw)
@@ -156,12 +156,12 @@ function planSuggestions(trip, guide, days) {
       // A district named after a direction ("North") isn't a place name on its own: "the north of Lisbon".
       const side = { north: T('north'), south: T('south'), east: T('east'), west: T('west'), centre: T('centre'), center: T('centre') }[area.toLowerCase()];
       title = (guide.dayTitles && guide.dayTitles[area])
-        || (side ? T('Ideas for the {side} of {city}', { side, city: guide.city })
-          : /^central$/i.test(area) ? T('Ideas for central {city}', { city: guide.city }) : T('Ideas for a day in {place}', { place: area }));
+        || (side ? T('Ideas for the {side} of {city}', { side, city: guideCity(guide, trip) })
+          : /^central$/i.test(area) ? T('Ideas for central {city}', { city: guideCity(guide, trip) }) : T('Ideas for a day in {place}', { place: area }));
       ranked = pool.map(p => ({ p, d: miles(center, p) })).sort((x, y) => x.d - y.d);
     } else {
       // A small town, or a country / region's destinations: best known first.
-      title = guide.kind === 'destinations' ? T('Places to go in {place}', { place: guide.city }) : T('Ideas for a day in {place}', { place: guide.city });
+      title = guide.kind === 'destinations' ? T('Places to go in {place}', { place: guideCity(guide, trip) }) : T('Ideas for a day in {place}', { place: guideCity(guide, trip) });
       ranked = pool.filter(p => !p.local).map(p => ({ p }));
     }
 

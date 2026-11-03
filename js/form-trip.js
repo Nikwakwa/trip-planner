@@ -23,9 +23,9 @@ function showChosenPlace() {
   $('#place-chosen').hidden = !p;
   if (!p) return;
   // A trip keeps its place under another name ("USA with Sam"): the form says so.
-  const kept = !norm(tripForm.elements.name.value).includes(norm(p.name));
+  const kept = !placeNames(p).some(n => norm(tripForm.elements.name.value).includes(norm(n)));
   const how = navigator.onLine ? T('To change it, pick another from the list.') : T('Go online to pick another.');
-  $('#place-chosen').innerHTML = `${icon('location_on')}<span>${esc(p.label)}${kept ? `<small>${T('Still the trip’s place.')} ${how}</small>` : ''}</span><span class="kind">${KIND_LABEL[p.kind]}</span>`;
+  $('#place-chosen').innerHTML = `${icon('location_on')}<span>${esc(localLabel(p))}${kept ? `<small>${T('Still the trip’s place.')} ${how}</small>` : ''}</span><span class="kind">${KIND_LABEL[p.kind]}</span>`;
 }
 
 function showPlaceResults(results, note = '') {
@@ -44,7 +44,7 @@ function onTripNameInput() {
   // Typed something else than the chosen place: a new trip's place is then looked up from its name.
   // A trip being edited keeps its place: a new name alone never moves the trip, nor loses its guide
   // while offline. Only picking a place from the list changes it.
-  if (!editingTripId && placeSearch.chosen && !norm(q).includes(norm(placeSearch.chosen.name))) placeSearch.chosen = null;
+  if (!editingTripId && placeSearch.chosen && !placeNames(placeSearch.chosen).some(n => norm(q).includes(norm(n)))) placeSearch.chosen = null;
   showChosenPlace();
   clearTimeout(placeSearch.timer);
   if (placeSearch.ctl) placeSearch.ctl.abort();
@@ -75,7 +75,7 @@ function openTripForm(trip) {
   editingTripId = trip ? trip.id : null;
   $('#trip-dialog-title').textContent = trip ? T('Edit trip') : state.trips.length ? T('New trip') : T('Where to?');
   const f = tripForm.elements;
-  f.name.value = trip ? trip.name : '';
+  f.name.value = trip ? tripName(trip) : '';
   f.start.value = trip ? trip.start : '';
   f.end.value = trip ? trip.end : '';
   f.color.value = trip ? trip.color : COLORS[state.trips.length % COLORS.length];
@@ -131,6 +131,8 @@ tripForm.addEventListener('submit', async (e) => {
   if (editingTripId) {
     trip = state.trips.find(t => t.id === editingTripId);
     if (!trip) return;
+    // The name shown in this language, left as it was: the trip keeps the name it has.
+    if (data.name === tripName(trip)) data.name = trip.name;
     Object.assign(trip, data);
   } else {
     trip = { id: uid(), items: [], ...data };
@@ -149,7 +151,7 @@ tripForm.addEventListener('submit', async (e) => {
   save();
   tripDialog.close();
   render();
-  if (place && !guideFor(trip) && guideState(trip) === 'loading') snackbar(T('Found {place} — getting ideas…', { place: place.label }));
+  if (place && !guideFor(trip) && guideState(trip) === 'loading') snackbar(T('Found {place} — getting ideas…', { place: localLabel(place) }));
   else if (!place && navigator.onLine) snackbar(T('Couldn’t find {place} on the map — no suggestions for it', { place: data.name }));
 });
 
@@ -163,7 +165,7 @@ $('#trip-delete').addEventListener('click', async () => {
   }
   const ok = await askConfirm({
     icon: 'delete',
-    title: T('Delete {trip}?', { trip: trip.name }),
+    title: T('Delete {trip}?', { trip: tripName(trip) }),
     text: Tn(trip.items.length, 'This removes the trip and its {n} plan from this device.', 'This removes the trip and its {n} plans from this device.'),
     ok: T('Delete'),
   });
@@ -176,7 +178,7 @@ $('#trip-delete').addEventListener('click', async () => {
   save();
   tripDialog.close();
   render();
-  snackbar(T('{trip} deleted', { trip: trip.name }));
+  snackbar(T('{trip} deleted', { trip: tripName(trip) }));
 });
 
 // Archive or bring back the trip being edited (archive.js). It leaves the sheet without saving, like Delete.

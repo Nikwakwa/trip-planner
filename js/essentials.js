@@ -232,7 +232,7 @@ function renderEssentials() {
   const trip = state.trips.find(t => t.id === essentials.tripId);
   const body = $('#info-body');
   if (!trip) return;
-  $('#info-title').textContent = `${T('Essentials')} · ${trip.place ? trip.place.name : trip.name}`;
+  $('#info-title').textContent = `${T('Essentials')} · ${trip.place ? placeName(trip.place) : tripName(trip)}`;
   const e = essentialsFor(trip);
   const key = trip.place && placeKey(trip.place);
   const status = key && essentials.status.get(key);
@@ -241,7 +241,7 @@ function renderEssentials() {
     body.innerHTML = !trip.place
       ? emptyState('location_off', T('No place picked yet'), T('Edit the trip and pick the city or country from the list to see its essentials.'))
       : status === 'loading'
-        ? emptyState('info', T('Getting the essentials for {place}…', { place: esc(trip.place.name) }), T('Emergency number, plugs, local time and tips from the travel guide.'))
+        ? emptyState('info', T('Getting the essentials for {place}…', { place: esc(placeName(trip.place)) }), T('Emergency number, plugs, local time and tips from the travel guide.'))
         : !navigator.onLine
           ? emptyState('cloud_off', T('Needs a connection once'), T('Open this while online, and the essentials are saved on your device for the trip.'))
           : emptyState('info', T('Nothing found'), T('The travel guide may not cover this place, or the connection dropped.'),

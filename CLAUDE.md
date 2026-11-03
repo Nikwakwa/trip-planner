@@ -229,6 +229,11 @@ localStorage `tripPlanner.guides` (up to 10). `planSuggestions` (guide.js) and E
   map's labels ask for `name:fr` first (`namesIn`, mapstyle.js).
 - What stays English on purpose: place names, "Report a problem" details (for the owner; they say the app's
   language), the self-check (it switches `LANG` to English while it runs), links to Wikivoyage/Wikipedia pages.
+- A trip's place keeps its name per language (`place.names`, `{ en: { name, label }, fr: … }`, synced with the trip;
+  the missing one is asked from Photon once per visit, `ensurePlaceName`). `place.name`/`label` stay as first found
+  (the guide and `placeKey` go by them). Show a trip with `tripName(trip)` (a trip named after its place says it in
+  the app's language; a name of its own stays), its place with `placeName`/`localLabel`, a guide's with `guideCity`.
+  The trip form shows `tripName` and keeps the stored name when it wasn't changed.
 - Language-aware outside calls: Photon place search (`lang`), Wikidata labels in Essentials (`factsLang`; saved
   essentials carry `lang` and are fetched again in the other language), the AI Assistant (a line in
   `tripContext` asks for replies and new plan titles in that language; booking answers are kept per language).
