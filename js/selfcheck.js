@@ -994,31 +994,52 @@ function runChecks() {
 
   /* ---------- Where to eat ---------- */
   group = 'Where to eat';
-  check('Places to eat are only the ones Google Maps returned, lunch first, each with its Google Maps link', () => {
-    const sources = [
-      { maps: { title: 'Taberna da Rua', uri: 'https://maps.google.com/?cid=1', placeId: 'x' } },
-      { maps: { title: 'Café Luso', uri: 'https://maps.google.com/?cid=2' } },
-      { maps: { title: 'Bad link', uri: 'javascript:alert(1)' } },
-      { maps: { title: 'No link', uri: 5 } },
-      { web: { title: 'A blog', uri: 'https://example.org' } },
+  check('Lunch is looked for near the plans around midday, dinner near the last plan and the stay', () => sandbox(() => {
+    const s = sample();
+    const trip = s.trips[0];
+    const plan = (id, title, category, time, lat, lng) => ({ id, title, category, date: '2026-05-01', time, place: '', link: '', notes: '', done: false, lat, lng });
+    trip.items = [plan('h', 'Hotel', 'stay', '', 38.72, -9.14), plan('m', 'Museum', 'sight', '10:00', 38.70, -9.13),
+      plan('p', 'Park', 'sight', '12:30', 38.71, -9.13), plan('t', 'Tower', 'sight', '16:00', 38.69, -9.21), plan('x', 'Day off', 'other', '', null, null)];
+    trip.items[4].date = '2026-05-02';
+    state = s;
+    const titles = list => list.map(x => x.item.title);
+    const a = mealSpots(trip, '2026-05-01');
+    const b = mealSpots(trip, '2026-05-02');
+    return same([titles(a.lunch), titles(a.dinner), titles(b.lunch), titles(b.dinner), mealSpots({ ...trip, items: [] }, '2026-05-01')],
+      [['Park'], ['Tower', 'Hotel'], ['Hotel'], ['Hotel'], null]);
+  }));
+  check('The places near the plans are OpenStreetMap’s and the guide’s, each once, within a short walk', () => {
+    const spots = { lunch: [{ item: { title: 'Castle' }, c: { lat: 38.71, lng: -9.13 } }], dinner: [{ item: { title: 'Hotel' }, c: { lat: 38.72, lng: -9.14 } }] };
+    const guide = prepGuide({ id: 'g', places: [{ id: 'pb', name: 'Pastelaria Benard', cat: 'food', lat: 38.7102, lng: -9.1302, blurb: 'Custard tarts.' },
+      { id: 'tw', name: 'Tower', cat: 'sight', lat: 38.7101, lng: -9.1301 }] });
+    const osm = [
+      { name: 'Tasca do Chico', kind: 'restaurant', lat: 38.711, lng: -9.13, address: 'Rua A 1, Lisboa' },
+      { name: 'Café Luso', kind: 'cafe', lat: 38.7195, lng: -9.14, address: '' },
+      { name: 'Far Away', kind: 'restaurant', lat: 38.75, lng: -9.13, address: '' },
+      { name: 'Pastelaria Bénard', kind: 'cafe', lat: 38.7102, lng: -9.1302, address: 'Rua Garrett 104, Lisboa' },
+      { name: 'Café Luso', kind: 'cafe', lat: 38.7195, lng: -9.14, address: 'Travessa 10' },
     ];
-    const text = [
-      'Here you go:',
-      '- **dinner** | Taberna da Rua | Portuguese | €20–30 | 4,6 | Rua X 1 | Castle | Fado and grilled fish',
-      '1. lunch|Cafe Luso|Café|$$|9.9|Travessa 2|Castle|Quick lunch',
-      'lunch|Made Up Bistro|French|$$|4.8|Somewhere|Castle|Not on Google Maps',
-      'dinner|Bad link|x|$|4|y|Castle|z',
-      'dinner|No link|x|$|4|y|Castle|z',
-      'dinner|Taberna da Rua|again|$|4|y|Castle|twice',
-      'brunch|Café Luso|Café|$|4|y|Castle|not a meal asked for',
-    ].join('\n');
-    return same(parseMeals(text, sources).map(m => [m.meal, m.name, m.rating, m.price, m.near, m.uri]), [
-      ['lunch', 'Café Luso', 0, '$$', 'Castle', 'https://maps.google.com/?cid=2'],
-      ['dinner', 'Taberna da Rua', 4.6, '€20–30', 'Castle', 'https://maps.google.com/?cid=1']]);
+    const got = mealCandidates(osm, guide, spots);
+    const pb = got.find(p => p.guideId === 'pb');
+    return same([got.map(p => p.name).sort(), pb && pb.address, pb && pb.lunch.near, got.find(p => p.name === 'Café Luso').dinner.near],
+      [['Café Luso', 'Pastelaria Benard', 'Tasca do Chico'], 'Rua Garrett 104, Lisboa', 'Castle', 'Hotel']);
   });
-  check('An answer without places from Google Maps gives none', () =>
-    same([parseMeals('lunch|Somewhere|x|$|4|y|z|w', []), parseMeals('', null), parseMeals('No idea.', [{ maps: { title: 'X', uri: 'https://maps.google.com/?cid=3' } }])], [[], [], []]));
-  check('Without Google Maps, the guide’s places to eat near the day’s plans are shown, nearest first', () => sandbox(() => {
+  const mealCands = () => [
+    { name: 'A', kind: 'restaurant', lunch: { d: 0.1, near: 'X' }, dinner: { d: 0.4, near: 'Y' } },
+    { name: 'B', kind: 'cafe', lunch: { d: 0.05, near: 'X' }, dinner: { d: 0.02, near: 'Y' } },
+    { name: 'C', kind: 'restaurant', guideId: 'c', lunch: { d: 0.2, near: 'X' }, dinner: { d: 0.3, near: 'Y' } },
+    { name: 'D', kind: 'restaurant', lunch: { d: 0.45, near: 'X' }, dinner: { d: 0.1, near: 'Y' } },
+    { name: 'E', kind: 'pub', lunch: { d: 0.6, near: 'X' }, dinner: { d: 0.6, near: 'Y' } },
+  ];
+  check('Gemini can only pick places from the list, each once, and no café for dinner', () => {
+    const answer = { lunch: [{ number: 2, cuisine: 'Pastries', price: '$', why: 'Custard tarts' }, { number: 9 }, { number: 2 }, { number: '1' }],
+      dinner: [{ number: 2 }, { number: 3, cuisine: 'Seafood', price: 'cheap', why: 'Grilled fish' }, { number: 1, cuisine: 7 }] };
+    return same(readMealPicks(answer, mealCands()).map(m => [m.meal, m.name, m.cuisine, m.price, m.near]),
+      [['lunch', 'B', 'Pastries', '$', 'X'], ['dinner', 'C', 'Seafood', '', 'Y'], ['dinner', 'A', '', '', 'Y']]);
+  });
+  check('Without Gemini, the nearest places are shown, the guide’s first, and no café for dinner', () =>
+    same(nearestMeals(mealCands()).map(m => [m.meal, m.name]), [['lunch', 'B'], ['lunch', 'C'], ['lunch', 'A'], ['dinner', 'D']]));
+  check('Offline, the guide’s places to eat near the day’s plans are shown, nearest first', () => sandbox(() => {
     const guide = prepGuide({ id: 'check', kind: 'city', places: [
       { id: 'near', name: 'Tasca', cat: 'food', lat: 38.712, lng: -9.131 },
       { id: 'nearer', name: 'Pastelaria', cat: 'food', lat: 38.7101, lng: -9.1301 },

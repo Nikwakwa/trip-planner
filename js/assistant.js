@@ -195,8 +195,7 @@ const AI_CHECK_WAIT = 20000;    // the App Check token
 const within = (promise, ms, what) => Promise.race([promise,
   new Promise((_, reject) => setTimeout(() => reject(new Error(`${what}: no answer in time`)), ms))]);
 
-// sources: a list to fill with what the answer was based on (Google Maps places).
-async function callGemini(model, body, sources = null) {
+async function callGemini(model, body) {
   const c = window.FIREBASE_CONFIG;
   const headers = { 'Content-Type': 'application/json', 'x-goog-api-key': c.apiKey };
   try {
@@ -231,8 +230,6 @@ async function callGemini(model, body, sources = null) {
   const parts = (first.content && first.content.parts) || [];
   const text = parts.filter(p => !p.thought && p.text).map(p => p.text).join('');
   if (!text) throw new AIError('other', 'empty answer');
-  // The places an answer found on Google Maps (meals.js), when it was asked to look there.
-  if (sources) sources.push(...((first.groundingMetadata && first.groundingMetadata.groundingChunks) || []));
   return text;
 }
 

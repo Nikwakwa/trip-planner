@@ -327,24 +327,23 @@ Ideas with an address are looked up while the layer is on. Leaflet 1.9 lets clic
 
 **Where to eat (`meals.js`, 2.29).**
 - Under each day of the Plan (from today, with the "Day suggestions" switch; closed until tapped, `ui.meals[day]`) and
-  in the Ideas tab's **Food** section (a day picked with chips, `ui.mealDay`): places for lunch and dinner near the
-  day's located plans (`mealSpots`: the plans on the map but the stay, else the stay; null when nothing is on the map).
-- From Google Maps, through Gemini's Grounding with Google Maps (`tools: [{ googleMaps: {} }]`, `toolConfig.retrievalConfig.latLng`
-  at the middle of the spots). The free tier only allows it on **Gemini 2.5 Flash-Lite** (`MEALS_MODEL`; 500 grounded
-  requests a day for the project; Gemini 3 models have it on the paid tier only). If Google shuts that model down,
-  check the pricing page for a free one. `callGemini(model, body, sources)` fills `sources` with the answer's
-  `groundingMetadata.groundingChunks`.
-- The answer is text lines (`lunch|name|cuisine|price|rating|address|near|why`; structured output and tools don't
-  mix on 2.5), read by `parseMeals`: only a name that Google Maps returned is kept (matched without accents or case),
-  with its chunk's `uri` as the link. Never a place the model only named.
-- Asked once per day when it is opened, kept per device in `ai.saved.meals` (`tripPlanner.assistant`, 40 days,
-  stamped `MEALS_VERSION` and the language), and asked again when the day's plans move over a mile or on Refresh.
-  A daily 429 stops asking for the rest of the day (`meals.usedUp`), another error for two minutes.
-- Without an answer (not set up, offline, used up, failed, nothing found), the guide's `food` places within 1.5 miles
-  of the plans (`guideMeals`, cards from `suggestionCard`).
-- Google's rules for Maps grounding: each place shows its title and a link to its `uri`, and the source is credited
-  as "Google Maps", never translated (`translate="no"`).
-- "Add" puts it on the day with its address, the Google Maps link, and 12:30 or 19:30.
+  in the Ideas tab's **Food** section (a day picked with chips, `ui.mealDay`): 3 places for lunch and 3 for dinner.
+  `mealSpots`: lunch near the plans between 11:00 and 15:00 (else the middle plan), dinner near the last plan and the
+  stay; the stay alone on a day with nothing else on the map; null when nothing is on the map.
+- The places: Photon's reverse search (`photon.komoot.io/reverse`, `osm_tag=amenity:restaurant|cafe|pub`, 0.7 km
+  around up to 4 spots), plus the guide's `food` places, merged by name (`mealCandidates`, within half a mile, 40 at
+  most). Overpass was not used: it answered 502/504 on both mirrors when this was built.
+- The choice: free Flash-Lite (`AI_MODELS[1]`, structured output) picks by number from that list (`readMealPicks`:
+  numbers from the list only, each once, 3 per meal, no café for dinner) and adds cuisine, price and why. Without it
+  (not set up, failed, nothing picked) the nearest, the guide's first (`nearestMeals`); such a choice is made again
+  after an hour. A daily 429 skips Gemini for the rest of the day (`meals.noAI`).
+- Not Google Maps' own data: Gemini's free tier can't search Google Maps or Google (tested live 2026-11-04; Maps
+  grounding is paid-tier only on Gemini 3, and 2.5 Flash-Lite is closed to new projects). Each card opens a Google
+  Maps search for its name and address instead (`reviewsUrl`), for the reviews.
+- Kept per device in `ai.saved.meals` (`tripPlanner.assistant`, 40 days, stamped `MEALS_VERSION` and the language),
+  asked again when the day's plans move over a mile, or on Refresh. Offline before anything was found: the guide's
+  `food` places near the plans (`guideMeals`, cards from `suggestionCard`).
+- "Add" puts it on the day at 12:30 or 19:30, with its address and its spot on the map (no lookup needed).
 - Places to eat are left out of the day's "Nearby ideas" (`planSuggestions`): they have their own line.
 
 **During the trip, calendar, files, packing.**
