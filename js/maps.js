@@ -678,7 +678,7 @@ function renderMapBody() {
         }
         const stay = s.it.category === 'stay';
         const mark = stay ? `<span class="stop-num base">${icon('hotel')}</span>`
-          : s.c.away ? `<span class="stop-num away" style="background:${g.color}">${icon((CATEGORIES[s.it.category] || CATEGORIES.other).icon)}</span>`
+          : s.c.away ? `<span class="stop-num away" style="background:${g.color}">${icon((CATEGORIES[s.it.category] || CATEGORIES.other).icon + '-fill')}</span>`
           : `<span class="stop-num" style="background:${g.color}">${++n}</span>`;
         return `
           <li><button type="button" class="stop ripple" data-action="focus-stop" data-id="${esc(s.it.id)}">
@@ -774,7 +774,7 @@ function drawMap(fit) {
         icon: L.divIcon({
           className: 'pin',
           html: s.it.category === 'stay' ? `<div class="pin-shape base">${icon('hotel')}</div>`
-            : s.c.away ? `<div class="pin-shape away" style="background:${g.color}">${icon((CATEGORIES[s.it.category] || CATEGORIES.other).icon)}</div>`
+            : s.c.away ? `<div class="pin-shape away" style="background:${g.color}">${icon((CATEGORIES[s.it.category] || CATEGORIES.other).icon + '-fill')}</div>`
             : `<div class="pin-shape" style="background:${g.color}"><b>${++n}</b></div>`,
           iconSize: [32, 32],
           iconAnchor: [16, 32],

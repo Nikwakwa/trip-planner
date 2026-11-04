@@ -1289,6 +1289,16 @@ function runChecks() {
     }
     return !missing.size || 'no action for ' + [...missing].join(', ');
   });
+  check('Every icon the code names is in icons/sprite.svg', () => {
+    // A missing one draws nothing. Category icons are only there filled ("train-fill", not "train"): an away pin was empty.
+    const have = new Set([...new DOMParser().parseFromString(read('icons/sprite.svg'), 'image/svg+xml').querySelectorAll('[id]')].map(e => e.id));
+    const want = new Set();
+    for (const [, text] of sources()) for (const m of text.matchAll(/icon\('([\w-]+)'/g)) want.add(m[1]);
+    for (const c of Object.values(CATEGORIES)) want.add(c.icon + '-fill');
+    for (const m of Object.values(TRAVEL_MODES)) want.add(m.icon);
+    const missing = [...want].filter(n => !have.has(n));
+    return !missing.length || 'not in the sprite: ' + missing.join(', ');
+  });
   check('No two files use the same name at the top level', () => {
     // Two "function save" in two files: the second one silently replaces the first.
     const seen = new Map();
