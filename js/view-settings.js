@@ -107,7 +107,7 @@ function renderMore() {
     <ul class="group">
       <li><button type="button" class="row ripple" data-action="toggle-suggestions" role="switch" aria-checked="${state.settings.suggestions}">
         <span class="row-icon">${icon('auto_awesome')}</span>
-        <span class="row-text"><span class="row-title">${T('Day suggestions')}</span><span class="row-sub">${T('Ideas under each day, from the city’s travel guide')}</span></span>
+        <span class="row-text"><span class="row-title">${T('Day suggestions')}</span><span class="row-sub">${T('Ideas and places to eat under each day')}</span></span>
         <span class="switch ${state.settings.suggestions ? 'on' : ''}" aria-hidden="true"></span>
       </button></li>
       <li><button type="button" class="row ripple" data-action="toggle-lookup" role="switch" aria-checked="${state.settings.lookup}">

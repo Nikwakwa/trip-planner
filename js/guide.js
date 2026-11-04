@@ -131,7 +131,8 @@ function planSuggestions(trip, guide, days) {
   for (const day of days) {
     if (day < today) continue;
     const anchors = anchorsByDay.get(day);
-    const pool = guide.places.filter(p => !taken.has(p.id) && !shown.has(p.id));
+    // Places to eat have their own line under each day (meals.js).
+    const pool = guide.places.filter(p => p.cat !== 'food' && !taken.has(p.id) && !shown.has(p.id));
     let ranked, title;
     // A free day on a trip with guides near its plans (places.js): ideas around that day's stay.
     const stay = !anchors.length && guide.joined ? baseFor(trip, day, guide) : null;

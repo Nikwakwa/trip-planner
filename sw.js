@@ -39,6 +39,7 @@ const FILES = [
   'js/packing.js',
   'js/info.js',
   'js/assistant.js',
+  'js/meals.js',
   'js/translate.js',
   'js/vote.js',
   'js/share.js',

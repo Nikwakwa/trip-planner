@@ -47,16 +47,22 @@ function ideaOrder(trip) {
 
 function renderIdeas(trip) {
   const guide = guideFor(trip);
-  const ideas = ideaOrder(trip);
+  // Places to eat have their own section (meals.js), apart from the things to do.
+  const all = ideaOrder(trip);
+  const food = all.filter(isFood);
+  const ideas = all.filter(i => !isFood(i));
   const tab = ui.ideasTab;
   let html = `
     <h1 class="headline">${T('Ideas')}</h1>
-    <div class="segmented" role="group" aria-label="${T('Ideas view')}">
-      <button type="button" class="ripple" data-action="ideas-tab" data-tab="mine" aria-pressed="${tab === 'mine'}">${icon('lightbulb')}${T('My ideas')}${ideas.length ? ` (${ideas.length})` : ''}</button>
+    <div class="segmented ideas-tabs" role="group" aria-label="${T('Ideas view')}">
+      <button type="button" class="ripple" data-action="ideas-tab" data-tab="mine" aria-pressed="${tab === 'mine'}">${icon('lightbulb')}${T('Activities')}${ideas.length ? ` (${ideas.length})` : ''}</button>
+      <button type="button" class="ripple" data-action="ideas-tab" data-tab="food" aria-pressed="${tab === 'food'}">${icon('restaurant')}${T('Food')}${food.length ? ` (${food.length})` : ''}</button>
       <button type="button" class="ripple" data-action="ideas-tab" data-tab="explore" aria-pressed="${tab === 'explore'}">${icon('explore')}${T('Explore')}</button>
     </div>`;
 
-  if (tab === 'mine') {
+  if (tab === 'food') {
+    html += foodIdeasHTML(trip, food);
+  } else if (tab === 'mine') {
     html += `
       <p class="supporting">${T('Things you might do in {trip}. Add one to a day when you’re ready, or tap it to see more.', { trip: esc(tripName(trip)) })}${heartsOn(trip) ? ` ${T('Give a heart to the ones you like: the ideas the group likes most come first.')}` : ''}</p>
       ${ideas.length

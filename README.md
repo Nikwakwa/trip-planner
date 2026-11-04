@@ -16,6 +16,9 @@ the same address shows a desktop layout on a wide screen, by itself.
 - **Ideas on the map:** the day and trip maps also show your ideas, as round pins with their type's icon (the
   day's stops are the numbered ones). Tap one to add it to a day; on a day's map it says how far it is from that
   day's plans. The **Ideas** button over the map shows or hides them (remembered on each device).
+- **Where to eat:** under each day, places for lunch and dinner near that day's plans, from Google Maps (rating,
+  cuisine, price, and a link to the place). Tap **Add** to put one on the day. **Ideas** has a **Food** section for
+  the places to eat you want to try, apart from the things to do (**Activities**).
 - Warns when a plan is on a day or at a time the place is usually closed.
 - An **AI Assistant** that plans days and edits your trip when you ask (free, see below).
 - Each trip gets around by **public transit + walk** or **drive + walk** (set in the trip; a day can differ),
@@ -89,6 +92,7 @@ behavior in `js/`. Each file covers one part of the app, so a change usually tou
 | `packing.js` | Packing suggestions for the Checklist. |
 | `info.js` | "About this place" for a plan: what it is, hours, photos, what to know. |
 | `assistant.js` | The AI assistant chat (Gemini through Firebase, or another AI app). |
+| `meals.js` | "Where to eat": places for lunch and dinner near each day's plans, from Google Maps. |
 | `vote.js` | Voting for new features, and suggesting your own (Settings → About). |
 | `share.js` | Planning a trip together: invitations, who is on a trip, the Share sheet. |
 | `sync.js` | Sign-in and syncing plans between devices (Firebase). |
@@ -331,6 +335,11 @@ It uses Google's Gemini through your Firebase project, on the **free** tier:
   it switches by itself to **Gemini 3.5 Flash-Lite** (about 500 a day) until the next day.
 - It can't cost anything: the Firebase project has no billing account. At worst it pauses until tomorrow.
 - On the free tier, Google may use what you send (your trip and requests) to improve its products.
+
+**Where to eat** uses the same free Gemini, an older model (**Gemini 2.5 Flash-Lite**): it is the only one the free
+tier lets look things up on Google Maps (about 500 searches a day for everyone). One search per day of a trip, only
+when you open "Where to eat", and the answer is kept on the device. When it can't answer (offline, used up for the
+day), the travel guide's places to eat are shown instead.
 
 Prefer another AI app (for example one you have a subscription for)? In the assistant, tap **Use another
 AI app instead**: copy the request, paste it into that app, then paste its answer back.

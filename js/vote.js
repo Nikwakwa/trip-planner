@@ -14,10 +14,9 @@
 
 // The app's own proposals. Keep an id for good once it has shipped: votes are kept by id.
 // Built since, so off the list (don't use these ids again): share-trip, languages (French, 2026-10),
-// packing-lists (lines kept for every trip, 2026-11).
+// packing-lists (lines kept for every trip, 2026-11), meals (Where to eat, 2026-11).
 const FEATURE_IDEAS = [
   { id: 'offline-maps', title: T('Maps without a connection'), text: T('Download a trip’s map before leaving, for when there is no signal.') },
-  { id: 'meals', title: T('Lunch and dinner ideas'), text: T('Places to eat near each day’s plans, from the travel guide.') },
   { id: 'budget', title: T('Trip budget'), text: T('Note what each plan costs, and see the total for a day and for the whole trip.') },
   { id: 'journal', title: T('Trip journal'), text: T('Add a photo and a few words to a plan once it’s done, and look back on the trip.') },
   { id: 'print', title: T('Print the plan'), text: T('A clean page of the whole trip, to print or keep as a PDF.') },
@@ -59,6 +58,8 @@ const BUILT_IDEAS = [
   /\bnick ?names?\b|\bpseudo|\bsurnom/i,     // a name of your own on shared trips (2.20.0)
   // ideas on the map (2.21.0): any title with both words, whatever comes between ("Ideas on the trip map")
   /\bideas?\b.*\bmaps?\b|\bmaps?\b.*\bideas?\b|\bidées?\b.*\bcartes?\b|\bcartes?\b.*\bidées?\b/i,
+  // where to eat (2.29.0)
+  /\brestaurants?\b|\brestos?\b|\b(where|places?) to eat\b|\bo[uù] manger\b|\b(lunch|dinner|déjeuners?|dîners?)\b/i,
 ];
 const isBuilt = idea => BUILT_IDEAS.some(re => re.test(idea.title));
 

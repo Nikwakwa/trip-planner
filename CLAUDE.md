@@ -72,7 +72,7 @@ stays at the root. `index.html` loads `js/theme.js` in the `<head>`, then at the
   dates and times, `travel`, `fmtDist`, `safeUrl`, `mapsUrl`…), the errors of the visit (`noteError`, listening from the
   start) and the action table (`onAction`);
 - the features: `places.js` → `weather.js` → `hours.js` → `essentials.js` → `mapstyle.js` → `maps.js` → `routes.js` →
-  `drag.js` → `today.js` → `calendar.js` → `files.js` → `packing.js` → `info.js` → `assistant.js` → `translate.js` → `vote.js` →
+  `drag.js` → `today.js` → `calendar.js` → `files.js` → `packing.js` → `info.js` → `assistant.js` → `meals.js` → `translate.js` → `vote.js` →
   `share.js` → `sync.js`;
 - the screen: `ui.js` (shapes, empty states, `snackbar`, `askConfirm`, photos, theme colors, `tick`, ripple) →
   `guide.js` (which guide place a plan is, `planSuggestions`, Auto-fill, `bookingNote`) → `store.js` (`state`: defaults,
@@ -325,6 +325,28 @@ Ideas with an address are looked up while the layer is on. Leaflet 1.9 lets clic
 - The same prompt can be copied to another AI app (the UI never names one), and the pasted answer goes through `parseAnswer`.
 - Chats are stored per trip on the phone only (`tripPlanner.assistant`).
 
+**Where to eat (`meals.js`, 2.29).**
+- Under each day of the Plan (from today, with the "Day suggestions" switch; closed until tapped, `ui.meals[day]`) and
+  in the Ideas tab's **Food** section (a day picked with chips, `ui.mealDay`): places for lunch and dinner near the
+  day's located plans (`mealSpots`: the plans on the map but the stay, else the stay; null when nothing is on the map).
+- From Google Maps, through Gemini's Grounding with Google Maps (`tools: [{ googleMaps: {} }]`, `toolConfig.retrievalConfig.latLng`
+  at the middle of the spots). The free tier only allows it on **Gemini 2.5 Flash-Lite** (`MEALS_MODEL`; 500 grounded
+  requests a day for the project; Gemini 3 models have it on the paid tier only). If Google shuts that model down,
+  check the pricing page for a free one. `callGemini(model, body, sources)` fills `sources` with the answer's
+  `groundingMetadata.groundingChunks`.
+- The answer is text lines (`lunch|name|cuisine|price|rating|address|near|why`; structured output and tools don't
+  mix on 2.5), read by `parseMeals`: only a name that Google Maps returned is kept (matched without accents or case),
+  with its chunk's `uri` as the link. Never a place the model only named.
+- Asked once per day when it is opened, kept per device in `ai.saved.meals` (`tripPlanner.assistant`, 40 days,
+  stamped `MEALS_VERSION` and the language), and asked again when the day's plans move over a mile or on Refresh.
+  A daily 429 stops asking for the rest of the day (`meals.usedUp`), another error for two minutes.
+- Without an answer (not set up, offline, used up, failed, nothing found), the guide's `food` places within 1.5 miles
+  of the plans (`guideMeals`, cards from `suggestionCard`).
+- Google's rules for Maps grounding: each place shows its title and a link to its `uri`, and the source is credited
+  as "Google Maps", never translated (`translate="no"`).
+- "Add" puts it on the day with its address, the Google Maps link, and 12:30 or 19:30.
+- Places to eat are left out of the day's "Nearby ideas" (`planSuggestions`): they have their own line.
+
 **During the trip, calendar, files, packing.**
 - `today.js`: `baseFor(trip, day)` is the home base. It's the latest located `stay` plan dated on or before the day
   (else the first one; an undated stay counts for every day). Day lists, Optimize route, the day map, the route link,
@@ -555,6 +577,8 @@ Phone styles are the default. Add desktop overrides in desktop.css (loaded last)
   (`dayTint(i)` in maps.js, set as `--day` on the day's section): its stop numbers, travel lines, dot in the day strip
   and sidebar, and its pins and route on the map (day map and trip map alike). The "Book ahead" label is amber on
   every trip, so it reads as a notice, not as part of the theme. Don't recolor whole days.
+- The Ideas tab has three sections: **Activities** (ideas that aren't food, `ideasTab` `mine`), **Food** (`food`: ideas with
+  the `food` type, then Where to eat, meals.js) and **Explore**. "New idea" on Food starts as a Food & drink plan.
 - Ideas (Ideas tab) have "Add to a day" (`pick-day` / `set-day`) in place of the done checkbox. An idea from the
   guide keeps showing what Explore showed (photo, the guide's words, time to allow: `itemHTML` with `schedule`), and a
   tap opens its details sheet (`openPlanInfo`), not the form: there it can get a heart, go on a day, or be edited.

@@ -72,7 +72,7 @@ if (navigator.storage && navigator.storage.persist) {
 
 // The big + button: a new plan on today during the trip, else on its first day; a new idea on Ideas.
 $('#fab').addEventListener('click', () => {
-  if (ui.view === 'ideas') return openItemForm(null, { date: '' });
+  if (ui.view === 'ideas') return openItemForm(null, ui.ideasTab === 'food' ? { date: '', category: 'food' } : { date: '' });
   const trip = activeTrip();
   const today = todayISO();
   const inTrip = trip.start && today >= trip.start && today <= trip.end;

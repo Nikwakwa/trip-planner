@@ -215,6 +215,7 @@ function renderPlan(trip) {
         ${list ? `<ul class="group plans">${list}</ul>` : ''}
         ${items.length ? '' : `<button type="button" class="empty-day ripple" data-action="add-on-day" data-date="${day}">${icon('add')}${T('Free day — tap to add a plan')}</button>`}
         ${suggestionsHTML(suggestions.get(day), day, ui.suggest[day] ?? day === focusDay)}
+        ${state.settings.suggestions && day >= today && !archived && mealSpots(trip, day) ? mealsHTML(trip, day) : '' /* meals.js: lunch and dinner nearby */}
       </section>`;
   }
 

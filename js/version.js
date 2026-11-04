@@ -8,6 +8,10 @@
    each, five at most. Fixes are never described, not even one people would notice: they are a
    single line, "Bug fixes", and a version with fixes only says just that. */
 const CHANGELOG = [
+  { v: '2.29.0', date: '2026-11-04', items: [
+    'Where to eat: under each day, places for lunch and dinner near your plans, from Google Maps',
+    'Ideas has a Food section for the places to eat you want to try, apart from the things to do',
+  ] },
   { v: '2.28.1', date: '2026-11-03', items: ['Bug fixes'] },
   { v: '2.28.0', date: '2026-11-01', items: [
     'Each trip has its own checklist: what you add and tick off stays on that trip',

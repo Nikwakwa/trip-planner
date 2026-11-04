@@ -360,6 +360,31 @@ button.suggest-title { min-height: 40px; border-radius: 12px; padding: 4px 8px 4
 .btn.sm { height: 36px; padding: 0 16px 0 12px; border-radius: 18px; }
 .s-foot .btn { margin-left: auto; }
 
+/* ---------- Where to eat (meals.js): places from Google Maps, or the guide's ---------- */
+/* A place from Google Maps is a link to it */
+.meal-card .s-body { color: inherit; text-decoration: none; }
+.meal-facts { display: block; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--on-surface-variant); }
+.meal-rating { display: inline-flex; align-items: center; gap: 2px; color: var(--on-surface); }
+.meal-rating .icon { width: 15px; height: 15px; color: #e8a317; }
+.s-foot .tag:last-child { margin-left: auto; }
+.meal-note {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 4px 0;
+  color: var(--on-surface-variant);
+  font-size: 13px;
+  line-height: 18px;
+}
+.meal-note > .icon { flex: none; color: var(--primary); }
+.meal-note .btn.text { height: 32px; padding: 0 8px; }
+.suggest .guide-note { margin: 8px 4px 0; }
+/* Under the cards: where they come from */
+.suggest .footnote, .food-head ~ .footnote { justify-content: flex-start; margin: 4px 4px 0; text-align: left; }
+.food-head { margin: 20px 0 8px; padding: 0; }
+.food-head .group-label { flex: 1; margin: 0; }
+
 
 /* ---------- Trip card buttons ---------- */
 .hero-actions { display: flex; flex-wrap: nowrap; gap: 8px; margin: 14px -18px 0; padding: 0 18px; overflow-x: auto; scrollbar-width: none; }

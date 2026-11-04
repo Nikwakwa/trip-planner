@@ -992,6 +992,47 @@ function runChecks() {
     return same(out.map(c => c.item.guideId || (typeof c.item.lat === 'number' ? 'pinned' : 'not pinned')), ['res', 'not pinned', 'not pinned', 'res']);
   }));
 
+  /* ---------- Where to eat ---------- */
+  group = 'Where to eat';
+  check('Places to eat are only the ones Google Maps returned, lunch first, each with its Google Maps link', () => {
+    const sources = [
+      { maps: { title: 'Taberna da Rua', uri: 'https://maps.google.com/?cid=1', placeId: 'x' } },
+      { maps: { title: 'Café Luso', uri: 'https://maps.google.com/?cid=2' } },
+      { maps: { title: 'Bad link', uri: 'javascript:alert(1)' } },
+      { maps: { title: 'No link', uri: 5 } },
+      { web: { title: 'A blog', uri: 'https://example.org' } },
+    ];
+    const text = [
+      'Here you go:',
+      '- **dinner** | Taberna da Rua | Portuguese | €20–30 | 4,6 | Rua X 1 | Castle | Fado and grilled fish',
+      '1. lunch|Cafe Luso|Café|$$|9.9|Travessa 2|Castle|Quick lunch',
+      'lunch|Made Up Bistro|French|$$|4.8|Somewhere|Castle|Not on Google Maps',
+      'dinner|Bad link|x|$|4|y|Castle|z',
+      'dinner|No link|x|$|4|y|Castle|z',
+      'dinner|Taberna da Rua|again|$|4|y|Castle|twice',
+      'brunch|Café Luso|Café|$|4|y|Castle|not a meal asked for',
+    ].join('\n');
+    return same(parseMeals(text, sources).map(m => [m.meal, m.name, m.rating, m.price, m.near, m.uri]), [
+      ['lunch', 'Café Luso', 0, '$$', 'Castle', 'https://maps.google.com/?cid=2'],
+      ['dinner', 'Taberna da Rua', 4.6, '€20–30', 'Castle', 'https://maps.google.com/?cid=1']]);
+  });
+  check('An answer without places from Google Maps gives none', () =>
+    same([parseMeals('lunch|Somewhere|x|$|4|y|z|w', []), parseMeals('', null), parseMeals('No idea.', [{ maps: { title: 'X', uri: 'https://maps.google.com/?cid=3' } }])], [[], [], []]));
+  check('Without Google Maps, the guide’s places to eat near the day’s plans are shown, nearest first', () => sandbox(() => {
+    const guide = prepGuide({ id: 'check', kind: 'city', places: [
+      { id: 'near', name: 'Tasca', cat: 'food', lat: 38.712, lng: -9.131 },
+      { id: 'nearer', name: 'Pastelaria', cat: 'food', lat: 38.7101, lng: -9.1301 },
+      { id: 'far', name: 'Far Grill', cat: 'food', lat: 38.80, lng: -9.13 },
+      { id: 'tower', name: 'Tower', cat: 'sight', lat: 38.7101, lng: -9.1301 },
+    ] });
+    const s = sample();
+    const trip = s.trips[0];
+    trip.items[0] = { ...trip.items[0], lat: 38.71, lng: -9.13 };
+    state = s;
+    guideFor = () => guide;
+    return same([guideMeals(trip, mealSpots(trip, '2026-05-01')).map(r => r.p.id), mealSpots(trip, '2026-05-02')], [['nearer', 'near'], null]);
+  }));
+
   /* ---------- Opening hours ---------- */
   group = 'Opening hours';
   check('Hours are read per day of the week', () => {

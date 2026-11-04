@@ -8,7 +8,7 @@ function eraseDeviceData() {
   for (const key of [AI_KEY, PACKING_KEY, GUIDES_KEY, WEATHER_KEY, HOURS_KEY, ESSENTIALS_KEY, INFO_KEY, ROUTES_KEY, TRANSLATIONS_KEY]) {
     try { localStorage.removeItem(key); } catch { /* storage unavailable */ }
   }
-  ai.saved = { chats: {}, booking: {} };
+  ai.saved = { chats: {}, booking: {}, meals: {} };
   for (const kept of [packingHidden, savedGuides]) for (const k of Object.keys(kept)) delete kept[k];
   readyGuides.clear();
   guideStatus.clear();
