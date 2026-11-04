@@ -12,7 +12,7 @@
      saved data, never synced). A day is asked again when its plans move more than a mile, or with Refresh.
    Functions here also use the screen's files (ui.js … app.js), which load after this one. */
 
-const MEALS_VERSION = 2;        // raise it when the choice changes: the answers kept on devices are asked again
+const MEALS_VERSION = 3;        // raise it when the choice changes: the answers kept on devices are asked again
 const MEALS_KEEP = 40;          // days kept on this device
 const MEALS_MOVED = 1;          // miles: the day's plans moved that far, so its places are asked again
 const MEALS_WALK = 0.5;         // miles (10 minutes on foot): how far a place to eat can be from a plan
@@ -125,6 +125,8 @@ const MEALS_RULES = `You help a traveller choose where to eat. You get the day's
 eat near them. Pick up to 3 for lunch, near the plans around midday, and up to 3 for dinner, near the last plans of the
 day or where they stay. Prefer places you know to be good and well reviewed, that locals like, or that are famous for
 something; avoid chains, fast food and places you know nothing good about. A café is fine for lunch, not for dinner.
+For dinner, pick only places open in the evening: never a bakery, a sandwich or lunch spot, or a place that closes in
+the afternoon. Pick lunch only among the places marked "lunch", and dinner among the places marked "dinner".
 Mix cuisines and prices. Use only numbers from the list, each place at most once.
 For each place: "cuisine" in 1 to 3 words, "price" from "$" to "$$$$" ("" when you don't know), and "why" to go, at
 most 12 words, about the place itself (a dish, the setting, what it's known for).${LANG !== 'en' ? ` Write "cuisine" and "why" in ${LANGS[LANG]}.` : ''}`;
@@ -136,7 +138,7 @@ function mealAsk(trip, day, spots, cands) {
     `${fmtDay(day, { weekday: 'long', month: 'long', day: 'numeric' })}, in ${placeLabel(trip)}.`,
     plans.length ? `The day's plans, in order:\n${plans.map(i => `- ${line(i)}`).join('\n')}` : 'Nothing is planned yet that day.',
     spots.base ? `Staying at: ${spots.base.item.title}.` : '',
-    `Places to eat:\n${cands.map((p, k) => `${k + 1}. ${p.name} (${p.kind}${p.address ? `, ${p.address}` : ''}) — ${Math.round(p.lunch.d * 1609)} m from ${p.lunch.near}${p.dinner.near !== p.lunch.near ? `, ${Math.round(p.dinner.d * 1609)} m from ${p.dinner.near}` : ''}${p.guideId ? ' — in the travel guide' : ''}`).join('\n')}`,
+    `Places to eat:\n${cands.map((p, k) => `${k + 1}. ${p.name} (${p.kind}${p.address ? `, ${p.address}` : ''}) — ${[p.lunch.d < MEALS_WALK && `lunch, ${Math.round(p.lunch.d * 1609)} m from ${p.lunch.near}`, p.dinner.d < MEALS_WALK && `dinner, ${Math.round(p.dinner.d * 1609)} m from ${p.dinner.near}`].filter(Boolean).join('; ')}${p.guideId ? ' — in the travel guide' : ''}`).join('\n')}`,
   ].filter(Boolean).join('\n\n');
 }
 
@@ -149,7 +151,7 @@ function readMealPicks(answer, cands) {
     let n = 0;
     for (const a of list) {
       const p = a && Number.isInteger(a.number) ? cands[a.number - 1] : null;
-      if (!p || used.has(p) || n === 3 || (meal === 'dinner' && p.kind === 'cafe')) continue;
+      if (!p || used.has(p) || n === 3 || p[meal].d >= MEALS_WALK || (meal === 'dinner' && p.kind === 'cafe')) continue;
       used.add(p);
       n++;
       out.push(mealPlace(p, meal, { cuisine: aiText(a.cuisine, 40), price: /^\${1,4}$/.test(a.price) ? a.price : '', why: aiText(a.why, 120) }));

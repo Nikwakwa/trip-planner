@@ -1031,9 +1031,9 @@ function runChecks() {
     { name: 'D', kind: 'restaurant', lunch: { d: 0.45, near: 'X' }, dinner: { d: 0.1, near: 'Y' } },
     { name: 'E', kind: 'pub', lunch: { d: 0.6, near: 'X' }, dinner: { d: 0.6, near: 'Y' } },
   ];
-  check('Gemini can only pick places from the list, each once, and no café for dinner', () => {
-    const answer = { lunch: [{ number: 2, cuisine: 'Pastries', price: '$', why: 'Custard tarts' }, { number: 9 }, { number: 2 }, { number: '1' }],
-      dinner: [{ number: 2 }, { number: 3, cuisine: 'Seafood', price: 'cheap', why: 'Grilled fish' }, { number: 1, cuisine: 7 }] };
+  check('Gemini can only pick places from the list, each once, within a walk of that meal’s plans, and no café for dinner', () => {
+    const answer = { lunch: [{ number: 2, cuisine: 'Pastries', price: '$', why: 'Custard tarts' }, { number: 9 }, { number: 2 }, { number: '1' }, { number: 5 }],
+      dinner: [{ number: 2 }, { number: 5 }, { number: 3, cuisine: 'Seafood', price: 'cheap', why: 'Grilled fish' }, { number: 1, cuisine: 7 }] };
     return same(readMealPicks(answer, mealCands()).map(m => [m.meal, m.name, m.cuisine, m.price, m.near]),
       [['lunch', 'B', 'Pastries', '$', 'X'], ['dinner', 'C', 'Seafood', '', 'Y'], ['dinner', 'A', '', '', 'Y']]);
   });
