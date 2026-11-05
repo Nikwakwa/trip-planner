@@ -408,7 +408,7 @@ and `shared/{id}/docs/…` holds the trip and its plans, in the same form as an 
   before it was shared, or the trip itself on the owner's other devices) becomes it, and its own documents are
   removed at the next save. Only the trip named in `shared/{id}.trip` is taken from a shared space.
 - A shared trip has a list of its own for everyone on it: `trip.todos` (`[{ id, text, done }]`), synced as `todo_…`
-  documents next to the trip's plans (not `check_…`: version 2.10 would remove those). The Checklist tab shows it
+  documents next to the trip's plans (not `check_…`: version 2.10 would remove those). The Checklist tab (which has the trip tabs too, 2.30) shows it
   for the trip that is open, above the personal checklist (`tripListHTML`; `listAt(el)` / `listNamed('trip' | 'own' | 'every')`
   tell which list a row, button or form belongs to; a row says it in `data-home`). Rows are dragged between the three
   lists, or to another spot in their own (`listTarget` / `dropOnList` in drag.js; the places to drop are `[data-list]`,

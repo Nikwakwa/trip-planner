@@ -914,6 +914,7 @@ DICTS.fr = {
   'last synced {when}': 'dernière synchronisation {when}',
 
   /* ---------- What's new (version.js) ---------- */
+  'The Checklist shows your trips at the top, to switch trips right there': 'La Liste affiche vos voyages en haut, pour changer de voyage sans la quitter',
   'Where to eat: under each day, places for lunch and dinner near your plans': 'Où manger : sous chaque journée, des restaurants pour déjeuner et dîner près de vos activités',
   'Ideas has a Food section for the places to eat you want to try, apart from the things to do': 'Les Idées ont une section Restos pour les restaurants à essayer, à part des choses à faire',
   'Each trip has its own checklist: what you add and tick off stays on that trip': 'Chaque voyage a sa propre liste : ce que vous ajoutez et cochez reste sur ce voyage',

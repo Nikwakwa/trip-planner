@@ -301,7 +301,7 @@
 }
 .suggest-toggle > .icon:first-child { width: 18px; height: 18px; color: var(--primary); }
 .suggest-toggle span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.suggest-toggle small { flex: none; font-size: 12px; font-weight: 600; opacity: .8; }
+.suggest-toggle small { flex: none; font-size: 12px; font-weight: 600; opacity: .88; }
 .suggest-toggle .turn { transform: rotate(90deg); opacity: .7; }
 button.suggest-title { min-height: 40px; border-radius: 12px; padding: 4px 8px 4px 0; text-align: left; }
 .suggest-row {
@@ -453,6 +453,7 @@ button.assist-chip { background: none; }
   .day-tools { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 8px -16px 14px; padding: 0 16px; }
   .day-tools::-webkit-scrollbar { display: none; }
   .day-tools .assist-chip { flex: none; height: 36px; }
+  .item-chips .assist-chip, .item-chips .assist-chip:not(.primary, .selected) { height: 36px; }
 }
 
 

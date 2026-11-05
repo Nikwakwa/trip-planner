@@ -89,6 +89,8 @@
 .assist-chip > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* Only an icon (its name is in its title and aria-label) */
 .assist-chip.icon-only { width: 32px; padding: 0; justify-content: center; }
+/* On a phone, a little taller for a thumb (as the day's tools) */
+@media (max-width: 599px) { .assist-chip { height: 36px; } }
 /* The main action of a row ("Add to a day") */
 .assist-chip.primary { background: var(--primary-container); color: var(--on-primary-container); border-color: transparent; }
 .assist-chip.primary .icon { color: inherit; }

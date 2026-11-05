@@ -52,6 +52,7 @@ a.fact .fact-icon { background: var(--error); color: var(--error-container); }
 .vote-intro { margin: 0 4px 12px; }
 .vote-note {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   margin: 0 0 12px;
@@ -62,7 +63,9 @@ a.fact .fact-icon { background: var(--error); color: var(--error-container); }
   font-size: 14px;
   line-height: 20px;
 }
-.vote-note span { flex: 1; }
+/* A button beside the text goes under it when they don't both fit ("Sign in" on a phone) */
+.vote-note span { flex: 1 1 180px; }
+.vote-note .btn { margin-left: auto; }
 .vote-note .icon { width: 20px; height: 20px; }
 .vote-note.bad { background: var(--error-container); color: var(--on-error-container); }
 .vote-list { display: grid; gap: 8px; margin: 0 0 16px; padding: 0; list-style: none; }
@@ -216,6 +219,8 @@ dialog.ai-sheet { height: 94dvh; }
 }
 .ai-intro p { margin: 4px 4px 14px; color: var(--on-surface-variant); font-size: 15px; line-height: 22px; }
 .ai-starters { display: flex; flex-wrap: wrap; gap: 8px; }
+/* A long one (in French) wraps instead of running off the screen */
+.ai-starters .filter-chip { flex: 0 1 auto; max-width: 100%; height: auto; min-height: 34px; padding-block: 6px; line-height: 20px; text-align: left; }
 .msg { max-width: 88%; }
 .msg p { margin: 0; white-space: pre-line; overflow-wrap: anywhere; font-size: 15px; line-height: 22px; }
 .msg.user { align-self: flex-end; padding: 10px 14px; border-radius: 20px 20px 6px 20px; background: var(--primary-container); color: var(--on-primary-container); }

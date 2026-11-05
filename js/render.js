@@ -106,15 +106,17 @@ function render() {
   });
 
   const tripViews = ui.view === 'plan' || ui.view === 'ideas';
-  $('#trip-tabs').hidden = !tripViews || !trip;
-  $('#appbar-title').hidden = tripViews;
+  // The Checklist is the open trip's too (2.28): its tabs switch trips there as well.
+  const tabs = !!trip && (tripViews || ui.view === 'pack');
+  $('#trip-tabs').hidden = !tabs;
+  $('#appbar-title').hidden = tripViews || tabs;
   $('#appbar-title').textContent = TITLES[ui.view];
   $('#fab').hidden = $('#ai-fab').hidden = !tripViews || !trip;
   $('#fab-label').textContent = ui.view === 'ideas' ? T('New idea') : T('New plan');
   $('#fab').setAttribute('aria-label', $('#fab-label').textContent);
   try {
     if (tripViews && !trip) renderWelcome();
-    else if (tripViews) renderTripTabs(trip);
+    else if (tabs) renderTripTabs(trip);
 
     if (trip && ui.view === 'plan') renderPlan(trip);
     if (trip && ui.view === 'ideas') renderIdeas(trip);
