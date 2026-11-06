@@ -74,7 +74,7 @@ function packingHTML(trip) {
   return `
     <section class="pack-ideas" aria-label="${T('Suggestions')}">
       <h2 class="group-label">${icon('auto_awesome', 'sm')}${T('Suggested for {trip}', { trip: esc(tripName(trip)) })}</h2>
-      ${trip.shared ? `<p class="supporting">${T('Tap one to add it to your own checklist, or {icon} to add it for everyone on the trip.', { icon: icon('group', 'sm') })}</p>` : ''}
+      ${trip.shared ? `<p class="supporting">${T('Tap one for your checklist, or {icon} for everyone’s list.', { icon: icon('group', 'sm') })}</p>` : ''}
       <ul class="group">${list.map(s => `
         <li class="pack-idea">
           <button type="button" class="pack-add ripple" data-action="pack-add" data-key="${s.key}" aria-label="${trip.shared ? T('Add {name} to your own checklist', { name: esc(s.text) }) : T('Add {name}', { name: esc(s.text) })}">

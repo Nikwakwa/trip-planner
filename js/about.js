@@ -11,31 +11,31 @@ function openPrivacy() {
   $('#about-title').textContent = T('Privacy');
   $('#about-body').innerHTML = [
     part('offline_pin', T('On this device'), [
-      T('Your trips, plans and checklist are saved on this device. Tickets you attach and your settings are kept here only.'),
+      T('Your trips are saved on this device. Tickets and settings stay here only.'),
     ]),
     sync.configured && part('sync', T('In your account'), [
-      T('If you sign in, your email address, trips, plans and checklist are also stored with Google Firebase, so that your devices share them.'),
-      T('The person who runs this copy of the app can see them there. Your password is stored scrambled: nobody can read it.'),
-      T('A trip you plan with other people is stored there once, for all of you. Everyone on it sees its plans, the list for everyone in the Checklist, who gave a heart to which idea, and the others’ email addresses and the names they chose. Your own checklist and your other trips stay yours. Tickets and other files can’t be shared: they never leave the device.'),
-      T('Your votes for new features, and the suggestions you send, are stored there too. Everyone who is signed in can read the suggestions, without your name or email.'),
+      T('Once you sign in, your email and trips are also stored with Google Firebase, to sync your devices.'),
+      T('The app’s owner can see them there. Your password is scrambled: nobody can read it.'),
+      T('A shared trip is stored once for everyone on it. They see its plans, its shared list, hearts, names and emails. Your own checklist, other trips and files stay yours.'),
+      T('Your feature votes and suggestions are stored there too. Signed-in users can read suggestions, not who sent them.'),
     ]),
     part('public', T('Sent to other services'), [
-      T('To do its job, the app asks free outside services. They get only what the question needs, never your account.'),
-      T('<b>OpenStreetMap services</b> (Photon, Nominatim, Overpass): the places you search for, and the names and addresses of your plans, to put them on the map and find opening hours. On a day by car, <b>OpenStreetMap’s routing server</b> (run by FOSSGIS) gets the map positions of that day’s stops, your stay included, for the real distance and time by road. “Find addresses and opening hours” in Settings switches these automatic lookups off.'),
-      T('<b>Wikivoyage, Wikipedia and Wikidata</b>: your destination and the area around your plans, for guides, photos and essentials. <b>Open-Meteo</b>: your destination, or the area of a day’s stay and plans, for the weather.'),
-      T('<b>The map</b> (OpenFreeMap, CARTO or OpenStreetMap): the part of the map you look at.'),
-      aiReady() && T('<b>Google Gemini</b>: when you send a message to the AI Assistant, the message and that trip’s plans. “Flag plans that sell out” in Settings sends the names of your plans. Google’s reCAPTCHA checks that these requests really come from the app.'),
-      aiReady() && T('“Where to eat”, under a day, asks Photon for the places to eat around that day’s plans (only their spots on the map), and sends those places and the day’s plans to Gemini, which picks the best ones.'),
-      aiReady() && LANG !== 'en' && T('In French, the descriptions from the travel guide, Wikipedia and the essentials are also sent to Gemini to be translated: only those texts, never your plans.'),
-      window.REPORT_KEY && T('<b>Web3Forms</b> (an email service): when you send “Report a problem”, what you wrote, your email if you gave it, the app’s version and the kind of device. It reaches the person who runs this copy of the app.'),
+      T('Free outside services get only what each request needs, never your account.'),
+      T('<b>OpenStreetMap</b> (Photon, Nominatim, Overpass): your searches and your plans’ names and addresses, for the map and opening hours. By car, its <b>routing server</b> (FOSSGIS) gets the day’s stops, for road times. “Find addresses and opening hours” in Settings turns this off.'),
+      T('<b>Wikivoyage, Wikipedia and Wikidata</b>: your destination and where your plans are, for guides and photos. <b>Open-Meteo</b>: where each day is spent, for the weather.'),
+      T('<b>The map</b> (OpenFreeMap, CARTO or OpenStreetMap): the area you look at.'),
+      aiReady() && T('<b>Google Gemini</b>: your AI Assistant messages with the trip’s plans, and plan names for “Flag plans that sell out”. reCAPTCHA checks the requests come from the app.'),
+      aiReady() && T('“Where to eat” sends the spots of the day’s plans to Photon, then the places found and the day’s plans to Gemini.'),
+      aiReady() && LANG !== 'en' && T('In French, guide, Wikipedia and essentials texts go to Gemini to be translated. Never your plans.'),
+      window.REPORT_KEY && T('<b>Web3Forms</b> (email): what you write in “Report a problem”, your email if given, the app version and device type.'),
       T('Your location (“Near me”) is used on this device only.'),
-      T('Like any website, the app’s host (GitHub) sees your device’s internet address when the app loads.'),
+      T('Like any website, the app’s host (GitHub) sees your internet address.'),
     ]),
     part('shield', T('No ads, no tracking'), [
-      T('The app has no ads and no visitor statistics, and your plans are not sold or shared.'),
+      T('No ads, no visitor stats. Your plans are never sold or shared.'),
     ]),
     part('delete', T('Removing your data'), [
-      sync.configured ? T('<b>Erase everything</b> (Settings) clears this device, and your account’s trips when you are signed in. <b>Delete account</b> removes your login and everything stored in it.') : T('<b>Erase everything</b> (Settings) clears this device.'),
+      sync.configured ? T('<b>Erase everything</b> (Settings) clears this device, and your account’s trips when signed in. <b>Delete account</b> removes your login and all it holds.') : T('<b>Erase everything</b> (Settings) clears this device.'),
     ]),
   ].filter(Boolean).join('');
   $('#about-dialog').showModal();
@@ -101,8 +101,8 @@ function openReport() {
   $('#report-send').textContent = window.REPORT_KEY ? T('Send') : T('Share report');
   $('#report-other').hidden = true;
   $('#report-how').textContent = window.REPORT_KEY
-    ? T('Your message goes by email to the person who looks after this copy of the app.')
-    : T('Your message is handed to the Share menu: send it to the person who shared the app with you.');
+    ? T('Your message is emailed to the app’s owner.')
+    : T('Your message opens in the Share menu: send it to whoever shared the app.');
   reportDialog.showModal();
   draftStart(reportDialog);
   reportForm.elements.message.focus();
@@ -122,11 +122,11 @@ async function shareReport() {
       await navigator.share({ title: `Dotted Line ${APP_VERSION}: a problem`, text });
     } else {
       await navigator.clipboard.writeText(text);
-      snackbar(T('Report copied — paste it in a message to the person who shared the app with you'));
+      snackbar(T('Report copied — paste it in a message to whoever shared the app'));
     }
     reportDialog.close();
   } catch (err) {
-    if (!err || err.name !== 'AbortError') reportError(T('Couldn’t share it from here. Copy your text and send it yourself, with the version: {v}.', { v: APP_VERSION }));
+    if (!err || err.name !== 'AbortError') reportError(T('Couldn’t share it. Copy your text and send it yourself, with version {v}.', { v: APP_VERSION }));
   }
 }
 
@@ -135,12 +135,12 @@ reportForm.addEventListener('submit', async (e) => {
   const f = reportForm.elements;
   const message = f.message.value.trim();
   const email = f.email.value.trim();
-  if (message.length < 10) return reportError(T('Say a little more about what went wrong: what you did, and what happened.'));
-  if (email && !/^\S+@\S+\.\S+$/.test(email)) return reportError(T('That email address doesn’t look right. Fix it, or leave it empty.'));
+  if (message.length < 10) return reportError(T('Say a bit more: what you did, and what happened.'));
+  if (email && !/^\S+@\S+\.\S+$/.test(email)) return reportError(T('That email looks wrong. Fix it, or leave it empty.'));
   reportError('');
   if (!window.REPORT_KEY) return shareReport();
-  if (!navigator.onLine) return reportError(T('No connection. Your message stays here: try again when you’re online.'));
-  if (Date.now() - reportSentAt < 30000) return reportError(T('You just sent one. Wait half a minute before the next.'));
+  if (!navigator.onLine) return reportError(T('No connection. Your message is kept: send it once online.'));
+  if (Date.now() - reportSentAt < 30000) return reportError(T('You just sent one. Wait 30 seconds.'));
 
   const buttons = reportForm.querySelectorAll('button');
   buttons.forEach((b) => { b.disabled = true; });
@@ -164,7 +164,7 @@ reportForm.addEventListener('submit', async (e) => {
     snackbar(T('Sent — thank you'));
   } catch (err) {
     console.warn('Report not sent', err);
-    reportError(T('Couldn’t send it just now. Try again in a moment, or use “Send another way”.'));
+    reportError(T('Couldn’t send it. Try again, or use “Send another way”.'));
     $('#report-other').hidden = false;
   } finally {
     buttons.forEach((b) => { b.disabled = false; });

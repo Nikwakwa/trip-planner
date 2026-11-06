@@ -177,8 +177,8 @@ async function openFiles(itemId) {
           : `<div class="file-line"><a class="file-row file-open ripple" href="${url}" target="_blank" rel="noopener">${icon('picture_as_pdf')}
               <span class="file-name">${esc(f.name)}</span><span class="file-size">${fmtSize(f.size)}</span>${icon('open_in_new')}</a>${save}</div>`;
       }).join('') || `<p class="supporting">${T('No files.')}</p>`}
-      <p class="footnote">${icon('attach_file', 'sm')}${T('Saved on this device only, and not shared with anyone. To change them, edit the plan.')}</p>
-      ${list.length ? `<p class="footnote">${icon('download', 'sm')}${T('A file that won’t open? Save a copy: it goes to Downloads, to open with another app.')}</p>` : ''}`;
+      <p class="footnote">${icon('attach_file', 'sm')}${T('On this device only, never shared. Edit the plan to change them.')}</p>
+      ${list.length ? `<p class="footnote">${icon('download', 'sm')}${T('Won’t open? Save a copy to Downloads and open it from there.')}</p>` : ''}`;
   } catch {
     $('#files-body').innerHTML = `<p class="supporting">${T('Couldn’t open the files.')}</p>`;
   }

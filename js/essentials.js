@@ -239,12 +239,12 @@ function renderEssentials() {
 
   if (!e) {
     body.innerHTML = !trip.place
-      ? emptyState('location_off', T('No place picked yet'), T('Edit the trip and pick the city or country from the list to see its essentials.'))
+      ? emptyState('location_off', T('No place picked yet'), T('Edit the trip and pick its place from the list to see this.'))
       : status === 'loading'
-        ? emptyState('info', T('Getting the essentials for {place}…', { place: esc(placeName(trip.place)) }), T('Emergency number, plugs, local time and tips from the travel guide.'))
+        ? emptyState('info', T('Getting the essentials for {place}…', { place: esc(placeName(trip.place)) }), T('Emergency number, plugs, local time and tips.'))
         : !navigator.onLine
-          ? emptyState('cloud_off', T('Needs a connection once'), T('Open this while online, and the essentials are saved on your device for the trip.'))
-          : emptyState('info', T('Nothing found'), T('The travel guide may not cover this place, or the connection dropped.'),
+          ? emptyState('cloud_off', T('Needs a connection once'), T('Open this once online to save it for the trip.'))
+          : emptyState('info', T('Nothing found'), T('Not in the travel guide, or the connection dropped.'),
               `<button type="button" class="btn tonal ripple" data-action="retry-essentials">${icon('restart_alt')}${T('Try again')}</button>`);
     return;
   }

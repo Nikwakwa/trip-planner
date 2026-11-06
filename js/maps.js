@@ -257,7 +257,7 @@ function optimizeDay(trip, day) {
   if (located.length < 3) return { error: T('Optimizing needs at least 3 stops on the map.') };
   const timed = located.filter(it => it.time);
   const free = located.filter(it => !it.time);
-  if (!free.length) return { error: T('Every stop has a set time, so the order is fixed. Clear a time to let the app move that stop.') };
+  if (!free.length) return { error: T('Every stop has a set time, so the order is fixed. Clear a time to move it.') };
 
   // With a hotel (today.js), the day starts and ends there; the route counts both ways.
   const ends = dayEnds(trip, day, items, guide);

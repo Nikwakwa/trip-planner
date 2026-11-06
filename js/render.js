@@ -145,7 +145,7 @@ function renderFailed(e) {
   console.error(e);
   noteError(`Drawing "${ui.view}": ${(e && e.message) || e}`);
   $('#view-' + ui.view).innerHTML = emptyState('error', T('This screen can’t be shown'),
-    T('Your plans are safe on this device. Close the app and open it again. If this stays, save a backup file in Settings, and tell us there with “Report a problem”.'),
+    T('Your plans are safe. Reopen the app. If this stays, save a backup and use “Report a problem” in Settings.'),
     ui.view === 'more' ? '' : `<div class="empty-actions"><button type="button" class="btn tonal ripple" data-go="more">${icon('settings')}${T('Settings')}</button></div>`);
 }
 
@@ -213,8 +213,8 @@ function renderWelcome() {
       </button>
     </section>
     <p class="welcome-note">${ideas
-      ? T('Pick a place first. Its sights, food and things to do show up here, to save for later or add to a day.')
-      : T('Pick a place and you’ll get ideas for things to do there, day by day. Already planning on another device? Sign in under <b>Settings</b> to bring your trips here.')}</p>
+      ? T('Pick a place first to see its sights and food here.')
+      : T('Pick a place to get ideas for each day. Planning on another device? Sign in under <b>Settings</b>.')}</p>
     ${!ideas && sync.configured ? `<button type="button" class="btn text ripple welcome-join" data-action="join-trip">${icon('group')}${T('Invited to a trip? Join it')}</button>` : ''}
     ${archived ? `<button type="button" class="btn text ripple welcome-join" data-action="archive-list">${icon('archive')}${Tn(archived, '{n} archived trip', '{n} archived trips')}</button>` : ''}`;
 }

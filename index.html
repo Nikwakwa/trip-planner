@@ -133,7 +133,7 @@
         <span class="field-label">Check-out day (optional)</span>
         <input type="date" name="until">
       </label>
-      <p class="hint">No day? It stays in Ideas until you pick one.</p>
+      <p class="hint">No day? It waits in Ideas.</p>
       <label class="field">
         <span class="field-label">Place or address</span>
         <input name="place" maxlength="200" placeholder="A place name or an address" autocomplete="off">
@@ -161,7 +161,7 @@
           </label>
         </div>
         <ul id="item-files" class="file-list"></ul>
-        <p class="hint">Photos or PDFs, kept on this device only. They aren’t synced, and can’t be shared with the people on a trip.</p>
+        <p class="hint">Photos or PDFs. They stay on this device, never shared.</p>
       </div>
       <div class="sheet-actions">
         <button type="button" class="btn text danger ripple" id="item-delete">
@@ -222,7 +222,7 @@
         </button>
       </div>
       <div class="info-body">
-        <p class="sheet-text archive-intro">Off the top bar, and kept just as they were. Open one to look back, or unarchive it to bring it back.</p>
+        <p class="sheet-text archive-intro">Off the top bar, kept just as they were.</p>
         <ul id="archive-list" class="group archive-list"></ul>
       </div>
     </div>
@@ -414,14 +414,14 @@
       <p class="sheet-text" id="report-how"></p>
       <label class="field">
         <span class="field-label">What went wrong?</span>
-        <textarea name="message" rows="4" maxlength="2000" required placeholder="What you did, what you expected, and what happened instead"></textarea>
+        <textarea name="message" rows="4" maxlength="2000" required placeholder="What you did, and what happened"></textarea>
       </label>
       <label class="field">
-        <span class="field-label">Your email, if you’d like an answer (optional)</span>
+        <span class="field-label">Your email, for a reply (optional)</span>
         <input name="email" type="email" maxlength="200" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false">
       </label>
       <details class="report-more">
-        <summary>Also sent: the app’s version and the kind of device. Never your plans.</summary>
+        <summary>Also sent: the app version and device type. Never your plans.</summary>
         <pre id="report-details"></pre>
       </details>
       <p id="report-error" class="form-error" role="alert" hidden></p>
@@ -444,7 +444,7 @@
         </button>
       </div>
       <div id="vote-body" class="info-body">
-        <p class="sheet-text vote-intro">Tap everything you’d like to see in the app. Each vote is saved as you tap, and the most wanted get built first.</p>
+        <p class="sheet-text vote-intro">Tap what you’d like next. Each tap is a vote, saved right away.</p>
         <div id="vote-note"></div>
         <ul id="vote-list" class="vote-list"></ul>
         <!-- The form stays closed until asked for: its Send button was taken for "save my votes" -->
@@ -461,7 +461,7 @@
             <span class="field-label">A few more words (optional)</span>
             <textarea name="text" rows="2" maxlength="300"></textarea>
           </label>
-          <p class="vote-hint">Everyone who uses the app can read it and vote for it. Your name and email aren’t shown.</p>
+          <p class="vote-hint">Everyone can see it and vote for it. Your name and email stay hidden.</p>
           <p id="vote-error" class="form-error" role="alert" hidden></p>
           <div class="sheet-actions">
             <span class="spacer"></span>
@@ -501,7 +501,7 @@
           <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#close"/></svg>
         </button>
       </div>
-      <p class="sheet-text">Paste the invitation link you were sent. You’ll plan the trip together, each from your own account.</p>
+      <p class="sheet-text">Paste the invitation link you were sent.</p>
       <label class="field">
         <span class="field-label">Invitation link</span>
         <input name="link" maxlength="500" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="url">
@@ -524,7 +524,7 @@
           <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#close"/></svg>
         </button>
       </div>
-      <p class="sheet-text">Your first name or a nickname. The people you plan a trip with see it next to the ideas you like, and on the list of who is on the trip.</p>
+      <p class="sheet-text">Your first name or a nickname, shown to the people you plan trips with.</p>
       <label class="field">
         <span class="field-label">First name or nickname</span>
         <input name="name" maxlength="30" autocomplete="nickname" autocapitalize="words" enterkeyhint="done">

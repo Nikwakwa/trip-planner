@@ -258,7 +258,7 @@ function mealCard(m, n, day, trip) {
 // The day's places to eat, with a line on where they come from. Looks for them when they aren't known yet.
 function mealsBodyHTML(trip, day) {
   const spots = mealSpots(trip, day);
-  if (!spots) return `<p class="meal-note">${icon('location_on', 'sm')}<span>${T('Add plans with an address to this day to see places to eat near them.')}</span></p>`;
+  if (!spots) return `<p class="meal-note">${icon('location_on', 'sm')}<span>${T('Add plans with an address to see places to eat nearby.')}</span></p>`;
   const key = mealKey(trip, day);
   const had = savedMeals(trip, day, spots);
   if (!had) askMeals(trip, day, spots);
@@ -276,8 +276,8 @@ function mealsBodyHTML(trip, day) {
   const list = had ? had.places : [];
   const cards = had ? list.map((m, n) => mealCard(m, n, day, trip)) : fromGuide.map(r => suggestionCard(r, day));
   const source = had
-    ? `<p class="footnote"><span>${had.ai ? T('Places from OpenStreetMap, picked by Gemini. Tap one for its reviews on Google Maps.')
-      : T('Places from OpenStreetMap, nearest first. Tap one for its reviews on Google Maps.')}</span></p>`
+    ? `<p class="footnote"><span>${had.ai ? T('From OpenStreetMap, picked by Gemini. Tap one for Google Maps reviews.')
+      : T('From OpenStreetMap, nearest first. Tap one for Google Maps reviews.')}</span></p>`
     : fromGuide.length ? `<p class="footnote">${T('Places to eat from the travel guide.')}</p>` : '';
   return `
     ${status}
@@ -322,10 +322,10 @@ function foodIdeasHTML(trip, food) {
   if (!day) {
     return `
       <p class="supporting">${T('Places to eat you want to try. Save one with “New idea”.')}</p>
-      ${saved || emptyState('restaurant', T('No places to eat yet'), T('Add plans with an address to your days, and you’ll see places for lunch and dinner near them here.'))}`;
+      ${saved || emptyState('restaurant', T('No places to eat yet'), T('Add plans with an address to see lunch and dinner spots near them.'))}`;
   }
   return `
-    <p class="supporting">${T('Places to eat you want to try, and ideas for lunch and dinner near each day’s plans.')}</p>
+    <p class="supporting">${T('Places to try, and lunch and dinner ideas near each day’s plans.')}</p>
     ${saved}
     <div class="suggest-head food-head">
       <h2 class="group-label">${T('Near your plans')}</h2>

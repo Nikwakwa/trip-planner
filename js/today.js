@@ -179,8 +179,8 @@ function openNearMe() {
   }, (err) => {
     near.status = 'error';
     near.error = err.code === 1
-      ? T('Location is blocked for this app. Allow it for this site in your browser’s settings (on an iPhone: Settings → Privacy → Location Services), then try again.')
-      : T('Couldn’t find where you are. Check that location is on, then try again.');
+      ? T('Location is blocked. Allow it in your browser’s site settings (iPhone: Settings → Privacy → Location Services).')
+      : T('Couldn’t find you. Check that location is on.');
     renderNearMe();
   }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
 }
@@ -206,7 +206,7 @@ function renderNearMe() {
       `<button type="button" class="btn tonal ripple" data-action="near-me">${icon('restart_alt')}${T('Try again')}</button>`);
     return;
   }
-  if (!guide) { body.innerHTML = emptyState('travel_explore', T('No guide yet'), T('The guide for {trip} isn’t ready. Open the trip while online first.', { trip: esc(tripName(trip)) })); return; }
+  if (!guide) { body.innerHTML = emptyState('travel_explore', T('No guide yet'), T('The guide for {trip} isn’t ready. Open the trip online first.', { trip: esc(tripName(trip)) })); return; }
   const here = near.pos;
   const ranked = guide.places.map(p => ({ p, d: miles(here, p) })).sort((a, b) => a.d - b.d);
   if (!ranked.length || ranked[0].d > 30) {

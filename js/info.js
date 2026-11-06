@@ -159,8 +159,8 @@ function renderPlanInfo() {
     ${looking ? `<p class="guide-note" role="status">${icon('travel_explore')}${T('Looking it up…')}</p>`
       : [wiki && wiki.text, why, p && p.hours, p && p.price, p && p.tip].some(translating) ? `<p class="guide-note" role="status">${icon('translate')}${T('Translating…')}</p>` : ''}
     ${!looking && !(wiki && wiki.text) && !why && !facts ? `<p class="supporting">${navigator.onLine
-      ? T('Nothing found about this place. A fuller name or address on the plan can help.')
-      : T('You’re offline. Open this once while online, and it is saved for later.')}</p>` : ''}
+      ? T('Nothing found. A fuller name or address may help.')
+      : T('You’re offline. Open this once online to save it.')}</p>` : ''}
     <div class="pi-links">
       ${item.place ? `<a class="assist-chip ripple" href="${esc(mapsUrl(item.place, trip, c, item.title))}" target="_blank" rel="noopener">${icon('location_on')}${T('Directions')}</a>` : ''}
       ${site ? `<a class="assist-chip ripple" href="${esc(site)}" target="_blank" rel="noopener">${icon('link')}${esc(hostLabel(site))}</a>` : ''}

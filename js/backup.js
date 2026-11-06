@@ -143,8 +143,8 @@ document.addEventListener('change', async (e) => {
     icon: 'upload',
     title: T('Restore this backup?'),
     text: T('It has {trips} and {plans}.', { trips: Tn(restored.trips.length, '{n} trip', '{n} trips'), plans: Tn(n, '{n} plan', '{n} plans') }) + ' ' +
-      (sync.saved ? T('It will replace everything currently in the app — also on the other devices signed in to your account.') : T('It will replace everything currently in the app.')) +
-      (sharedNow().length ? ' ' + T('The trips you plan with other people stay as they are.') : ''),
+      (sync.saved ? T('It replaces everything in the app, on all your devices.') : T('It replaces everything in the app.')) +
+      (sharedNow().length ? ' ' + T('Shared trips stay as they are.') : ''),
     ok: T('Restore'),
   });
   if (!ok) return;
@@ -183,9 +183,9 @@ onAction('reset', async () => {
     icon: 'restart_alt',
     title: T('Erase everything?'),
     text: (sync.saved
-      ? T('All trips, plans and checklist items will be deleted — on this device and on every device signed in to your account.')
-      : T('All trips, plans and checklist items on this device will be deleted.'))
-      + (shared ? ' ' + T('Trips you invited people to are deleted for them too, and you leave the trips you were invited to.') : '')
+      ? T('Everything will be deleted, here and on all your signed-in devices.')
+      : T('Everything on this device will be deleted.'))
+      + (shared ? ' ' + T('Trips you shared are deleted for the others too, and you leave those you joined.') : '')
       + ' ' + T('Save a backup first if you might want them back.'),
     ok: T('Erase'),
   });

@@ -25,7 +25,7 @@ const SHARE_MAX = 20;        // people on one trip (firestore.rules says the sam
 const SHARED_BATCH = 10;
 const CODE_LETTERS = 'abcdefghijkmnpqrstuvwxyz23456789';     // 32 of them: no "l" or "o", which read like 1 and 0
 const INVITE = /\b([a-z2-9]{20})\.([a-z2-9]{12})\b/;
-const SHARE_OFF = T('Planning together isn’t switched on for this copy of the app yet.');
+const SHARE_OFF = T('Planning together isn’t switched on yet.');
 
 const sharing = {
   uid: null,            // the account signed in
@@ -337,7 +337,7 @@ async function joinShare({ id, code }) {
       const ok = await askConfirm({
         icon: 'group',
         title: T('You already have {trip}', { trip: copy.name }),
-        text: T('This device has its own copy of this trip. Joining replaces it with the shared one: what you changed only in your copy is lost.'),
+        text: T('Joining replaces this device’s copy of the trip. Changes made only here are lost.'),
         ok: T('Join'),
       });
       if (!ok) {
@@ -428,13 +428,13 @@ function checkInviteLink() {
 window.addEventListener('hashchange', checkInviteLink);
 
 async function offerInvite(invite) {
-  if (!sync.configured) return snackbar(T('This copy of the app has no accounts, so trips can’t be shared.'));
+  if (!sync.configured) return snackbar(T('Accounts aren’t set up, so trips can’t be shared.'));
   sharing.invite = invite;
   if (!sync.saved) {
     const ok = await askConfirm({
       icon: 'group',
       title: T('You’re invited to a trip'),
-      text: T('Sign in to join it. No account yet? Creating one is free and takes a minute.'),
+      text: T('Sign in to join. No account? It’s free and quick.'),
       ok: T('Sign in'),
     });
     if (ok) openAuthForm();
@@ -443,7 +443,7 @@ async function offerInvite(invite) {
   }
   if (!navigator.onLine) {
     sharing.invite = null;
-    return snackbar(T('You’re offline. Open the invitation again when you’re online.'));
+    return snackbar(T('You’re offline. Open the invitation again once online.'));
   }
   retrySharing();     // if the database still says no, that answer clears the invitation (startSharing)
   resumeInvite();
@@ -473,7 +473,7 @@ async function acceptInvite(invite) {
     const ok = await askConfirm({
       icon: 'group',
       title: T('Join this trip?'),
-      text: T('You’ll plan it together: everyone on the trip can change its plans, and sees the email address of the others.'),
+      text: T('Everyone on the trip can change its plans and sees the others’ emails.'),
       ok: T('Join'),
     });
     if (!ok) return;
@@ -539,19 +539,19 @@ function renderShare() {
   $('#share-title').textContent = T('Share {trip}', { trip: tripName(trip) });
   const root = shareOf(trip);
   const note = (ic, text, more = '', bad = false) => `<p class="vote-note ${bad ? 'bad' : ''}">${icon(ic)}<span>${text}</span>${more}</p>`;
-  const intro = `<p>${T('Invite people to this trip. They see it and change it from their own account: its days, plans and ideas, and a list for everyone in the Checklist.')}</p>`;
-  const notFiles = `<p class="share-hint">${T('Tickets and other files you attach to a plan can’t be shared in the app: they stay on your device. Your own checklist stays yours too.')}</p>`;
+  const intro = `<p>${T('Invite people to plan this trip with you, each from their own account.')}</p>`;
+  const notFiles = `<p class="share-hint">${T('Tickets and files stay on your device. Your own checklist stays yours.')}</p>`;
 
   let together;
   if (!sync.configured) {
     together = '';
   } else if (!sync.saved) {
-    together = intro + note('login', T('Sign in first. Everyone joins with an account of their own.'),
+    together = intro + note('login', T('Sign in first. Everyone joins with their own account.'),
       `<button type="button" class="btn tonal ripple" data-action="share-sign-in">${T('Sign in')}</button>`);
   } else if (sharing.off) {
     together = intro + note('error', SHARE_OFF, '', true);
   } else if (!navigator.onLine) {
-    together = note('cloud_off', trip.shared ? T('You’re offline. Your changes reach the others when you’re back online.') : T('You’re offline. Connect to invite people.'));
+    together = note('cloud_off', trip.shared ? T('You’re offline. The others get your changes once you’re back.') : T('You’re offline. Connect to invite people.'));
   } else if (!root) {
     together = trip.shared || !sharing.ready
       ? note('sync', T('Asking your account who is on this trip…'))
@@ -581,7 +581,7 @@ function renderShare() {
           ${navigator.share ? `<button type="button" class="btn filled ripple" data-action="share-send">${icon('send')}${T('Send the link')}</button>` : ''}
           <button type="button" class="btn ${navigator.share ? 'tonal' : 'filled'} ripple" data-action="share-copy">${icon('content_copy')}${T('Copy')}</button>
         </div>
-        <p class="share-hint">${mine ? T('Whoever opens this link and signs in joins the trip and can change it. They show up here, and you can take them off again.') : T('Whoever opens this link and signs in joins the trip and can change it. They show up here.')}</p>` : ''}
+        <p class="share-hint">${mine ? T('Anyone who opens this link and signs in can join and edit. You can remove them here.') : T('Anyone who opens this link and signs in can join and edit.')}</p>` : ''}
       ${notFiles}
       ${mine ? '' : `<button type="button" class="btn text danger ripple share-leave" data-action="share-leave">${icon('logout')}${T('Leave this trip')}</button>`}`;
   }
@@ -593,7 +593,7 @@ function renderShare() {
     </section>` : ''}
     <section class="tip">
       <h3>${icon('send')}${T('Just show the plan')}</h3>
-      <p>${T('Send the days and their plans as text, to read in any app. Nobody can change anything.')}</p>
+      <p>${T('Send the plan as text. Nobody can change it.')}</p>
       <button type="button" class="btn tonal ripple" data-action="share-text">${icon('share')}${T('Send as text')}</button>
     </section>`;
 }
@@ -628,9 +628,9 @@ async function sendInvite(copy) {
       return;
     }
     await navigator.clipboard.writeText(url);
-    snackbar(T('Link copied — send it to the people you want on the trip'));
+    snackbar(T('Link copied — send it to the people you’re inviting'));
   } catch (err) {
-    if (!err || err.name !== 'AbortError') snackbar(T('Couldn’t copy it from here. Hold the link to select it.'));
+    if (!err || err.name !== 'AbortError') snackbar(T('Couldn’t copy. Hold the link to select it.'));
   }
 }
 
@@ -642,7 +642,7 @@ async function removeFromTrip(uid) {
   const ok = await askConfirm({
     icon: 'delete',
     title: who.email ? T('Take {email} off the trip?', { email: who.email }) : T('Take this person off the trip?'),
-    text: T('{trip} goes away from their devices. The invitation link changes too: the old one stops working.', { trip: tripName(trip) }),
+    text: T('{trip} leaves their devices, and the old invitation link stops working.', { trip: tripName(trip) }),
     ok: T('Remove'),
   });
   if (!ok) return;
@@ -654,7 +654,7 @@ async function removeFromTrip(uid) {
 async function endSharedTrip(trip) {
   const root = shareOf(trip);
   if (!root || !navigator.onLine) {
-    snackbar(T('This trip is shared: connect to the internet to leave or delete it.'));
+    snackbar(T('Go online to leave or delete a shared trip.'));
     return false;
   }
   const mine = ownsShare(root);
@@ -668,7 +668,7 @@ async function endSharedTrip(trip) {
   } : {
     icon: 'logout',
     title: T('Leave {trip}?', { trip: tripName(trip) }),
-    text: T('It goes away from your devices. The others keep it, and can invite you again.'),
+    text: T('It leaves your devices. The others keep it and can invite you back.'),
     ok: T('Leave'),
   });
   if (!ok) return false;
@@ -709,7 +709,7 @@ function joinError(text) {
 document.getElementById('join-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const invite = readInvite(e.currentTarget.elements.link.value);
-  if (!invite) return joinError(T('That isn’t an invitation link. Paste the whole link you were sent.'));
+  if (!invite) return joinError(T('That’s not an invitation link. Paste the whole link.'));
   document.getElementById('join-dialog').close();
   offerInvite(invite);
 });

@@ -158,7 +158,7 @@ function renderPlan(trip) {
   let noDays = '';
   if (!days.length) {
     noDays = emptyState('event_available', T('Your days will appear here'),
-      T('Add the dates for {trip} and you’ll see the trip day by day.', { trip: esc(tripName(trip)) }),
+      T('Add dates to see {trip} day by day.', { trip: esc(tripName(trip)) }),
       `<div class="empty-actions">
         ${ideas ? `<button type="button" class="btn tonal ripple" data-action="open-ideas" data-tab="mine">${icon('lightbulb')}${Tn(ideas, 'See {n} idea', 'See {n} ideas')}</button>` : ''}
         ${guide ? `<button type="button" class="btn tonal ripple" data-action="open-ideas" data-tab="explore">${icon('explore')}${T('Explore {place}', { place: esc(guideCity(guide, trip)) })}</button>` : ''}

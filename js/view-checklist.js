@@ -36,7 +36,7 @@ function tripListHTML(trip, typed) {
         <h2 class="group-label">${icon('group', 'sm')}${esc(tripName(trip))}${trip.shared ? T(', together') : ''}${todos.length ? ` · ${done.length}/${todos.length}` : ''}</h2>
         ${done.length ? `<button type="button" class="btn text ripple" data-action="clear-checked">${T('Clear done')}</button>` : ''}
       </div>
-      ${trip.shared ? `<p class="supporting">${T('Everyone on this trip sees this list, adds to it and ticks things off.')}
+      ${trip.shared ? `<p class="supporting">${T('Everyone on the trip can add to it and tick things off.')}
         ${T('{how} to move it between this list and yours.', { how: dragHow() })}</p>` : ''}
       <form class="add-bar" data-form="todo">
         <input name="text" value="${esc(typed)}" placeholder="${T('Add something for everyone')}" maxlength="200" autocomplete="off" aria-label="${T('New item for everyone on the trip')}">

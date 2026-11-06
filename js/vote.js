@@ -16,10 +16,10 @@
 // Built since, so off the list (don't use these ids again): share-trip, languages (French, 2026-10),
 // packing-lists (lines kept for every trip, 2026-11), meals (Where to eat, 2026-11).
 const FEATURE_IDEAS = [
-  { id: 'offline-maps', title: T('Maps without a connection'), text: T('Download a trip’s map before leaving, for when there is no signal.') },
-  { id: 'budget', title: T('Trip budget'), text: T('Note what each plan costs, and see the total for a day and for the whole trip.') },
-  { id: 'journal', title: T('Trip journal'), text: T('Add a photo and a few words to a plan once it’s done, and look back on the trip.') },
-  { id: 'print', title: T('Print the plan'), text: T('A clean page of the whole trip, to print or keep as a PDF.') },
+  { id: 'offline-maps', title: T('Maps without a connection'), text: T('Download a trip’s map for when there’s no signal.') },
+  { id: 'budget', title: T('Trip budget'), text: T('Note each plan’s cost, with day and trip totals.') },
+  { id: 'journal', title: T('Trip journal'), text: T('Add a photo and a note to plans you’ve done.') },
+  { id: 'print', title: T('Print the plan'), text: T('The whole trip on one page, to print or save as PDF.') },
   { id: 'copy-trip', title: T('Copy a trip'), text: T('Start a new trip from one you already made.') },
   { id: 'change-email', title: T('Change your email'), text: T('Move your account to another email address.') },
 ];
@@ -100,7 +100,7 @@ async function startVoting() {
     stopVoting();
     voting.status = 'error';
     // The database rules for voting aren't published yet (see README).
-    voting.error = err && err.code === 'permission-denied' ? T('Voting isn’t switched on for this copy of the app yet.') : syncErrorText(err);
+    voting.error = err && err.code === 'permission-denied' ? T('Voting isn’t switched on yet.') : syncErrorText(err);
     renderVoting();
   };
   try {
@@ -178,7 +178,7 @@ async function suggestFeature(form) {
   const mine = voting.ideas.filter(i => i.uid === voting.uid);
   // A suggestion of yours that is now built is out of the list: its place is freed for this one.
   const built = mine.filter(isBuilt).sort((a, b) => a.at - b.at);
-  if (mine.length - built.length >= VOTE_MAX_IDEAS) return voteError(T('You have {n} suggestions in the list. Remove one to send another.', { n: VOTE_MAX_IDEAS }));
+  if (mine.length - built.length >= VOTE_MAX_IDEAS) return voteError(T('You have {n} suggestions. Remove one to send another.', { n: VOTE_MAX_IDEAS }));
   if (isBuilt({ title })) return voteError(T('The app does that already: see “What’s new”.'));
   if (votingFeatures().some(f => norm(f.title) === norm(title))) return voteError(T('That one is in the list already. Vote for it!'));
   // Offline, the account's answer would never come, and the form would stay waiting.

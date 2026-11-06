@@ -265,7 +265,7 @@ function dropOn(target) {
     } else if (fromDay === target.day) {
       // A timed plan dropped on the wrong side of another timed plan: it can't go there.
       render();
-      snackbar(T('Stays at {time}, in time order with the day’s other timed plans', { time: fmtTime(item.time) }));
+      snackbar(T('Stays at {time}, to keep the day’s times in order', { time: fmtTime(item.time) }));
       return;
     }
     message = fromDay === target.day ? T('Moved')

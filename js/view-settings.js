@@ -19,7 +19,7 @@ function renderMore() {
       <li><button type="button" class="row accent ripple" data-action="sign-in">
         <span class="row-icon">${icon('login')}</span>
         <span class="row-text"><span class="row-title">${T('Sign in to sync')}</span>
-          <span class="row-sub">${T('See your trips on all your devices, and plan them with other people')}</span></span>
+          <span class="row-sub">${T('Sync your devices and plan with others')}</span></span>
       </button></li>`;
   } else {
     account = `
@@ -31,12 +31,12 @@ function renderMore() {
       ${sync.saved.verified === false ? `<li><button type="button" class="row accent ripple" data-action="verify-email">
         <span class="row-icon">${icon('send')}</span>
         <span class="row-text"><span class="row-title">${T('Confirm your email')}</span>
-          <span class="row-sub">${T('Tap the link we emailed you, so “Forgot password?” can reach you. Tap here if you did, or to get a new link.')}</span></span>
+          <span class="row-sub">${T('Open the link we emailed you, then tap here')}</span></span>
       </button></li>` : ''}
       <li><button type="button" class="row ripple" data-action="edit-name">
         <span class="row-icon">${icon('person')}</span>
         <span class="row-text"><span class="row-title">${state.profile ? esc(state.profile.name) : T('Add your name')}</span>
-          <span class="row-sub">${T('First name or nickname, shown to the people you plan trips with')}</span></span>
+          <span class="row-sub">${T('Shown to the people you plan trips with')}</span></span>
       </button></li>
       <li><button type="button" class="row ripple" data-action="change-password">
         <span class="row-icon">${icon('shield')}</span>
@@ -112,12 +112,12 @@ function renderMore() {
       </button></li>
       <li><button type="button" class="row ripple" data-action="toggle-lookup" role="switch" aria-checked="${state.settings.lookup}">
         <span class="row-icon">${icon('pin_drop')}</span>
-        <span class="row-text"><span class="row-title">${T('Find addresses and opening hours')}</span><span class="row-sub">${T('And the way by road. Sends where your plans are (not what you plan there) to OpenStreetMap')}</span></span>
+        <span class="row-text"><span class="row-title">${T('Find addresses and opening hours')}</span><span class="row-sub">${T('And road times. Sends where your plans are to OpenStreetMap')}</span></span>
         <span class="switch ${state.settings.lookup ? 'on' : ''}" aria-hidden="true"></span>
       </button></li>
       ${aiReady() ? `<li><button type="button" class="row ripple" data-action="toggle-booking" role="switch" aria-checked="${state.settings.booking !== false}">
         <span class="row-icon">${icon('confirmation_number')}</span>
-        <span class="row-text"><span class="row-title">${T('Flag plans that sell out')}</span><span class="row-sub">${T('Sends the names of your plans to Google Gemini (free service)')}</span></span>
+        <span class="row-text"><span class="row-title">${T('Flag plans that sell out')}</span><span class="row-sub">${T('Sends plan names to Google Gemini')}</span></span>
         <span class="switch ${state.settings.booking !== false ? 'on' : ''}" aria-hidden="true"></span>
       </button></li>` : ''}
     </ul>
@@ -149,7 +149,7 @@ function renderMore() {
     <ul class="group">
       ${activeTrip() ? `<li><button type="button" class="row ripple" data-action="trip-calendar">
         <span class="row-icon">${icon('calendar_add_on')}</span>
-        <span class="row-text"><span class="row-title">${T('Calendar file for {trip}', { trip: esc(activeTrip().name) })}</span><span class="row-sub">${T('Every plan with a day, for any calendar app (in Google Calendar: Settings → Import)')}</span></span>
+        <span class="row-text"><span class="row-title">${T('Calendar file for {trip}', { trip: esc(activeTrip().name) })}</span><span class="row-sub">${T('For any calendar app (Google Calendar: Settings → Import)')}</span></span>
       </button></li>` : ''}
       <li><button type="button" class="row ripple" data-action="export">
         <span class="row-icon">${icon('download')}</span>
@@ -178,7 +178,7 @@ function renderMore() {
       </button></li>
       <li><button type="button" class="row ripple" data-action="report-problem">
         <span class="row-icon">${icon('error')}</span>
-        <span class="row-text"><span class="row-title">${T('Report a problem')}</span><span class="row-sub">${T('Write what went wrong. The app’s version goes with it, never your plans')}</span></span>
+        <span class="row-text"><span class="row-title">${T('Report a problem')}</span><span class="row-sub">${T('Tell us what went wrong')}</span></span>
       </button></li>
       <li><button type="button" class="row ripple" data-action="whats-new">
         <span class="row-icon">${icon('info')}</span>

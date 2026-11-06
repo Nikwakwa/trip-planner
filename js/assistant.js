@@ -464,10 +464,10 @@ function aiErrorText(e) {
   return {
     setup: T('The assistant isn’t switched on in Firebase yet — see “AI assistant” in the README.'),
     // After one refusal Firebase stops asking for a day, until the app is started again.
-    appcheck: T('Google couldn’t confirm that this is the app (App Check). Close the app completely, open it again, then retry. If it stays, see “AI assistant” in the README.'),
-    daily: T('Today’s free Gemini allowance is used up. Try again tomorrow, or use another AI app below.'),
-    busy: T('Gemini is busy right now. Wait a minute and try again.'),
-    format: T('The answer couldn’t be read. Try asking again in other words.'),
+    appcheck: T('Google couldn’t verify the app (App Check). Close it fully, reopen it and retry.'),
+    daily: T('Gemini’s free limit is used up for today. Try tomorrow, or another AI app below.'),
+    busy: T('Gemini is busy. Try again in a minute.'),
+    format: T('Couldn’t read the answer. Try other words.'),
   }[e && e.kind] || T('Something went wrong. Try again in a moment.');
 }
 
@@ -501,15 +501,15 @@ function renderChat() {
   const chat = chatOf(trip);
   const lite = ai.saved.liteDay === todayISO();
   $('#ai-sub').textContent = !aiReady() ? T('Use another AI app (below)')
-    : lite ? T('Gemini · lighter model until tomorrow (today’s free allowance is used up)')
+    : lite ? T('Gemini · lighter model until tomorrow')
     : T('Gemini · free');
 
   const body = $('#ai-body');
   body.innerHTML = `
-    ${aiReady() ? `<p class="ai-notice">${icon('info')}<span>${T('This chat uses Google Gemini’s free service. Google may use what you send, including your trip details, to improve its AI, so leave out anything private.')}</span></p>` : ''}
+    ${aiReady() ? `<p class="ai-notice">${icon('info')}<span>${T('This chat uses free Google Gemini, which may learn from what you send. Leave out anything private.')}</span></p>` : ''}
     ${chat.length ? '' : `
       <div class="ai-intro">
-        <p>${T('Ask me to plan days, suggest places, or change your plans in {trip}. I’ll show you the changes first — nothing changes until you tap <b>Apply</b>.', { trip: esc(tripName(trip)) })}</p>
+        <p>${T('Ask me to plan days, suggest places or change plans in {trip}. Nothing changes until you tap <b>Apply</b>.', { trip: esc(tripName(trip)) })}</p>
         <div class="ai-starters">${AI_STARTERS.map(s => `<button type="button" class="filter-chip ripple" data-action="ai-starter">${esc(s)}</button>`).join('')}
           <button type="button" class="filter-chip ripple" data-action="ai-booking">${icon('confirmation_number')}${T('Add from a booking email')}</button></div>
       </div>`}
@@ -521,7 +521,7 @@ function renderChat() {
       <ol>
         <li>${T('Type your request below, then')}
           <button type="button" class="btn tonal sm ripple" data-action="ai-copy">${icon('content_copy')}${T('Copy request')}</button></li>
-        <li>${T('Paste it into your AI app (any chatbot), and copy its whole answer.')}</li>
+        <li>${T('Paste it into any AI chat, then copy its whole answer.')}</li>
         <li>${T('Paste the answer here:')}
           <textarea id="ai-answer" rows="3" placeholder="${T('Paste the answer…')}"></textarea>
           <button type="button" class="btn tonal sm ripple" data-action="ai-read">${icon('check')}${T('Read answer')}</button></li>
@@ -634,7 +634,7 @@ onChatAction('ai-read', (el, trip, chat) => {
     ai.error = '';
     $('#ai-input').value = '';
   } catch (err) {
-    ai.error = T('That doesn’t look like the answer. Copy the whole answer, including the part between ``` marks.');
+    ai.error = T('That’s not the whole answer. Copy all of it, ``` marks included.');
   }
   saveAI();
   renderChat();
@@ -679,7 +679,7 @@ document.getElementById('ai-mic').addEventListener('click', () => {
     input.value = voice.before + said;
   };
   rec.onerror = (e) => {
-    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') snackbar(T('Microphone is blocked for this app — allow it in Chrome’s site settings'));
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') snackbar(T('Microphone blocked — allow it in Chrome’s site settings'));
     else if (e.error === 'network') snackbar(T('Speaking needs a connection'));
   };
   rec.onend = () => {

@@ -20,8 +20,8 @@ function setAuthMode(create) {
   authCreate = create;
   $('#auth-title').textContent = create ? T('Create account') : T('Sign in to sync');
   $('#auth-text').textContent = create
-    ? T('Choose an email and a password. You’ll use them on each of your devices, to see your trips there too.')
-    : T('Use the same email and password on each of your devices: they all show the same trips.');
+    ? T('Pick an email and password to use on all your devices.')
+    : T('Use the same email on each device to see the same trips.');
   $('#auth-repeat-field').hidden = !create;
   authForm.elements.password.autocomplete = create ? 'new-password' : 'current-password';
   $('#auth-submit').textContent = create ? T('Create account') : T('Sign in');
@@ -48,7 +48,7 @@ async function runAuth() {
   try {
     await signIn(email, password, create);
     authDialog.close();
-    snackbar(create ? T('Account created — we emailed you a link to confirm your address') : T('Signed in — connecting…'));
+    snackbar(create ? T('Account created — check your email to confirm it') : T('Signed in — connecting…'));
   } catch (err) {
     authError(syncErrorText(err));
   } finally {
@@ -93,10 +93,10 @@ function openAccountForm(mode) {
   accountForm.reset();
   $('#account-title').textContent = del ? T('Delete account?') : T('Change password');
   $('#account-text').textContent = del
-    ? T('This deletes the account {email} and the trips stored in it, for good. Other devices signed in lose their copy.', { email: sync.saved.email }) + ' ' +
+    ? T('This deletes {email} and its trips for good. Your other devices lose their copy.', { email: sync.saved.email }) + ' ' +
       (Object.values(sharing.roots).some(r => ownsShare(r) && r.members.length > 1) ? T('The people you invited to a trip lose that trip too.') + ' ' : '') +
       T('The trips stay on this device. Enter your password to confirm.')
-    : T('Other devices signed in to this account will have to sign in again with the new password.');
+    : T('Your other devices will ask for the new password.');
   accountForm.querySelectorAll('[data-new-password]').forEach((el) => { el.hidden = del; });
   $('#account-submit').textContent = del ? T('Delete account') : T('Change password');
   $('#account-submit').classList.toggle('danger', del);
@@ -185,7 +185,7 @@ onAction('sign-out', async () => {
   const ok = await askConfirm({
     icon: 'logout',
     title: T('Sign out?'),
-    text: T('Your plans stay on this device, but changes will no longer sync with other devices until you sign in again.'),
+    text: T('Your plans stay here, but stop syncing until you sign in again.'),
     ok: T('Sign out'),
   });
   if (!ok) return;

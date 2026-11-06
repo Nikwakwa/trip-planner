@@ -357,7 +357,7 @@ async function askHowToLink() {
       icon: 'sync',
       title: T('Add this device’s trips?'),
       text: T('Your account already has {theirs}. This device also has {mine}.', { theirs: names(remoteTrips.sort((a, b) => a.pos - b.pos)), mine: names(phoneTrips) }) + ' ' +
-        T('Add them to the account? If not, this device switches to the account’s plans.'),
+        T('If not, this device shows the account’s trips instead.'),
       ok: T('Add them'),
       cancel: T('Don’t add'),
     });
@@ -581,7 +581,7 @@ function syncErrorText(err) {
     'auth/wrong-password': T('Email or password is wrong.'),
     'auth/user-not-found': T('Email or password is wrong.'),
     'auth/invalid-login-credentials': T('Email or password is wrong.'),
-    'auth/email-already-in-use': T('There’s already an account with this email. Sign in instead.'),
+    'auth/email-already-in-use': T('This email already has an account. Sign in instead.'),
     'auth/weak-password': T('Use at least 6 characters for the password.'),
     'auth/invalid-email': T('That email address doesn’t look right.'),
     'auth/missing-password': T('Enter the password.'),
@@ -591,7 +591,7 @@ function syncErrorText(err) {
     'auth/requires-recent-login': T('Sign out, sign in again, then retry.'),
     'auth/operation-not-allowed': T('Email sign-in isn’t turned on in Firebase yet (see README).'),
     'permission-denied': T('The account’s database won’t allow this. Check the Firestore rules (see README).'),
-    'unavailable': T('Can’t reach the account right now. Changes will be sent later.'),
+    'unavailable': T('Can’t reach the account. Changes will be sent later.'),
   };
   if (code.startsWith('auth/api-key-not-valid') || code === 'auth/invalid-api-key') {
     return T('The Firebase settings in firebase-config.js look wrong (see README).');
