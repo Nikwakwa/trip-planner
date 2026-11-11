@@ -164,6 +164,7 @@ DICTS.fr = {
   'Ideas for your trip': 'Des idées pour votre voyage',
   'Plan a trip': 'Préparer un voyage',
   'Where do you want to go?': 'Où voulez-vous aller ?',
+  'Where do you want to go, {name}?': 'Où voulez-vous aller, {name} ?',
   'Search a city or country': 'Une ville ou un pays',
   'Pick a place first to see its sights and food here.': 'Choisissez d’abord un lieu pour voir ici ses sites et où manger.',
   'Pick a place to get ideas for each day. Planning on another device? Sign in under <b>Settings</b>.': 'Choisissez un lieu pour avoir des idées jour par jour. Déjà sur un autre appareil ? Connectez-vous dans <b>Paramètres</b>.',
@@ -288,6 +289,7 @@ DICTS.fr = {
   'Your own checklist': 'Votre propre liste',
   'Just for you': 'Rien que pour vous',
   'All done — you’re ready to go!': 'Tout est fait — vous êtes prêt à partir !',
+  'All done, {name} — you’re ready to go!': 'Tout est fait, {name} — vous êtes prêt à partir !',
   'packed & done': 'prêts',
   'Checklist progress': 'Progression de la liste',
   'Add something to pack or do': 'Ajouter quelque chose à emporter ou à faire',
@@ -650,6 +652,8 @@ DICTS.fr = {
 
   /* ---------- During the trip ---------- */
   'All of today’s plans are done.': 'Toutes les activités du jour sont faites.',
+  'With your name in Settings, the app greets you by it here and there': 'Avec votre prénom dans les paramètres, l’app vous appelle par votre prénom par endroits',
+  'All of today’s plans are done, {name}.': 'Toutes les activités du jour sont faites, {name}.',
   'What’s near me': 'Autour de moi',
   'Leave now': 'Partez maintenant',
   'Leave by {time}': 'Partez avant {time}',

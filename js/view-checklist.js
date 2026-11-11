@@ -139,7 +139,7 @@ function renderChecklist() {
     ${trip && lines.length ? `
       <div class="progress-card">
         <div><span class="big">${done.length}</span><span class="of"> / ${lines.length}</span></div>
-        <p>${done.length === lines.length ? T('All done — you’re ready to go!') : T('packed & done')}</p>
+        <p>${done.length === lines.length ? (myName() ? T('All done, {name} — you’re ready to go!', { name: esc(myName()) }) : T('All done — you’re ready to go!')) : T('packed & done')}</p>
         ${progressBar(done.length / lines.length, T('Checklist progress'))}
       </div>` : ''}
     <div data-list="${trip ? 'own' : 'every'}">

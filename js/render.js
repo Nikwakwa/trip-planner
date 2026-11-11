@@ -230,7 +230,7 @@ function renderWelcome() {
     <section class="hero welcome">
       ${shape(HERO_SHAPE, 'hero-shape')}
       <p class="hero-overline">${ideas ? T('Ideas for your trip') : T('Plan a trip')}</p>
-      <h1 class="hero-title">${T('Where do you want to go?').replace(/\S+-\S+/g, w => `<span class="nobr">${w}</span>`) /* "voulez-vous" stays together */}</h1>
+      <h1 class="hero-title">${(myName() ? T('Where do you want to go, {name}?', { name: esc(myName()) }) : T('Where do you want to go?')).replace(/\S+-\S+/g, w => `<span class="nobr">${w}</span>`) /* "voulez-vous" stays together */}</h1>
       <button type="button" class="where-btn ripple" data-action="new-trip">
         ${icon('search')}<span>${T('Search a city or country')}</span>
       </button>

@@ -41,6 +41,8 @@ const deviceMarks = () => ({ geoRetry: state.settings.geoRetry, seenVersion: sta
    Something without a usable id gets a new one (newId), or is left out (returns null). */
 
 // The name someone shows to the people they plan trips with (share.js): one line, 30 characters at most.
+// The name chosen in Settings → Account, said in a few places where the app speaks to its user. '' without one.
+const myName = () => (state.profile && state.profile.name) || '';
 const tidyName = v => (typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 30) : '');
 
 function tidyTrip(t, newId = false) {

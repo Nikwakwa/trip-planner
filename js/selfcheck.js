@@ -182,6 +182,28 @@ function runChecks() {
       [true, 'trip1', 2, true, false, false]);
   }));
 
+  check('The chosen name is said in a few places, written safely, and nothing changes without one', () => sandbox(() => {
+    const kept = { plan: $('#view-plan').innerHTML, pack: $('#view-pack').innerHTML, view: ui.view };
+    ui.view = 'plan';      // the start screen is drawn in the section on screen
+    // The start screen (no trip yet) and a checklist with everything ticked, with or without a name.
+    const screens = (name) => {
+      state = sample();
+      if (name) state.profile = { name }; else delete state.profile;
+      state.checklist = [{ id: 'c1', text: 'Passport', done: false, doneOn: ['trip1'] }];
+      renderChecklist();
+      const pack = $('#view-pack').innerHTML;
+      state.trips = [];
+      renderWelcome();
+      return [$('#view-plan').innerHTML, pack];
+    };
+    try {
+      const [welcome, pack] = screens('<b>Ann</b>');
+      const [plainWelcome, plainPack] = screens('');
+      return same([welcome.includes('go, &lt;b&gt;Ann&lt;/b&gt;?'), welcome.includes('<b>Ann'), pack.includes('All done, &lt;b&gt;Ann&lt;/b&gt; — '),
+        plainWelcome.includes('Where do you want to go?'), plainPack.includes('All done — you’re ready to go!')], [true, false, true, true, true]);
+    } finally { $('#view-plan').innerHTML = kept.plan; $('#view-pack').innerHTML = kept.pack; ui.view = kept.view; }
+  }));
+
   /* ---------- Backup files ---------- */
   group = 'Backup files';
   check('A file that isn’t a backup is refused', () =>

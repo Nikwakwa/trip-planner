@@ -442,6 +442,8 @@ and `shared/{id}/docs/…` holds the trip and its plans, in the same form as an 
   `stateDocs` from `state.profile` only once the account is linked (a new device would otherwise remove it). The current
   rules already allow it. `personName` (share.js) is the chosen name, else the start of the email; hearts and the
   Share sheet use it.
+  The app also says it to its user, in three places only (`myName()`, store.js; 2.32): the start screen's question,
+  the done-today card and the finished checklist. Keep it that sparing; without a name the texts stay as they were.
 - An invitation is `<id>.<code>`, sent as a link `…/#join=<id>.<code>` (after the `#`, so the host never sees it;
   `checkInviteLink`, or pasted under Settings → Trips → "Join a trip"). Joining is one write that adds the account
   to `uids` and `members` with the code as `via`; the rules compare it with the trip's code, and the email with the

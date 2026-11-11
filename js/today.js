@@ -125,7 +125,7 @@ function nowCardHTML(trip) {
   if (!n) return '';
   if (n.done) {
     return `<section class="now-card" id="now-card"><p class="now-label">${icon('check')}${T('Today')}</p>
-      <p class="now-title">${T('All of today’s plans are done.')}</p>
+      <p class="now-title">${myName() ? T('All of today’s plans are done, {name}.', { name: esc(myName()) }) : T('All of today’s plans are done.')}</p>
       <div class="now-actions"><button type="button" class="assist-chip ripple" data-action="near-me">${icon('my_location')}${T('What’s near me')}</button></div></section>`;
   }
   const line = (label, it, sub) => `
