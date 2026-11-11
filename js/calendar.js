@@ -26,7 +26,9 @@ function findTimeZone(trip, day) {
     for (const d of days) if ((tz = zoneOn(d))) break;
   }
   const e = trip.place && essentials.saved[placeKey(trip.place)];
-  return tz || (e && e.tz) || '';
+  // It goes into links and calendar files as it is: only what a zone's name is made of ("America/New_York").
+  const zone = tz || (e && e.tz) || '';
+  return /^[\w+-]+(\/[\w+-]+)*$/.test(zone) ? zone : '';
 }
 // Asked for every plan of a day while the screen is drawn: worked out once per day, until the next redraw.
 const zoneMemo = new Map();
@@ -75,7 +77,7 @@ function calendarUrl(item, trip) {
 }
 
 // Text in a calendar file: commas, semicolons and new lines are escaped, long lines folded.
-const icsText = s => String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+const icsText = s => String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r\n?|\n/g, '\\n').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '');
 function icsLine(line) {
   const out = [];
   while (line.length > 74) {

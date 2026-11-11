@@ -63,10 +63,38 @@ function whenTag(p) {
 
 /* ---------- Snackbar (message bar at the bottom, with optional Undo) ---------- */
 
+// A sheet is drawn above everything else on the page, and nothing outside it can be tapped. So while one is
+// open the bar goes inside it (the one on top), and is lifted above it as a "popover": a message, and its
+// Undo, are never left under a sheet.
+const openSheets = [];
+function placeSnackbar() {
+  const bar = $('#snackbar');
+  const host = openSheets[openSheets.length - 1] || document.body;
+  if (bar.parentNode !== host) host.append(bar);      // moving it also takes it down from above the sheet
+  if (!bar.showPopover) return;                       // an older browser: it stays inside the sheet
+  try {
+    if (bar.matches(':popover-open')) bar.hidePopover();
+    if (host !== document.body) bar.showPopover();
+  } catch { /* shown as part of the page */ }
+}
+for (const dlg of document.querySelectorAll('dialog')) {
+  const show = dlg.showModal;
+  dlg.showModal = function () {
+    show.call(dlg);
+    if (!openSheets.includes(dlg)) openSheets.push(dlg);
+    if ($('#snackbar').classList.contains('show')) placeSnackbar();
+  };
+  dlg.addEventListener('close', () => {
+    if (openSheets.includes(dlg)) openSheets.splice(openSheets.indexOf(dlg), 1);
+    if ($('#snackbar').classList.contains('show')) placeSnackbar();
+  });
+}
+
 let snackTimer;
 function snackbar(msg, actionLabel, onTap, duration) {
   const bar = $('#snackbar');
   const btn = $('#snackbar-action');
+  placeSnackbar();
   $('#snackbar-msg').textContent = msg;
   btn.hidden = !actionLabel;
   btn.textContent = actionLabel || '';

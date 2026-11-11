@@ -336,7 +336,7 @@ async function joinShare({ id, code }) {
     if (copy) {
       const ok = await askConfirm({
         icon: 'group',
-        title: T('You already have {trip}', { trip: copy.name }),
+        title: T('You already have {trip}', { trip: tripName(copy) }),
         text: T('Joining replaces this device’s copy of the trip. Changes made only here are lost.'),
         ok: T('Join'),
       });

@@ -729,6 +729,7 @@ DICTS.fr = {
   'Applied': 'Appliqué',
   'Not applied': 'Non appliqué',
   'Undone': 'Annulé',
+  'A change to a plan': 'Une modification d’une activité',
   'These changes no longer fit the trip.': 'Ces modifications ne correspondent plus au voyage.',
   'No thanks': 'Non merci',
   'Apply': 'Appliquer',

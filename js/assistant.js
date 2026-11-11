@@ -434,6 +434,9 @@ function applyProposal(trip, msg) {
     if (c.kind === 'dates') { trip.start = c.start; trip.end = c.end; }
   }
   msg.status = 'applied';
+  // What was done, kept as text: once applied, the changes no longer check out against the trip
+  // (a moved plan is where it was asked to go, a removed one is gone), and the list would empty itself.
+  msg.lines = checked.map(c => ({ icon: c.icon, text: c.text }));
   saveAI();
   save();
   render();
@@ -473,7 +476,10 @@ function aiErrorText(e) {
 
 function messageHTML(trip, m, index) {
   if (m.role === 'user') return `<div class="msg user"><p>${esc(m.text)}</p></div>`;
-  const checked = m.changes && m.changes.length ? checkChanges(trip, m.changes) : [];
+  // An applied proposal shows what it did then (applyProposal); icon names come from the saved chat, so only plain ones.
+  const kept = m.status === 'applied' && Array.isArray(m.lines)
+    ? m.lines.filter(l => l && typeof l.text === 'string').map(l => ({ icon: /^[a-z_]+$/.test(l.icon) ? l.icon : 'edit', text: l.text })) : [];
+  const checked = kept.length ? kept : m.changes && m.changes.length ? checkChanges(trip, m.changes) : [];
   const pending = checked.length && !m.status;
   return `
     <div class="msg ai">
@@ -481,7 +487,7 @@ function messageHTML(trip, m, index) {
       ${m.changes && m.changes.length ? `
         <div class="proposal ${m.status || ''}">
           <p class="proposal-head">${icon('auto_awesome')}${m.status === 'applied' ? T('Applied') : m.status === 'dismissed' ? T('Not applied') : m.status === 'undone' ? T('Undone') : Tn(checked.length, '{n} change to your plan', '{n} changes to your plan')}</p>
-          ${checked.length || m.status ? `<ul>${(checked.length ? checked : m.changes.map(c => ({ icon: 'edit', text: c.title || c.action }))).map(c => `<li>${icon(c.icon)}<span>${esc(c.text)}</span></li>`).join('')}</ul>`
+          ${checked.length || m.status ? `<ul>${(checked.length ? checked : m.changes.map(c => ({ icon: 'edit', text: c.title || T('A change to a plan') }))).map(c => `<li>${icon(c.icon)}<span>${esc(c.text)}</span></li>`).join('')}</ul>`
             : `<p class="proposal-none">${T('These changes no longer fit the trip.')}</p>`}
           ${pending ? `
             <div class="proposal-actions">
@@ -544,7 +550,9 @@ function openAssistant() {
 async function sendToAssistant(text) {
   const trip = activeTrip();
   text = text.trim();
-  if (!trip || !text || ai.busy) return;
+  if (!trip || !text || ai.busy || !aiReady()) return;
+  // (the Send button is off then, but Enter and the starting questions get here too)
+  if (!navigator.onLine) { ai.error = aiErrorText(); renderChat(); return; }
   const chat = chatOf(trip);
   const asked = { role: 'user', text };
   chat.push(asked);

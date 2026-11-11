@@ -140,7 +140,14 @@ listener in render.js. Don't add another document-wide click listener for button
 - The trip form: a new trip's place is looked up from its name. A trip being edited keeps its place whatever it is
   renamed to; only picking a place from the list changes it (`onTripNameInput`, the hint in `showChosenPlace`).
 - `theme.js` (loaded in `index.html`'s `<head>`) reads `tripPlanner.v1.settings.theme` to avoid a light/dark flash.
-  Keep it in sync if the settings shape changes.
+  Keep it in sync if the settings shape changes. It also hides the app inside a frame on another site (clickjacking:
+  GitHub Pages can't send the header that forbids framing).
+- A redraw that nobody tapped for (`renderSoon`, the guide's "Finding…" note) is `render({ inPlace: true })`: the day
+  on screen stays where it is while what is above it changes height (`planAnchor` / `keepAnchor`). A redraw after a
+  tap is plain `render()`: what was tapped has to stay put.
+- The app open twice on one device (a tab and the installed app): each takes over what the other saves (the
+  `storage` event, `adoptSaved` in store.js), keeping its own trip on screen. Without it the last one to save wiped
+  the other's changes.
 - Data from outside goes through checks before it is used: the saved copy (`tidyState` in `load()`), the account's
   documents (`tidyTrip` / `tidyItem` / `tidyCheck` in `applyDocs`) and backup files (`cleanBackup`, stricter: it keeps
   only known fields). The `tidy…` functions fix the types of the fields the app relies on and keep unknown fields, so
@@ -323,7 +330,8 @@ Ideas with an address are looked up while the layer is on. Leaflet 1.9 lets clic
   required, since Flash-Lite drops optional ones). `parseAnswer` turns it into one `changes` list. `checkChanges` validates the
   changes against the trip, and nothing is applied until the user taps Apply (with Undo).
 - The same prompt can be copied to another AI app (the UI never names one), and the pasted answer goes through `parseAnswer`.
-- Chats are stored per trip on the phone only (`tripPlanner.assistant`).
+- Chats are stored per trip on the phone only (`tripPlanner.assistant`). An applied proposal keeps what it did as
+  text (`msg.lines`): its changes no longer check out against the trip once they are made.
 
 **Where to eat (`meals.js`, 2.29).**
 - Under each day of the Plan (from today, with the "Day suggestions" switch; closed until tapped, `ui.meals[day]`) and
@@ -360,7 +368,8 @@ Ideas with an address are looked up while the layer is on. Leaflet 1.9 lets clic
   and its middle is not where the plans are), else of the nearest day that has one, else the Essentials one, else ''.
   The Essentials "Local time" uses it too. Visit length comes from `planLength` (today.js).
 - `files.js`: attachments go in IndexedDB `tripPlannerFiles` (per phone, never synced or backed up). `tickets.index`
-  maps plan id → file list. The plan form stages changes in `tickets.form`, and they're written on save.
+  maps plan id → file list. Files of plans that are gone are removed at the next start (signed in: after 30 days,
+  in case the plan hasn't arrived yet). The plan form stages changes in `tickets.form`, and they're written on save.
 - `info.js`: the "i" button on a plan's card opens "About this place" (`openPlanInfo`, in the `#place-dialog` sheet):
   the guide entry, the opening hours for the day, and the start of the Wikipedia article found by name among the
   articles within 1.5 km of the plan (`wikiAbout`, saved per device in `tripPlanner.info`). The article with the
@@ -551,6 +560,10 @@ Phone styles are the default. Add desktop overrides in desktop.css (loaded last)
   tester lost a typed plan that way). Sheets to type in (`DRAFTS`: plan, trip, report, suggestion) ask "Discard…?"
   first when their form changed since it opened (`draftStart`, called by their open functions). Esc is caught on
   `keydown`: the browser lets a page stop the dialog's `cancel` only once per tap or key typed.
+- The snackbar is hidden by any open sheet (a modal dialog is drawn above the page, and nothing outside it can be
+  tapped). So `snackbar()` puts the bar inside the sheet on top (`openSheets`, kept by wrapping each dialog's
+  `showModal` in ui.js) and lifts it above it as a popover (`popover="manual"`); it moves back to the page when the
+  sheet closes. A message with Undo can be shown from inside any sheet.
 - Suggestion cards all start with `.s-photo`: the photo, over the type's color and icon when there is none.
 - Settings: "Appearance" is the choices (`.row.pick`: Language, Theme, Units, Date (English only), Time; their buttons share the width by word length; on a phone the name is above its buttons, as "Language"
   ran into "English" beside them); the switches that fetch or

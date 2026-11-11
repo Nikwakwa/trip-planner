@@ -967,7 +967,7 @@ function loadGuide(place, { retry = false, quiet = false } = {}) {
     }
   })();
   // Called while the screen is being drawn: redraw (with "Finding ideas…") right after.
-  if (!quiet) setTimeout(render, 0);
+  if (!quiet) setTimeout(() => render({ inPlace: true }), 0);
 }
 
 function guideState(trip) {

@@ -149,7 +149,7 @@ function renderMore() {
     <ul class="group">
       ${activeTrip() ? `<li><button type="button" class="row ripple" data-action="trip-calendar">
         <span class="row-icon">${icon('calendar_add_on')}</span>
-        <span class="row-text"><span class="row-title">${T('Calendar file for {trip}', { trip: esc(activeTrip().name) })}</span><span class="row-sub">${T('For any calendar app (Google Calendar: Settings → Import)')}</span></span>
+        <span class="row-text"><span class="row-title">${T('Calendar file for {trip}', { trip: esc(tripName(activeTrip())) })}</span><span class="row-sub">${T('For any calendar app (Google Calendar: Settings → Import)')}</span></span>
       </button></li>` : ''}
       <li><button type="button" class="row ripple" data-action="export">
         <span class="row-icon">${icon('download')}</span>

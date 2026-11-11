@@ -87,7 +87,29 @@ function onGuideReady(place, guide, quiet) {
   }
 }
 
-function render() {
+// The Plan is drawn again whenever something arrives (a guide, a forecast, plans from another device), and
+// what is above the screen can get taller or shorter. Then the day being read is kept where it is (inPlace):
+// without this, the page slid under the finger, and today's title ended up under the top bar at the start.
+// Not after a tap: what was tapped is what has to stay put.
+function planAnchor() {
+  if (ui.view !== 'plan' || !window.scrollY) return null;
+  let at = null;
+  for (const el of document.querySelectorAll('#view-plan .day')) {
+    const top = el.getBoundingClientRect().top;
+    if (top > innerHeight / 2) break;
+    at = { id: el.id, top, trip: state.activeTripId };
+  }
+  return at;
+}
+function keepAnchor(at) {
+  const el = at && ui.view === 'plan' && state.activeTripId === at.trip && document.getElementById(at.id);
+  if (!el) return;
+  const moved = el.getBoundingClientRect().top - at.top;
+  if (Math.abs(moved) >= 1) window.scrollBy(0, moved);
+}
+
+function render({ inPlace = false } = {}) {
+  const anchor = inPlace ? planAnchor() : null;
   const trip = activeTrip();
   state.activeTripId = trip ? trip.id : null;
   // No longer looking at that archived trip (another trip picked, it was unarchived or deleted).
@@ -135,6 +157,7 @@ function render() {
     console.error(e);
     noteError(`Drawing around "${ui.view}": ${(e && e.message) || e}`);
   }
+  keepAnchor(anchor);
   onScroll();
 }
 

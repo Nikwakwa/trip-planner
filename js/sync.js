@@ -384,7 +384,7 @@ function renderSoon() {
   const run = () => {
     if (document.body.classList.contains('dragging')) { setTimeout(run, 300); return; }
     renderQueued = false;
-    render();
+    render({ inPlace: true });
     if (mapShown()) refreshMap();
   };
   const el = document.activeElement;

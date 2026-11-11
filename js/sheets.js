@@ -74,7 +74,7 @@ const pull = { dlg: null, x: 0, y: 0, dy: 0, lastY: 0, lastAt: 0, speed: 0, on: 
 // under the finger is scrolled to its top. Never on the map or in a field (that's panning or selecting text).
 function canPull(dlg, target) {
   if (target.closest('.handle, .sheet-head')) return true;
-  if (target.closest('#map, .pad, input, textarea, select')) return false;
+  if (target.closest('#map, .pad, .snackbar, input, textarea, select')) return false;
   for (let el = target; el && el !== dlg.parentElement; el = el.parentElement) {
     if (el.scrollTop > 0) return false;
   }

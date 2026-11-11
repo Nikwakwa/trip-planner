@@ -238,6 +238,23 @@ if (state.settings.geoRetry === 6) {
 }
 saveLocal();
 
+// The app open twice on one device (a browser tab and the installed app, or two tabs): each has its own
+// copy of the plans, and the one that saved last used to wipe what the other had just saved. Now each
+// takes over what the other saves. The trip on screen stays the one being looked at here.
+function adoptSaved(text) {
+  let data;
+  try { data = JSON.parse(text); } catch { return false; }
+  if (!data || !Array.isArray(data.trips)) return false;
+  const here = state.activeTripId;
+  state = tidyState(data);
+  state.settings = { ...defaultSettings(), ...state.settings };
+  if (state.trips.some(t => t.id === here)) state.activeTripId = here;
+  return true;
+}
+window.addEventListener('storage', (e) => {
+  if (e.key === STORAGE_KEY && e.newValue && adoptSaved(e.newValue)) renderSoon();
+});
+
 /* ---------- Finding a trip or a plan ---------- */
 
 // An archived trip is off the top bar (archive.js). The mark is the account's, not the trip's: on a trip

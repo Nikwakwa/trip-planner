@@ -49,10 +49,12 @@ async function loadFileIndex() {
       if (!tickets.index.has(f.itemId)) tickets.index.set(f.itemId, []);
       tickets.index.get(f.itemId).push({ id: f.id, name: f.name, type: f.type, size: f.size });
     }
-    // Only when signed out: a plan from the other phone may simply not have arrived yet.
-    if (orphans.length && !sync.saved) {
+    // Signed in, a plan from another device may simply not have arrived yet: its files wait a month
+    // (long enough for Undo, and for a device that was offline) before they go.
+    const gone = orphans.filter(f => !sync.saved || !(f.added > Date.now() - 30 * 864e5));
+    if (gone.length) {
       const store = await filesStore('readwrite');
-      orphans.forEach(f => store.delete(f.id));
+      gone.forEach(f => store.delete(f.id));
     }
     if (tickets.index.size) renderSoon();
   } catch (e) {

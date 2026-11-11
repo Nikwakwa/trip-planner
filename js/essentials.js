@@ -82,7 +82,7 @@ async function countryFacts(qid) {
     byCountry.get(id).push({ prop: b.prop.value.split('/').pop(), value: (b.label || b.mul || b.val).value, part: !!b.part });
   }
   const [country, rows] = [...byCountry].sort((a, b) => b[1].length - a[1].length)[0] || [];
-  if (!country) return null;
+  if (!/^Q\d+$/.test(country || '')) return null;      // it goes into the next questions as it is
   const named = list => [...new Set(list.map(r => r.value))].filter(v => !/^https?:/.test(v));
   const all = prop => named(rows.filter(r => r.prop === prop));
   const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
@@ -267,6 +267,7 @@ function renderEssentials() {
 
   const sections = e.sections.map((s) => {
     const def = ESSENTIAL_SECTIONS.find(x => x.key === s.key);
+    if (!def) return '';      // saved by a newer version
     return `
       <section class="tip">
         <h3>${icon(def.icon)}${def.title}</h3>

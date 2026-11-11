@@ -171,6 +171,17 @@ function runChecks() {
     return same([s.trips.length, s.trips[0].items.length, s.checklist, s.settings], [1, 1, [], {}]);
   });
 
+  check('The app open twice: what the other one saved is taken over, and the trip on screen stays', () => sandbox(() => {
+    state = sample();
+    const other = sample();
+    other.activeTripId = 'elsewhere';
+    other.trips[0].items.push({ id: 'new', title: 'Added in the other tab' });
+    other.trips.push({ id: 'elsewhere', name: 'Porto', items: [] });
+    const took = adoptSaved(JSON.stringify(other));
+    return same([took, state.activeTripId, state.trips.length, state.trips[0].items.some(i => i.id === 'new'), adoptSaved('{"trips":'), adoptSaved('{}')],
+      [true, 'trip1', 2, true, false, false]);
+  }));
+
   /* ---------- Backup files ---------- */
   group = 'Backup files';
   check('A file that isn’t a backup is refused', () =>
@@ -990,6 +1001,37 @@ function runChecks() {
       { action: 'add', title: 'Palace', place: 'Residenzstraße 1', guide_id: 'res', date: '2026-11-02' },
     ]);
     return same(out.map(c => c.item.guideId || (typeof c.item.lat === 'number' ? 'pinned' : 'not pinned')), ['res', 'not pinned', 'not pinned', 'res']);
+  }));
+
+  check('An applied proposal keeps saying what it did', () => sandbox(() => {
+    state = sample();
+    const trip = state.trips[0];
+    const msg = { role: 'model', text: '', changes: [{ action: 'delete', id: 'b' }, { action: 'update', id: 'a', date: '' }] };
+    const real = { snackbar, saveAI, renderChat };
+    try {
+      snackbar = saveAI = renderChat = () => {};
+      applyProposal(trip, msg);
+    } finally { snackbar = real.snackbar; saveAI = real.saveAI; renderChat = real.renderChat; }
+    const html = messageHTML(trip, { ...msg, lines: [...msg.lines, { icon: '"><b', text: '<i>' }] }, 0);
+    return same([msg.status, msg.lines.length, checkChanges(trip, msg.changes).length, (html.match(/<li>/g) || []).length, /<i>|"><b/.test(html)],
+      ['applied', 2, 0, 3, false]);
+  }));
+
+  /* ---------- Calendar ---------- */
+  group = 'Calendar';
+  check('Text in a calendar file can’t start a line of its own', () =>
+    same([icsText('a\rATTENDEE:x\r\nb\nc;d,e\\'), icsLine('x'.repeat(80)).split('\r\n').length], ['a\\nATTENDEE:x\\nb\\nc\\;d\\,e\\\\', 2]));
+  check('A time zone is only used when it reads like one', () => sandbox(() => {
+    state = sample();
+    const trip = state.trips[0];
+    trip.place = { name: 'Lisbon', label: 'Lisbon, Portugal', kind: 'city', lat: 38.72, lng: -9.14, bbox: null, osm: 'R1' };
+    const real = essentials.saved;
+    try {
+      essentials.saved = { R1: { tz: 'Europe/Lisbon' } };
+      const good = findTimeZone(trip, '');
+      essentials.saved = { R1: { tz: 'Europe/Lisbon\r\nATTENDEE:x' } };
+      return same([good, findTimeZone(trip, '')], ['Europe/Lisbon', '']);
+    } finally { essentials.saved = real; }
   }));
 
   /* ---------- Where to eat ---------- */

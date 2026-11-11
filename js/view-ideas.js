@@ -99,7 +99,7 @@ function renderIdeas(trip) {
     const destinations = guide.kind === 'destinations' && !guide.joined;
     const filter = destinations ? FILTERS[0] : FILTERS.find(f => f[0] === ui.filter) || FILTERS[0];
     const list = guide.places.filter(filter[2]);
-    const count = { n: guide.places.length, place: esc(guideCity(guide, trip)), source: guide.source };
+    const count = { n: guide.places.length, place: esc(guideCity(guide, trip)), source: esc(guide.source) };
     const intro = guide.joined ? T('{n} places near your plans and in {place}, from {source}.', count)
       : !guide.source ? T('{n} hand-picked places in {place}.', count)
       : destinations ? T('{n} destinations in {place}, from {source}.', count)
