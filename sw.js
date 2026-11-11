@@ -5,6 +5,7 @@
 importScripts('js/version.js');             // APP_VERSION: a new number makes phones fetch the new files
 const CACHE = 'trip-planner-v' + APP_VERSION;
 const TILES = 'trip-planner-map-tiles';   // map images you've viewed, kept across versions
+const LIBRARIES = 'trip-planner-libs';     // the big libraries (LIBS), kept across versions
 const MAX_TILES = 900;                     // map pieces kept, roughly 40 MB at most
 const FILES = [
   './',
@@ -75,6 +76,9 @@ const FILES = [
 ];
 // The big libraries: the detailed map, and sign-in and sync. Saved too, so they are there offline
 // even if they were never used while online. The app still installs if one can't be fetched.
+// They are 2.5 MB and hardly ever change, so they have a saved copy of their own that a new version of the
+// app keeps: downloading and writing them again at each update slowed the next start. Like the other files,
+// one is saved again when the server's copy has changed.
 const LIBS = [
   'vendor/maplibre/maplibre-gl.mjs',
   'vendor/maplibre/maplibre-gl-worker.mjs',
@@ -93,14 +97,12 @@ self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);
     await cache.addAll(FILES.map(url => new Request(url, { cache: 'reload' })));
+    const libs = await caches.open(LIBRARIES);
     await Promise.all(LIBS.map(async (url) => {
-      try {
-        await cache.add(url);
-      } catch {
-        // Offline or a hiccup: keep the copy from the previous version, if there is one.
-        const had = await caches.match(url);
-        if (had) await cache.put(url, had).catch(() => {});
-      }
+      if (await libs.match(url)) return;
+      // The copy a version before 2.31.2 kept with its own files, else the internet.
+      const had = await caches.match(url);
+      await (had ? libs.put(url, had) : libs.add(url)).catch(() => {});
     }));
     await self.skipWaiting();
   })());
@@ -109,7 +111,7 @@ self.addEventListener('install', (event) => {
 // New version: throw away older saved copies.
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
-    for (const key of await caches.keys()) if (key !== CACHE && key !== TILES) await caches.delete(key);
+    for (const key of await caches.keys()) if (![CACHE, TILES, LIBRARIES].includes(key)) await caches.delete(key);
     await self.clients.claim();
   })());
 });
@@ -141,6 +143,25 @@ async function mapTile(event, fresh = false) {
   return Promise.race([online.then(res => (res.ok ? res : hit)), new Promise(resolve => setTimeout(resolve, FRESH_WAIT, hit))]).catch(() => hit);
 }
 
+// The app's saved copies, each opened once while the worker runs.
+const opened = new Map();
+function openCache(name) {
+  if (!opened.has(name)) opened.set(name, caches.open(name).catch((e) => { opened.delete(name); throw e; }));
+  return opened.get(name);
+}
+const libPaths = new Set(LIBS.map(url => new URL(url, self.location).pathname));
+
+// The saved copy is the file the server has now: same ETag, or else same date and size (GitHub Pages sends both).
+function sameFile(saved, res) {
+  if (!saved) return false;
+  const h = name => [saved.headers.get(name), res.headers.get(name)];
+  const [e1, e2] = h('etag');
+  if (e1 || e2) return !!e1 && e1 === e2;
+  const [m1, m2] = h('last-modified');
+  const [l1, l2] = h('content-length');
+  return !!m1 && m1 === m2 && l1 === l2;
+}
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
@@ -159,13 +180,18 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
 
   event.respondWith((async () => {
-    const cache = await caches.open(CACHE);
-    const cached = await cache.match(req, { ignoreSearch: true });
+    const cache = await openCache(libPaths.has(url.pathname) ? LIBRARIES : CACHE);
+    // Files are saved under their plain address, so it is looked up as is: with ignoreSearch the browser
+    // reads every saved entry for each file, some 4000 reads from the phone's storage at each start.
+    const cached = await cache.match(url.search ? url.origin + url.pathname : req);
 
     // 'no-cache' = always check with the server (cheap when nothing changed).
-    const fresh = fetch(req.mode === 'navigate' ? req.url : req, { cache: 'no-cache' }).then((res) => {
+    const fresh = fetch(req.mode === 'navigate' ? req.url : req, { cache: 'no-cache' }).then(async (res) => {
+      // Saved again only when the file really changed. Rewriting every file at every start kept the phone's
+      // storage busy while the app was reading its own files from it (the long blue screen at startup), and
+      // threw away the compiled code the browser keeps next to each script.
       // Saved under the plain address: "?fresh=24" and the like would pile up as separate copies.
-      if (res.ok) cache.put(url.search ? url.origin + url.pathname : req, res.clone());
+      if (res.ok && !sameFile(cached, res)) await cache.put(url.search ? url.origin + url.pathname : req, res.clone());
       return res;
     }).catch(() => undefined);
 
@@ -177,7 +203,7 @@ self.addEventListener('fetch', (event) => {
     if (res) return res;
     // No connection and this page isn't saved: show the app itself.
     if (req.mode === 'navigate') {
-      const app = await cache.match('./');
+      const app = await (await openCache(CACHE)).match('./');
       if (app) return app;
     }
     return new Response('Offline and not saved yet.', { status: 503 });

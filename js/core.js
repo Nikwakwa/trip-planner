@@ -66,14 +66,21 @@ function deviceFormats() {
   } catch { return { dateOrder: 'dmy', clock: '24' }; }
 }
 const dateLocale = () => LOCALES[LANG] || (state.settings.dateOrder === 'mdy' ? 'en-US' : 'en-GB');   // "Oct 31", "31 Oct" or "31 oct."
+// A date or time writer is slow to make, and a screen writes hundreds of dates: each kind is made once.
+const formatters = new Map();
+function formatter(locale, opts) {
+  const key = locale + JSON.stringify(opts);
+  if (!formatters.has(key)) formatters.set(key, new Intl.DateTimeFormat(locale, opts));
+  return formatters.get(key);
+}
 function fmtDay(s, opts = { weekday: 'short', month: 'short', day: 'numeric' }) {
   // Without a month, the American style gives "3 Sat": "Sat 3" is used for both.
   const locale = opts.weekday && opts.day && !opts.month ? LOCALES[LANG] || 'en-GB' : dateLocale();
-  return parseDate(s).toLocaleDateString(locale, opts);
+  return formatter(locale, opts).format(parseDate(s));
 }
 // A clock time, "14:30" or "2:30 PM". `tz` shows it in another time zone.
 function fmtClock(date, tz) {
-  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hourCycle: state.settings.clock === '12' ? 'h12' : 'h23', ...(tz && { timeZone: tz }) });
+  return formatter('en-US', { hour: 'numeric', minute: '2-digit', hourCycle: state.settings.clock === '12' ? 'h12' : 'h23', ...(tz && { timeZone: tz }) }).format(date);
 }
 function fmtTime(t) {
   const [h, m] = t.split(':').map(Number);

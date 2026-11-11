@@ -391,7 +391,9 @@ function renderSoon() {
   if (el && $('#main').contains(el) && /^(INPUT|TEXTAREA)$/.test(el.tagName)) {
     el.addEventListener('blur', () => setTimeout(run, 0), { once: true });
   } else {
-    requestAnimationFrame(run);
+    // Just after the next frame is on screen: run in front of it, a redraw held back the app's first picture
+    // (the blue screen at startup) while one answer after another came in.
+    requestAnimationFrame(() => setTimeout(run, 0));
   }
 }
 

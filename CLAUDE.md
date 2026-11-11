@@ -142,6 +142,9 @@ listener in render.js. Don't add another document-wide click listener for button
 - `theme.js` (loaded in `index.html`'s `<head>`) reads `tripPlanner.v1.settings.theme` to avoid a light/dark flash.
   Keep it in sync if the settings shape changes. It also hides the app inside a frame on another site (clickjacking:
   GitHub Pages can't send the header that forbids framing).
+- `renderSoon` runs just after the next frame is painted (`requestAnimationFrame` then `setTimeout`), never in front
+  of it: at startup, answers arriving one after another held back the app's first picture. Dates and times are written
+  with `Intl.DateTimeFormat`s made once per kind (`formatter` in core.js): a screen writes hundreds.
 - A redraw that nobody tapped for (`renderSoon`, the guide's "Finding…" note) is `render({ inPlace: true })`: the day
   on screen stays where it is while what is above it changes height (`planAnchor` / `keepAnchor`). A redraw after a
   tap is plain `render()`: what was tapped has to stay put.
@@ -466,6 +469,11 @@ took "Send suggestion", then the only button in the sheet, for "save my votes".
 to publish them by hand.
 
 **Offline / updates (`sw.js`).** The service worker serves cached files first and refreshes them in the background (stale-while-revalidate).
+A file is saved again only when the server's copy changed (`sameFile`: ETag, else date and size): rewriting all 55
+files at every start kept the phone's storage busy during startup (the long blue splash screen) and threw away the
+compiled code Chrome keeps next to each saved script. Files are looked up by their plain address, never with
+`ignoreSearch` (it reads every saved entry for each request). The big libraries (`LIBS`) have their own saved copy,
+`trip-planner-libs`, kept across versions (an update no longer downloads 2.5 MB again), refreshed the same way.
 When you **add a new app file**, add it to `FILES` (`js/selfcheck.js` is there too, so the self-check matches the saved app; the self-check fails on a file the page loads that `FILES` misses). When you **ship any change**, add an entry at the top of `CHANGELOG` in `js/version.js`
 (`x.y.z`: the app looks or works differently . something new . fixes only), written for users in plain words and
 kept short: `{ v, date, items }`, no title, what is new in five short lines at most, and all the fixes as one line,
@@ -477,7 +485,7 @@ device"), the lines; only the latest five show until "Earlier versions" is tappe
 installed phones pick up the new version. Settings → About → "What's new" lists every entry (`openChangelog`), and
 after an update a snackbar offers it once (`settings.seenVersion`). The big vendored libraries (MapLibre, Firebase) are in
 `LIBS`: saved at install too, but the install doesn't fail without them. Files are saved without their `?query`.
-OSM tiles go in a separate cache that is kept between versions (`trip-planner-map-tiles`, capped at 900 tiles).
+OSM tiles go in another separate cache that is kept between versions (`trip-planner-map-tiles`, capped at 900 tiles).
 The map's style and index are asked fresh, but a saved copy only waits `FRESH_WAIT` for the internet (`mapTile`),
 and `loadMapStyle` gives up after 8 seconds: a weak connection must not leave the map empty.
 
