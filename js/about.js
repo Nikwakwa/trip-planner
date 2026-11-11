@@ -27,7 +27,7 @@ function openPrivacy() {
       aiReady() && T('<b>Google Gemini</b>: your AI Assistant messages with the trip’s plans, and plan names for “Flag plans that sell out”. reCAPTCHA checks the requests come from the app.'),
       aiReady() && T('“Where to eat” sends the spots of the day’s plans to Photon, then the places found and the day’s plans to Gemini.'),
       aiReady() && LANG !== 'en' && T('In French, guide, Wikipedia and essentials texts go to Gemini to be translated. Never your plans.'),
-      window.REPORT_KEY && T('<b>Web3Forms</b> (email): what you write in “Report a problem”, your email if given, the app version and device type.'),
+      window.REPORT_KEY && T('<b>Web3Forms</b> (email): what you write in “Report a problem”, your name and email if given, the app version and device type.'),
       T('Your location (“Near me”) is used on this device only.'),
       T('Like any website, the app’s host (GitHub) sees your internet address.'),
     ]),
@@ -95,7 +95,8 @@ function reportError(text) {
 function openReport() {
   reportForm.reset();
   reportError('');
-  // The reply address is theirs to give: filled in from the account, and they can clear it.
+  // The name and the reply address are theirs to give: filled in from Settings and the account, and they can clear them.
+  reportForm.elements.name.value = myName();
   reportForm.elements.email.value = sync.saved ? sync.saved.email : '';
   $('#report-details').textContent = problemDetails();
   $('#report-send').textContent = window.REPORT_KEY ? T('Send') : T('Share report');
@@ -108,10 +109,15 @@ function openReport() {
   reportForm.elements.message.focus();
 }
 
+// Who wrote, when they said: one line, like the name in Settings (store.js). The report itself stays in English.
+const reportName = () => tidyName(reportForm.elements.name.value);
+const reportSubject = () => `Dotted Line ${APP_VERSION}: a problem${reportName() ? ` from ${reportName()}` : ''}`;
+
 function reportText() {
   const f = reportForm.elements;
   const email = f.email.value.trim();
-  return `${f.message.value.trim()}\n\n${email ? `Reply to: ${email}\n` : ''}---\n${$('#report-details').textContent}`;
+  const from = [reportName() && `From: ${reportName()}`, email && `Reply to: ${email}`].filter(Boolean).join('\n');
+  return `${f.message.value.trim()}\n\n${from ? `${from}\n` : ''}---\n${$('#report-details').textContent}`;
 }
 
 // Without an email service, or when it fails: any app on the device can carry the report.
@@ -119,7 +125,7 @@ async function shareReport() {
   const text = reportText();
   try {
     if (navigator.share) {
-      await navigator.share({ title: `Dotted Line ${APP_VERSION}: a problem`, text });
+      await navigator.share({ title: reportSubject(), text });
     } else {
       await navigator.clipboard.writeText(text);
       snackbar(T('Report copied — paste it in a message to whoever shared the app'));
@@ -150,8 +156,9 @@ reportForm.addEventListener('submit', async (e) => {
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({
         access_key: window.REPORT_KEY,
-        subject: `Dotted Line ${APP_VERSION}: a problem`,
+        subject: reportSubject(),
         from_name: 'Dotted Line',
+        ...(reportName() ? { name: reportName() } : {}),      // who wrote, in the email
         message,
         ...(email ? { email } : {}),      // becomes the address a reply goes to
         details: $('#report-details').textContent,

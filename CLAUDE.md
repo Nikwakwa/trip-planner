@@ -444,6 +444,8 @@ and `shared/{id}/docs/…` holds the trip and its plans, in the same form as an 
   Share sheet use it.
   The app also says it to its user, in three places only (`myName()`, store.js; 2.32): the start screen's question,
   the done-today card and the finished checklist. Keep it that sparing; without a name the texts stay as they were.
+  "Report a problem" has an optional name field of its own, filled from it (`reportName`, about.js): it goes in the
+  email's subject and as Web3Forms' `name`, and never changes the name in Settings.
 - An invitation is `<id>.<code>`, sent as a link `…/#join=<id>.<code>` (after the `#`, so the host never sees it;
   `checkInviteLink`, or pasted under Settings → Trips → "Join a trip"). Joining is one write that adds the account
   to `uids` and `members` with the code as `via`; the rules compare it with the trip's code, and the email with the

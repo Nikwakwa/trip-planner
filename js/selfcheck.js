@@ -1435,6 +1435,22 @@ function runChecks() {
     return !leaked.length || 'it gives away: ' + leaked.join(', ');
   }));
 
+  check('A report says who wrote it when a name is given, and nothing when not', () => sandbox(() => {
+    state = sample();
+    const f = reportForm.elements;
+    const kept = [f.message.value, f.name.value, f.email.value];
+    try {
+      f.message.value = 'The map stays empty';
+      f.email.value = '';
+      f.name.value = '  Ann\n ';
+      const named = [reportText(), reportSubject()];
+      f.name.value = '';
+      const plain = [reportText(), reportSubject()];
+      return same([named[0].includes('\nFrom: Ann\n---'), named[1].endsWith(': a problem from Ann'), plain[0].includes('From:'), plain[1].endsWith(': a problem')],
+        [true, true, false, true]);
+    } finally { [f.message.value, f.name.value, f.email.value] = kept; }
+  }));
+
   /* ---------- The list of versions ---------- */
   group = 'What’s new';
   check('Every version says what is new in a few short lines, with no title of its own', () => {
