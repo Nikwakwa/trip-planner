@@ -13,7 +13,8 @@ const HOLD_MS = 350;
 const drag = { timer: 0, src: null, id: null, active: false, x: 0, y: 0, startX: 0, startY: 0, ghost: null, line: null, target: null, raf: 0, noClick: false };
 
 document.addEventListener('pointerdown', (e) => {
-  if (e.button !== 0 || drag.active || (ui.view !== 'plan' && ui.view !== 'pack')) return;
+  // (a tap while the app is still starting comes before render.js has made `ui`)
+  if (typeof ui === 'undefined' || e.button !== 0 || drag.active || (ui.view !== 'plan' && ui.view !== 'pack')) return;
   const el = e.target.closest('[data-drag]');
   if (!el || e.target.closest('.check, a')) return;
   // A line of a checklist is dragged by its text, not by its buttons.
