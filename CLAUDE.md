@@ -475,7 +475,7 @@ spent and who owes whom; a planned budget on plans may come later, its `FEATURE_
 - On the trip: `currency` (the totals', `tripCurrency`, EUR when missing; changed at any time from the tab's
   "Totals in" button, `#currency-dialog`: `changeTripCurrency` carries every cost's rate over with today's rate (or a
   typed one), a cost already in the new currency gets 1, and it returns an Undo; 2.38), `people` (`[{ id, name }]`) and `costs` (`[{ id, title, amount, cur, rate, paidBy, split, how,
-  date, kind, at }]`). Amounts are whole smallest units (`curDigits`: JPY 0, EUR 2), never decimals. Typed ones (2.38.2, the owner's
+  date, kind, at }]`). Amounts are whole smallest units (`curDigits`: JPY 0, EUR 2), never decimals. Typed ones (2.39.1, the owner's
   wish: simple and never misread): the app's own decimal mark is the decimal point (`decimalMark`: "." in English,
   "," in French, as `fmtMoney` writes them); the other mark followed by exactly 3 digits groups thousands ("1,200" in
   English), followed by 1 or 2 it is a decimal point too ("45,99" from a comma-only keyboard) (`decimalAt`).
@@ -615,6 +615,8 @@ Phone styles are the default. Add desktop overrides in desktop.css (loaded last)
 - A day's tools (`.day-tools`) are one row on a phone, scrolled sideways. Two fields side by side go in `.row2`
   (its columns are `minmax(0, 1fr)`, or a date pushes the form wider than the screen).
 - The plan and trip forms keep their actions (`.sheet-actions`) stuck to the bottom of the sheet.
+- The snackbar (2.39) has a ✕, and a finger swipes it away sideways or down (`snackSwipe`, ui.js; touch and pen
+  only, `touch-action: none` on it). It stays while touched; a short swipe slides back and the timer starts again.
 - Sheets close with their ✕, a tap outside, a swipe down, Esc or Back, all through `closeSheet`. A tap outside
   must start and end there: selecting text and letting go outside the sheet sends the dialog a click too (a
   tester lost a typed plan that way). Sheets to type in (`DRAFTS`: plan, trip, report, suggestion) ask "Discard…?"

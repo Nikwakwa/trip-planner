@@ -283,8 +283,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 2px 8px 2px 18px;
+  padding: 2px 2px 2px 18px;
   border-radius: 14px;
+  touch-action: none;   /* a finger on it swipes it away (ui.js), it doesn't scroll the page */
   background: var(--inverse-surface);
   color: var(--inverse-on-surface);
   font-size: 14px;
@@ -298,6 +299,7 @@
 .snackbar.show { opacity: 1; transform: none; pointer-events: auto; }
 .snackbar .msg { flex: 1; padding: 12px 0; }
 .snackbar .btn.text { color: var(--inverse-primary); }
+.snackbar .icon-btn { width: 44px; height: 44px; margin-left: -6px; color: inherit; opacity: .8; }
 /* Over a sheet there is no navigation bar under it; in the AI Assistant it stays clear of the message box. */
 dialog .snackbar { bottom: calc(env(safe-area-inset-bottom) + 16px); }
 dialog.ai-sheet .snackbar { bottom: calc(env(safe-area-inset-bottom) + 88px); }

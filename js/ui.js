@@ -90,23 +90,79 @@ for (const dlg of document.querySelectorAll('dialog')) {
   });
 }
 
-let snackTimer;
+let snackTimer, snackWait = 0, snackCount = 0;
 function snackbar(msg, actionLabel, onTap, duration) {
   const bar = $('#snackbar');
   const btn = $('#snackbar-action');
   placeSnackbar();
+  snackCount++;
+  snackSwipe.id = null;
+  bar.style.transition = bar.style.transform = bar.style.opacity = '';
   $('#snackbar-msg').textContent = msg;
   btn.hidden = !actionLabel;
   btn.textContent = actionLabel || '';
   btn.onclick = () => { hideSnackbar(); onTap && onTap(); };
   bar.classList.add('show');
   document.body.classList.add('snack-open');
+  snackWait = duration || (actionLabel ? 5000 : 2800);
   clearTimeout(snackTimer);
-  snackTimer = setTimeout(hideSnackbar, duration || (actionLabel ? 5000 : 2800));
+  snackTimer = setTimeout(hideSnackbar, snackWait);
 }
 function hideSnackbar() {
+  clearTimeout(snackTimer);
   $('#snackbar').classList.remove('show');
   document.body.classList.remove('snack-open');
+}
+$('#snackbar-close').addEventListener('click', hideSnackbar);
+
+// A finger can push the bar away, sideways or down (as on Android). It stays while touched, and slides
+// back if not pushed far enough. The ✕ is there for a mouse, and for those who don't know they can swipe.
+const snackSwipe = { id: null, x: 0, y: 0, at: 0, on: false, down: false, gone: 0 };
+{
+  const bar = $('#snackbar');
+  bar.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' || !e.isPrimary) return;
+    Object.assign(snackSwipe, { id: e.pointerId, x: e.clientX, y: e.clientY, at: e.timeStamp, on: false, gone: 0 });
+    clearTimeout(snackTimer);
+  });
+  bar.addEventListener('pointermove', (e) => {
+    const s = snackSwipe;
+    if (e.pointerId !== s.id) return;
+    const dx = e.clientX - s.x, dy = e.clientY - s.y;
+    if (!s.on) {
+      if (Math.hypot(dx, dy) < 8) return;
+      s.on = true;
+      s.down = dy > Math.abs(dx);
+      // Held from here on, so letting go off the bar still ends the swipe (and taps no button).
+      try { bar.setPointerCapture(e.pointerId); } catch { /* the finger is already gone */ }
+      bar.style.transition = 'none';
+    }
+    s.gone = s.down ? Math.max(0, dy) / bar.offsetHeight : Math.abs(dx) / bar.offsetWidth;
+    bar.style.transform = s.down ? `translateY(${Math.max(0, dy)}px)` : `translateX(${dx}px)`;
+    bar.style.opacity = String(Math.max(0, 1 - s.gone));
+    s.dx = dx;
+  });
+  const end = (e) => {
+    const s = snackSwipe;
+    if (e.pointerId !== s.id) return;
+    s.id = null;
+    const shown = snackCount;
+    const later = () => { if (shown === snackCount) snackTimer = setTimeout(hideSnackbar, snackWait); };
+    if (!s.on) return later();       // a tap: Undo or ✕ do their part, the message just stays a little longer
+    const moved = s.gone * (s.down ? bar.offsetHeight : bar.offsetWidth);
+    const away = e.type === 'pointerup' && (s.gone > 0.35 || (moved > 24 && moved / (e.timeStamp - s.at) > 0.5));
+    bar.style.transition = 'transform .2s var(--ease), opacity .2s var(--ease)';
+    bar.style.transform = !away ? '' : s.down ? 'translateY(100%)' : `translateX(${Math.sign(s.dx) * bar.offsetWidth}px)`;
+    bar.style.opacity = away ? '0' : '';
+    setTimeout(() => {
+      if (shown !== snackCount) return;      // another message came meanwhile
+      if (away) hideSnackbar();
+      bar.style.transition = bar.style.transform = bar.style.opacity = '';
+    }, 200);
+    if (!away) later();
+  };
+  bar.addEventListener('pointerup', end);
+  bar.addEventListener('pointercancel', end);
 }
 
 /* ---------- Confirmation dialog for big decisions ---------- */

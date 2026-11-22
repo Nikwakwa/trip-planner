@@ -77,6 +77,7 @@ DICTS.fr = {
   'Report a problem': 'Signaler un problème',
   'What went wrong?': 'Qu’est-ce qui n’a pas marché ?',
   'What you did, and what happened': 'Ce que vous avez fait, et ce qui s’est passé',
+  'Messages at the bottom of the screen can be swiped away, or closed with ✕': 'Les messages en bas de l’écran se ferment d’un glissement du doigt, ou avec ✕',
   'Your feature suggestions now reach the app’s owner by email': 'Vos suggestions de fonctions arrivent maintenant par e-mail au propriétaire de l’app',
   'Report a problem can say who you are, if you like': 'Signaler un problème peut dire qui vous êtes, si vous le souhaitez',
   'Copy a trip to go again: tap ✎ on the trip, then Copy. Its plans move to the new dates': 'Copiez un voyage pour y retourner : touchez ✎ sur le voyage, puis Copier. Ses activités passent aux nouvelles dates',
