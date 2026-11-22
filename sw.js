@@ -19,6 +19,7 @@ const FILES = [
   'css/map.css',
   'css/sheets.css',
   'css/desktop.css',
+  'css/print.css',
   'firebase-config.js',
   // The code: the same files as index.html loads (the self-check compares the two lists).
   'js/theme.js',
@@ -44,6 +45,7 @@ const FILES = [
   'js/translate.js',
   'js/vote.js',
   'js/share.js',
+  'js/print.js',
   'js/sync.js',
   'js/ui.js',
   'js/guide.js',

@@ -73,7 +73,7 @@ stays at the root. `index.html` loads `js/theme.js` in the `<head>`, then at the
   start) and the action table (`onAction`);
 - the features: `places.js` → `weather.js` → `hours.js` → `essentials.js` → `mapstyle.js` → `maps.js` → `routes.js` →
   `drag.js` → `today.js` → `calendar.js` → `files.js` → `packing.js` → `info.js` → `assistant.js` → `meals.js` → `translate.js` → `vote.js` →
-  `share.js` → `sync.js`;
+  `share.js` → `print.js` → `sync.js`;
 - the screen: `ui.js` (shapes, empty states, `snackbar`, `askConfirm`, photos, theme colors, `tick`, ripple) →
   `guide.js` (which guide place a plan is, `planSuggestions`, Auto-fill, `bookingNote`) → `store.js` (`state`: defaults,
   `tidy…`, `load`/`save`, the one-time repairs) → `render.js` (`ui`, `showView`, `render()`, trip tabs, day strip,
@@ -137,6 +137,14 @@ listener in render.js. Don't add another document-wide click listener for button
   save the plans.
 - A phone keeps the app open for days. Back on screen after 5 minutes, or on a new day, `catchUp()` (end of app.js)
   redraws; on a new day the Plan jumps to today's card (not with a sheet open).
+- Copy a trip (2.34, form-trip.js): the trip sheet's **Copy** turns the open sheet into the copy's (`copyingTripId`,
+  `openTripForm(trip, true)`). `copyOfTrip` gives the trip and its plans new ids and moves their days (`date`, `until`,
+  `dayTravel`) by the new first day minus `tripFirstDay`; nothing is `done` or `booked`, and `shared`, `hearts`, `todos`
+  and `names` stay behind (files too: they're keyed by the old plan ids). `copyTripChecks` copies the trip's own
+  checklist lines and its shared list as the copy's own lines, unticked. In copy mode the last day follows the first.
+- Print (2.34, print.js + css/print.css): `tripPrintHTML` draws the trip into `#print-view` on `beforeprint` (and from
+  the Share sheet's "Print or save as PDF", which closes the sheet first); `html.printing` hides everything else on
+  paper, and `afterprint` empties it. It follows the Plan's order and legs (`dayItems`, `dayEnds`, `legTravel`).
 - The trip form: a new trip's place is looked up from its name. A trip being edited keeps its place whatever it is
   renamed to; only picking a place from the list changes it (`onTripNameInput`, the hint in `showChosenPlace`).
 - `theme.js` (loaded in `index.html`'s `<head>`) reads `tripPlanner.v1.settings.theme` to avoid a light/dark flash.
@@ -527,7 +535,7 @@ and `loadMapStyle` gives up after 8 seconds: a weak connection must not leave th
 focus, reduced motion) → `components.css` (lists, a plan or place in a list, chips, the done circle, empty states,
 settings rows, buttons, snackbar, sheets and fields, segmented buttons, filter chips, switches) → `shell.css` (top bar,
 day strip, page column, the + and AI buttons, navigation bar) → `plan.css` → `ideas.css` → `checklist.css` → `map.css`
-→ `sheets.css` (the features' sheets) → `desktop.css`. At equal specificity a later file wins: put a rule with its topic,
+→ `sheets.css` (the features' sheets) → `desktop.css` → `print.css` (only on paper). At equal specificity a later file wins: put a rule with its topic,
 and change the rule itself rather than adding an override further down (the two "later pass" blocks that used to end
 the stylesheet were folded back in 2.16.1). `url()` paths are relative to `css/` (`../fonts/…`).
 

@@ -593,8 +593,11 @@ function renderShare() {
     </section>` : ''}
     <section class="tip">
       <h3>${icon('send')}${T('Just show the plan')}</h3>
-      <p>${T('Send the plan as text. Nobody can change it.')}</p>
-      <button type="button" class="btn tonal ripple" data-action="share-text">${icon('share')}${T('Send as text')}</button>
+      <p>${T('Send the plan as text, or print it. Nobody can change it.')}</p>
+      <div class="tip-links">
+        <button type="button" class="btn tonal ripple" data-action="share-text">${icon('share')}${T('Send as text')}</button>
+        <button type="button" class="btn tonal ripple" data-action="print-trip">${icon('picture_as_pdf')}${T('Print or save as PDF')}</button>
+      </div>
     </section>`;
 }
 
