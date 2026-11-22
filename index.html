@@ -27,6 +27,7 @@
   <link rel="stylesheet" href="css/map.css">
   <link rel="stylesheet" href="css/sheets.css">
   <link rel="stylesheet" href="css/desktop.css">
+  <link rel="stylesheet" href="css/print.css">
 </head>
 <body>
   <header class="appbar" id="appbar">
@@ -96,6 +97,9 @@
     <!-- On a computer the bar is a sidebar, with the AI Assistant and the trip's days below the sections -->
     <div id="side-extra" class="side-extra"></div>
   </nav>
+
+  <!-- The trip as one page, drawn only to print it or save it as a PDF (print.js) -->
+  <div id="print-view" class="print-view"></div>
 
   <div class="snackbar" id="snackbar" role="status" aria-live="polite" popover="manual">
     <span class="msg" id="snackbar-msg"></span>
@@ -199,14 +203,19 @@
       <fieldset class="swatches" id="trip-colors">
         <legend>Color</legend>
       </fieldset>
+      <!-- Copying a trip: what comes along (form-trip.js) -->
+      <p id="trip-copy-note" class="sheet-text copy-note" hidden></p>
       <div class="sheet-actions">
-        <!-- Archive or Unarchive (archive.js); on a phone both buttons here show their icon only -->
+        <!-- Copy, then Archive or Unarchive (archive.js); on a phone the buttons here show their icon only -->
+        <button type="button" class="btn text ripple" id="trip-copy" aria-label="Copy" title="Copy" hidden>
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#content_copy"/></svg><span>Copy</span>
+        </button>
         <button type="button" class="btn text ripple" id="trip-archive" hidden></button>
         <button type="button" class="btn text danger ripple" id="trip-delete">
           <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#delete"/></svg><span id="trip-delete-label">Delete trip</span>
         </button>
         <span class="spacer"></span>
-        <button type="submit" class="btn filled lg ripple">Save</button>
+        <button type="submit" class="btn filled lg ripple" id="trip-save">Save</button>
       </div>
     </form>
   </dialog>
@@ -579,6 +588,7 @@
   <script src="js/translate.js"></script>
   <script src="js/vote.js"></script>
   <script src="js/share.js"></script>
+  <script src="js/print.js"></script>
   <script src="js/sync.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/guide.js"></script>

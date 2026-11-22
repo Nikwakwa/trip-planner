@@ -1285,6 +1285,42 @@ function runChecks() {
     same([['400', '230'], ['220', '127'], ['120'], ['11000'], []].map(socketVolts), ['230 V', '127/220 V', '120 V', '', '']));
 
   /* ---------- Voting for new features ---------- */
+  group = 'Copying and printing a trip';
+  check('A copied trip moves its plans to the new dates, with nothing done, booked or shared', () => sandbox(() => {
+    const trip = { ...sample().trips[0], shared: 'x1', hearts: { u: ['c'] }, todos: [{ id: 'd1', text: 'Visa', done: true }], dayTravel: { '2026-05-02': 'drive' } };
+    trip.items[0] = { ...trip.items[0], done: true, booked: true };
+    trip.items.push({ id: 'h', title: 'Hotel', category: 'stay', date: '2026-05-01', until: '2026-05-03', time: '', place: '', link: '', notes: '', done: false });
+    const copy = copyOfTrip(trip, 30, { name: 'Lisbon again', start: '2026-05-31', end: '2026-06-02' });
+    const ids = new Set(trip.items.map(i => i.id));
+    return same([copy.name, copy.start, 'shared' in copy || 'hearts' in copy || 'todos' in copy, copy.id !== trip.id && copy.items.every(i => !ids.has(i.id)),
+      copy.items.map(i => [i.title, i.date, i.done, 'booked' in i]), copy.items[3].until, copy.dayTravel, trip.items[0].done],
+    ['Lisbon again', '2026-05-31', false, true,
+      [['Castle', '2026-05-31', false, false], ['Lunch', '2026-05-31', false, false], ['Tram 28', '', false, false], ['Hotel', '2026-05-31', false, false]],
+      '2026-06-02', { '2026-06-01': 'drive' }, true]);
+  }));
+  check('A copied trip takes its own checklist lines and shared list along, unticked; lines for every trip stay as they are', () => sandbox(() => {
+    state = sample();
+    const trip = { ...state.trips[0], todos: [{ id: 'd1', text: 'Visa', done: true }] };
+    state.checklist = [{ id: 'k1', text: 'Passport', done: false, doneOn: ['trip1'] }, { id: 'k2', text: 'Adapter', trip: 'trip1', done: true }];
+    copyTripChecks(trip, { id: 'trip9' });
+    return same(state.checklist.map(c => [c.text, c.trip || '', c.done, (c.doneOn || []).join()]),
+      [['Passport', '', false, 'trip1'], ['Adapter', 'trip1', true, ''], ['Adapter', 'trip9', false, ''], ['Visa', 'trip9', false, '']]);
+  }));
+  check('A trip without dates is copied from its first plan', () =>
+    same([tripFirstDay({ start: '', items: [{ date: '2026-05-03' }, { date: '' }, { date: '2026-05-02' }] }), tripFirstDay({ start: '', items: [] }), shiftDay('2026-12-31', 1), shiftDay('', 5)],
+      ['2026-05-02', '', '2027-01-01', '']));
+  check('The printed trip has each day in order, its ideas, and nothing that could run as code', () => sandbox(() => {
+    state = sample();
+    state.trips[0].items[0].title = '<img src=x>Castle';
+    const html = tripPrintHTML(state.trips[0]);
+    const days = [...html.matchAll(/p-daynum">Day (\d)/g)].map(m => m[1]);
+    return same([days, html.includes('<img'), html.includes('&lt;img src=x&gt;Castle'), html.includes('Free day'), /p-ideas[\s\S]*Tram 28/.test(html), html.indexOf('Castle') < html.indexOf('Lunch')],
+      [['1', '2', '3'], false, true, true, true, true]);
+  }));
+  check('Suggestions to copy or print a trip leave the voting list', () =>
+    same(['Duplicate a trip', 'Copier un voyage', 'Print my itinerary', 'Export to PDF', 'Imprimer le programme', 'Trip budget', 'Copy tickets'].map(title => isBuilt({ title })),
+      [true, true, true, true, true, false, false]));
+
   group = 'Voting for new features';
   check('Votes are counted once per person, and the most wanted comes first', () => {
     const features = [{ key: 'a' }, { key: 'b' }, { key: 'c' }];

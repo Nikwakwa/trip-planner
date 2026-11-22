@@ -8,8 +8,12 @@
    each, five at most. Fixes are never described, not even one people would notice: they are a
    single line, "Bug fixes", and a version with fixes only says just that. */
 const CHANGELOG = [
-  { v: '2.34.0', date: '2026-11-22', items: [
+  { v: '2.35.0', date: '2026-11-22', items: [
     'Your feature suggestions now reach the app’s owner by email',
+  ] },
+  { v: '2.34.0', date: '2026-11-22', items: [
+    'Copy a trip to go again: tap ✎ on the trip, then Copy. Its plans move to the new dates',
+    'Print a trip, or save it as a PDF: Share, then Print',
   ] },
   { v: '2.33.1', date: '2026-11-22', items: ['Bug fixes'] },
   { v: '2.33.0', date: '2026-11-11', items: [

@@ -33,6 +33,12 @@ the same address shows a desktop layout on a wide screen, by itself.
   **Settings → Trips**): open it from there to look back, or **Unarchive** it. While you look at one, **Back** (on its
 card, the ✕ on its tab, or your phone's Back button) returns to where you were. Archiving is yours alone: on a
   trip you plan with other people, it doesn't move for them.
+- **Copy** a trip to go again: tap ✎ on the trip, then **Copy** (the two-pages button). Pick the new first day and
+  every plan moves with it. The copy starts fresh: nothing ticked off, no "Booked" marks, no attached tickets, and
+  it's yours alone even if the old trip was shared. Its checklist comes along, unticked.
+- **Print** a trip, or save it as a PDF: **Share → Print or save as PDF**. You get one clean page with each day's
+  plans, times, addresses, notes and the way between stops, then your ideas. On a computer, the browser's own
+  Print (Ctrl+P) gives the same page.
 - A **Stay** plan with an address (your hotel) becomes the **home base**: days start and end there.
 - Each trip has its own **Checklist**: what you add and tick off stays on that trip. The things you take every
   time are under **On every trip**: they show on each trip and are ticked off separately on each one. Hold an item
@@ -70,6 +76,7 @@ behavior in `js/`. Each file covers one part of the app, so a change usually tou
 | `map.css` | The maps and their pins. |
 | `sheets.css` | The sheets of the features: Essentials, voting, sharing, the AI Assistant, tickets… |
 | `desktop.css` | The computer layout (sidebar, docked map), on wide windows. |
+| `print.css` | The trip on paper (or in a PDF): only used when printing. |
 
 **The behavior (`js/`)**, in the order the page loads it:
 
@@ -96,13 +103,14 @@ behavior in `js/`. Each file covers one part of the app, so a change usually tou
 | `meals.js` | "Where to eat": places for lunch and dinner near each day's plans (OpenStreetMap, picked by Gemini). |
 | `vote.js` | Voting for new features, and suggesting your own (Settings → About). |
 | `share.js` | Planning a trip together: invitations, who is on a trip, the Share sheet. |
+| `print.js` | The trip as a page to print or save as a PDF. |
 | `sync.js` | Sign-in and syncing plans between devices (Firebase). |
 | `ui.js` | Shared pieces of the screen: messages at the bottom, "Are you sure?" questions, colors. |
 | `guide.js` | Ideas for each day, Auto-fill day, and "Book ahead". |
 | `store.js` | Your plans: saving them on the device, and checking anything that comes from outside. |
 | `render.js` | Drawing the screen and switching sections. |
 | `view-plan.js`, `view-ideas.js`, `view-checklist.js`, `view-settings.js` | The four sections. |
-| `form-plan.js`, `form-trip.js` | The forms to add or edit a plan, and a trip. |
+| `form-plan.js`, `form-trip.js` | The forms to add or edit a plan, and a trip (and to copy a trip). |
 | `archive.js` | Archived trips: taking a trip off the top bar, and the "Archived trips" sheet. |
 | `account.js` | Signing in, changing the password, deleting the account. |
 | `sheets.js` | Closing sheets (✕, tap outside, swipe down), asking before losing what was typed. |
@@ -231,7 +239,7 @@ To look at the results or remove a suggestion you don't want: **Firestore Databa
 Each new suggestion is also emailed to you, through the same Web3Forms key as "Report a problem"
 (`window.REPORT_KEY` in `firebase-config.js`). The email has the idea, the sender's name (if they chose one in
 Settings) and email address, the app version and the kind of device. Reply to it and your answer goes to them.
-Other people using the app still never see who sent a suggestion. Suggestions are emailed only from version 2.34.0:
+Other people using the app still never see who sent a suggestion. Suggestions are emailed only from version 2.35.0:
 the ones sent before are only in Firestore.
 
 ## Report a problem

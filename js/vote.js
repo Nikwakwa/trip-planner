@@ -20,8 +20,6 @@ const FEATURE_IDEAS = [
   { id: 'offline-maps', title: T('Maps without a connection'), text: T('Download a trip’s map for when there’s no signal.') },
   { id: 'budget', title: T('Trip budget'), text: T('Note each plan’s cost, with day and trip totals.') },
   { id: 'journal', title: T('Trip journal'), text: T('Add a photo and a note to plans you’ve done.') },
-  { id: 'print', title: T('Print the plan'), text: T('The whole trip on one page, to print or save as PDF.') },
-  { id: 'copy-trip', title: T('Copy a trip'), text: T('Start a new trip from one you already made.') },
   { id: 'change-email', title: T('Change your email'), text: T('Move your account to another email address.') },
 ];
 const VOTE_MAX_IDEAS = 5;
@@ -61,6 +59,8 @@ const BUILT_IDEAS = [
   /\bideas?\b.*\bmaps?\b|\bmaps?\b.*\bideas?\b|\bidées?\b.*\bcartes?\b|\bcartes?\b.*\bidées?\b/i,
   // where to eat (2.29.0)
   /\brestaurants?\b|\brestos?\b|\b(where|places?) to eat\b|\bo[uù] manger\b|\b(lunch|dinner|déjeuners?|dîners?)\b/i,
+  /\b(copy|duplicate|clone|reuse)\b.*\btrips?\b|\b(copier|dupliquer)\b.*\bvoyages?\b/i,     // copying a trip (2.34.0)
+  /\bprint|\bpdf\b|\bimprim/i,     // printing the plan (2.34.0)
 ];
 const isBuilt = idea => BUILT_IDEAS.some(re => re.test(idea.title));
 
