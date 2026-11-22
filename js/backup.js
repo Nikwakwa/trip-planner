@@ -5,7 +5,7 @@
 // "Erase everything" also clears what is kept on this device only: tickets, assistant chats,
 // hidden packing suggestions, and the saved guides, forecasts, opening hours and essentials.
 function eraseDeviceData() {
-  for (const key of [AI_KEY, PACKING_KEY, GUIDES_KEY, WEATHER_KEY, HOURS_KEY, ESSENTIALS_KEY, INFO_KEY, ROUTES_KEY, TRANSLATIONS_KEY]) {
+  for (const key of [AI_KEY, PACKING_KEY, GUIDES_KEY, WEATHER_KEY, HOURS_KEY, ESSENTIALS_KEY, INFO_KEY, ROUTES_KEY, TRANSLATIONS_KEY, RATES_KEY]) {
     try { localStorage.removeItem(key); } catch { /* storage unavailable */ }
   }
   ai.saved = { chats: {}, booking: {}, meals: {} };
@@ -19,6 +19,7 @@ function eraseDeviceData() {
   essentials.saved = {};
   planInfo.saved = {};
   translations.saved = {};
+  rates.saved = null;
   joinedGuides.clear();
   eraseFiles();     // files.js
 }
@@ -98,6 +99,12 @@ function cleanBackup(data) {
     })),
     // The list a trip planned with other people had: kept, as this trip's own list.
     todos: Array.isArray(t.todos) && t.todos.length ? checks(t.todos) : undefined,
+    // What was spent, and who shared it (money.js).
+    currency: isCurrency(t.currency) ? t.currency : undefined,
+    people: Array.isArray(t.people) && t.people.length ? t.people.map(p => tidyPerson(p && { id: p.id, name: p.name })).filter(Boolean) : undefined,
+    costs: Array.isArray(t.costs) && t.costs.length ? t.costs.map(c => c && typeof c === 'object' && tidyCost({
+      id: id(c.id), title: c.title, amount: c.amount, cur: c.cur, rate: c.rate, paidBy: c.paidBy, split: c.split, how: c.how, date: c.date, kind: c.kind, at: c.at,
+    })).filter(Boolean) : undefined,
   }));
   // The personal checklist: a line for one trip keeps it (under its id here), and is left out when the file
   // doesn't have that trip. A line for every trip keeps the trips it was ticked on.

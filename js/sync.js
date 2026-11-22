@@ -20,7 +20,7 @@
 
 const SYNC_KEY = 'tripPlanner.sync';
 const FIREBASE_FILES = ['app', 'auth', 'firestore'].map(p => `vendor/firebase/firebase-${p}-compat.js`);
-const SYNCED_KINDS = /^(trip|item|check|todo|arch|heart|name|profile)_/;      // the documents this version of the app writes and removes
+const SYNCED_KINDS = /^(trip|item|check|todo|arch|heart|name|profile|person|cost)_/;      // the documents this version of the app writes and removes
 
 const sync = {
   configured: !!(window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.apiKey),
@@ -104,13 +104,17 @@ function stateDocs(s, space = '') {
   let pos = 0;
   for (const t of s.trips) {
     if ((t.shared || '') !== space) continue;
-    const { items, todos, shared, hearts, names, ...trip } = t;
+    const { items, todos, shared, hearts, names, people, costs, ...trip } = t;
     // A shared trip has no place in the list of trips: everyone on it keeps their own order.
     out[docKey('trip', t.id)] = stable({ k: 'trip', pos: space ? 0 : pos++, ...trip });
     items.forEach((it, i) => { out[docKey('item', it.id)] = stable({ k: 'item', trip: t.id, pos: i, ...it }); });
     // The trip's own list (things to pack or do, for everyone on the trip): "todo", so that it is never
     // taken for the account's checklist, and version 2.10 leaves it alone.
     (todos || []).forEach((c, i) => { out[docKey('todo', c.id)] = stable({ k: 'todo', trip: t.id, pos: i, ...c }); });
+    // Who shares the trip's costs, and what was spent (money.js): a document each, so that two people adding a
+    // cost at the same moment never undo each other's.
+    (people || []).forEach((p, i) => { out[docKey('person', p.id)] = stable({ k: 'person', trip: t.id, pos: i, ...p }); });
+    (costs || []).forEach((c) => { out[docKey('cost', c.id)] = stable({ k: 'cost', trip: t.id, ...c }); });
     // The ideas each person on the trip likes (share.js): one document per account, so that two people giving
     // hearts at the same moment never undo each other's. Only a shared trip has them.
     if (space) for (const [who, ids] of Object.entries(hearts || {})) out[docKey('heart', who)] = stable({ k: 'heart', trip: t.id, uid: who, ids });
@@ -137,6 +141,7 @@ function stateDocs(s, space = '') {
 function applyDocs(docs, space = '') {
   // Each document is checked first (store.js): one the app can't use is left out.
   const tidy = d => (!d ? null : d.k === 'trip' ? tidyTrip(d) : d.k === 'item' ? tidyItem(d) : d.k === 'check' || d.k === 'todo' ? tidyCheck(d)
+    : d.k === 'person' ? tidyPerson(d) : d.k === 'cost' ? tidyCost(d)
     : d.k === 'arch' && !space && isId(d.id) && isDate(d.at) ? d
     : d.k === 'heart' && space && isId(d.uid) && Array.isArray(d.ids) ? d
     : d.k === 'name' && space && isId(d.uid) && tidyName(d.name) ? { ...d, name: tidyName(d.name) }
@@ -159,8 +164,9 @@ function applyDocs(docs, space = '') {
   const oldTrips = new Map(before.map(t => [t.id, t]));
   const oldItems = new Map(before.flatMap(t => t.items).map(i => [i.id, i]));
   const oldTodos = new Map(before.flatMap(t => t.todos || []).map(c => [c.id, c]));
+  const oldCosts = new Map(before.flatMap(t => t.costs || []).map(c => [c.id, c]));
 
-  const trips = tripDocs.map(({ k, pos, shared, todos, hearts, names, ...t }) => {
+  const trips = tripDocs.map(({ k, pos, shared, todos, hearts, names, people, costs, ...t }) => {
     const old = oldTrips.get(t.id);
     const items = old ? old.items : [];
     items.length = 0;
@@ -174,6 +180,14 @@ function applyDocs(docs, space = '') {
   for (const { k, trip, pos, ...c } of all.filter(d => d.k === 'todo').sort(byPos)) {
     const t = tripById.get(trip);
     if (t) (t.todos = t.todos || []).push(reuse(oldTodos.get(c.id), c));
+  }
+  for (const { k, trip, pos, ...p } of all.filter(d => d.k === 'person').sort(byPos)) {
+    const t = tripById.get(trip);
+    if (t) (t.people = t.people || []).push(p);
+  }
+  for (const { k, trip, ...c } of all.filter(d => d.k === 'cost')) {
+    const t = tripById.get(trip);
+    if (t) (t.costs = t.costs || []).push(reuse(oldCosts.get(c.id), c));
   }
   for (const { trip, uid: who, ids } of all.filter(d => d.k === 'heart')) {
     const t = tripById.get(trip);

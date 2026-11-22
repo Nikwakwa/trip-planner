@@ -131,9 +131,9 @@ const tripFirstDay = trip => trip.start || trip.items.map(i => i.date).filter(is
 
 // A new trip of your own from another one, its plans moved by `days`. Nothing is done or booked yet. The
 // people, hearts and the trip's shared list stay with the old trip (the list comes along as checklist lines),
-// and so do the files: tickets are for the old dates.
+// and so do the files (tickets are for the old dates) and what was spent. Who shares the costs comes along.
 function copyOfTrip(trip, days, data = {}) {
-  const { shared, todos, hearts, names, items, dayTravel, ...rest } = JSON.parse(JSON.stringify(trip));
+  const { shared, todos, hearts, names, items, dayTravel, costs, ...rest } = JSON.parse(JSON.stringify(trip));
   const copy = { ...rest, ...data, id: uid() };
   copy.items = items.map(({ booked, ...it }) => {
     const out = { ...it, id: uid(), done: false, date: shiftDay(it.date, days) };

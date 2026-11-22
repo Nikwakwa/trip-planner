@@ -77,11 +77,11 @@ stays at the root. `index.html` loads `js/theme.js` in the `<head>`, then at the
   start) and the action table (`onAction`);
 - the features: `places.js` → `weather.js` → `hours.js` → `essentials.js` → `mapstyle.js` → `maps.js` → `routes.js` →
   `drag.js` → `today.js` → `calendar.js` → `files.js` → `packing.js` → `info.js` → `assistant.js` → `meals.js` → `translate.js` → `vote.js` →
-  `share.js` → `print.js` → `sync.js`;
+  `share.js` → `print.js` → `money.js` → `sync.js`;
 - the screen: `ui.js` (shapes, empty states, `snackbar`, `askConfirm`, photos, theme colors, `tick`, ripple) →
   `guide.js` (which guide place a plan is, `planSuggestions`, Auto-fill, `bookingNote`) → `store.js` (`state`: defaults,
   `tidy…`, `load`/`save`, the one-time repairs) → `render.js` (`ui`, `showView`, `render()`, trip tabs, day strip,
-  sidebar, scrolling) → `view-plan.js` → `view-ideas.js` → `view-checklist.js` → `view-settings.js` → `form-plan.js` →
+  sidebar, scrolling) → `view-plan.js` → `view-ideas.js` → `view-checklist.js` → `view-money.js` → `view-settings.js` → `form-plan.js` →
   `form-trip.js` → `archive.js` (archived trips) → `account.js` (sign-in, password, delete account) → `sheets.js` (closing sheets, drafts, swipe down)
   → `backup.js` (backup, restore, erase) → `about.js` (privacy, What's new, Report a problem) → `pad.js` → `app.js`
   (install, offline, service worker, start, `catchUp`).
@@ -397,7 +397,7 @@ Ideas with an address are looked up while the layer is on. Leaflet 1.9 lets clic
 
 **Sync (`sync.js`).** This is optional and switched on only when `firebase-config.js` sets `window.FIREBASE_CONFIG`.
 Firebase compat SDKs are vendored and loaded lazily. The state is split into Firestore documents
-`users/{uid}/docs/{trip_…|item_…|check_…|arch_…}` (`arch_`: an archived trip, 2.18; `profile_me`: the name, 2.20; a shared trip's space also has `todo_…`, `heart_…` and `name_…`). After each save, the local state is compared with the last known remote copy (kept in
+`users/{uid}/docs/{trip_…|item_…|check_…|arch_…}` (`arch_`: an archived trip, 2.18; `profile_me`: the name, 2.20; `person_…` and `cost_…`: a trip's expenses, 2.36, in any space; a shared trip's space also has `todo_…`, `heart_…` and `name_…`). After each save, the local state is compared with the last known remote copy (kept in
 localStorage `tripPlanner.sync`), and only the differences are sent. That record must keep up with the saved plans: one
 that stopped saving (storage full) took plans deleted on another device for this device's own new ones and sent them
 back (2.33.1). So `writeSyncInfo` makes room like `saveLocal` (`storeMakingRoom`, store.js). Only documents of the kinds this version writes are ever
@@ -470,6 +470,30 @@ and `shared/{id}/docs/…` holds the trip and its plans, in the same form as an 
   to publish the rules by hand. With old rules the list fails with permission-denied: `sharing.off`, and the Share
   sheet says planning together isn't switched on. Nothing else is affected.
 
+**Expenses (`money.js`, `view-money.js`, 2.36).** The Tricount part only (the owner's choice, 2026-11-22: what was
+spent and who owes whom; a planned budget on plans may come later, its `FEATURE_IDEAS` entry `budget` stays).
+- On the trip: `currency` (the totals', `tripCurrency`, EUR when missing; picked before the first expense only, as each
+  cost keeps a rate to it), `people` (`[{ id, name }]`) and `costs` (`[{ id, title, amount, cur, rate, paidBy, split, how,
+  date, kind, at }]`). Amounts are whole smallest units (`curDigits`: JPY 0, EUR 2), never decimals. `rate` is what 1
+  `cur` is in the trip's currency, saved with the cost so balances never move; the form shows it the other way round
+  ("1 EUR = 162.4 JPY", `readRate`). `split` is person → weight (`how: 'equal'`, 1 each) or → their part in `cur`
+  (`'amounts'`); `kind: 'transfer'` is money given back from `paidBy` to the one person in `split`.
+- Synced as `person_…` and `cost_…` documents (`stateDocs`/`applyDocs`, `SYNCED_KINDS`), never inside the trip
+  document: two people adding a cost at once don't undo each other's. The current rules already allow it.
+  Checked by `tidyPerson`/`tidyCost` (store.js), backups by `cleanBackup`. `copyOfTrip` keeps `people`, not `costs`.
+- People: on your own trip you are `me`; on a shared one each member is `m_<uid>` (`memberId`, `myPersonId`), so two
+  devices adding the same member make the same document. `tripPeople` adds you and the members without saving them;
+  `keepPeople` saves the ones a cost names (with their name, for when they leave). Guests have random ids
+  (`addGuest`); one no cost names can be removed. `startShare` calls `shareMoney`: `me` becomes `m_<owner uid>`.
+- Adding up: `costInTrip` converts, `shareOut` splits to the unit (largest remainders, then id order, the same on
+  every device), `balances` (paid minus parts, sums to 0), `settleUp` (greedy: largest debtor pays largest creditor),
+  `spentTotals` (transfers left out). "Paid" under How to settle up adds a transfer with Undo (`addTransfer`).
+- Currencies: `allCurrencies` (`Intl.supportedValuesOf`, names from `Intl.DisplayNames`), `firstCurrencies` (EUR,
+  the place's own from Essentials' `currencyCodes` (Wikidata P498, `ESSENTIALS_VERSION` 4), the trip's, those used).
+  Rates (`loadRates`): Fawaz Ahmed's currency API on jsDelivr, else its pages.dev copy, EUR-based, kept per device
+  in `tripPlanner.rates` for 12 hours (`rateFor`). Both hosts are in the policy's `connect-src` and the privacy note.
+  Not reachable from the cloud sandbox: test with a made-up `tripPlanner.rates`.
+
 **Feature voting (`vote.js`).** Settings → About → "What should come next?" (`#vote-dialog`). Apart from shared
 trips, the only data shared between accounts: `featureVotes/{uid}` (`{ ids }`, the keys that account voted for) and `featureIdeas/{uid}_{0…4}`
 (`{ title, text, uid, at }`; the document name is what caps suggestions at five per account). The app's own proposals
@@ -538,7 +562,7 @@ and `loadMapStyle` gives up after 8 seconds: a weak connection must not leave th
 **Styles (`css/`).** `index.html` links them in cascade order: `base.css` (font, color tokens, page, ripple, keyboard
 focus, reduced motion) → `components.css` (lists, a plan or place in a list, chips, the done circle, empty states,
 settings rows, buttons, snackbar, sheets and fields, segmented buttons, filter chips, switches) → `shell.css` (top bar,
-day strip, page column, the + and AI buttons, navigation bar) → `plan.css` → `ideas.css` → `checklist.css` → `map.css`
+day strip, page column, the + and AI buttons, navigation bar) → `plan.css` → `ideas.css` → `checklist.css` → `money.css` → `map.css`
 → `sheets.css` (the features' sheets) → `desktop.css` → `print.css` (only on paper). At equal specificity a later file wins: put a rule with its topic,
 and change the rule itself rather than adding an override further down (the two "later pass" blocks that used to end
 the stylesheet were folded back in 2.16.1). `url()` paths are relative to `css/` (`../fonts/…`).
@@ -557,8 +581,8 @@ Phone styles are the default. Add desktop overrides in desktop.css (loaded last)
 - With a mouse, `drag.js` starts a drag on move (no long-press).
 
 **UI decisions worth keeping.**
-- The navigation bar has four sections: Plan, Ideas, Checklist, Settings (`plan`, `ideas`, `pack` and `more` in the
-  code). Change section with `showView(view)` or `setView(view)` (render.js), never by setting `ui.view`: they keep each
+- The navigation bar has five sections: Plan, Ideas, Expenses, Checklist, Settings (`plan`, `ideas`, `money`, `pack`
+  and `more` in the code; 2.36 added Expenses, and under 420px the labels lose their letter-spacing so "Paramètres" fits). Change section with `showView(view)` or `setView(view)` (render.js), never by setting `ui.view`: they keep each
   section's scroll position (`scrollAt`) and the browser's history in step. Leaving the Plan adds one history step, so
   the device's Back button returns to the Plan instead of closing the app. Tapping the section already open scrolls
   to its top. The bar is 64px tall (`--nav-h`, Material 3 Expressive's shorter bar).

@@ -16,7 +16,7 @@ function openPrivacy() {
     sync.configured && part('sync', T('In your account'), [
       T('Once you sign in, your email and trips are also stored with Google Firebase, to sync your devices.'),
       T('The app’s owner can see them there. Your password is scrambled: nobody can read it.'),
-      T('A shared trip is stored once for everyone on it. They see its plans, its shared list, hearts, names and emails. Your own checklist, other trips and files stay yours.'),
+      T('A shared trip is stored once for everyone on it. They see its plans, its shared list, its expenses, hearts, names and emails. Your own checklist, other trips and files stay yours.'),
       T('Your feature votes and suggestions are stored there too. Signed-in users can read suggestions, not who sent them.'),
       window.REPORT_KEY && T('A suggestion you send is also emailed to the app’s owner, with your name and email, the app version and device type.'),
     ]),
@@ -25,6 +25,7 @@ function openPrivacy() {
       T('<b>OpenStreetMap</b> (Photon, Nominatim, Overpass): your searches and your plans’ names and addresses, for the map and opening hours. By car, its <b>routing server</b> (FOSSGIS) gets the day’s stops, for road times. “Find addresses and opening hours” in Settings turns this off.'),
       T('<b>Wikivoyage, Wikipedia and Wikidata</b>: your destination and where your plans are, for guides and photos. <b>Open-Meteo</b>: where each day is spent, for the weather.'),
       T('<b>The map</b> (OpenFreeMap, CARTO or OpenStreetMap): the area you look at.'),
+      T('<b>Exchange rates</b> (Fawaz Ahmed’s free currency service, through jsDelivr): only that the app wants today’s rates. Your expenses stay in the app.'),
       aiReady() && T('<b>Google Gemini</b>: your AI Assistant messages with the trip’s plans, and plan names for “Flag plans that sell out”. reCAPTCHA checks the requests come from the app.'),
       aiReady() && T('“Where to eat” sends the spots of the day’s plans to Photon, then the places found and the day’s plans to Gemini.'),
       aiReady() && LANG !== 'en' && T('In French, guide, Wikipedia and essentials texts go to Gemini to be translated. Never your plans.'),

@@ -61,6 +61,8 @@ const BUILT_IDEAS = [
   /\brestaurants?\b|\brestos?\b|\b(where|places?) to eat\b|\bo[uù] manger\b|\b(lunch|dinner|déjeuners?|dîners?)\b/i,
   /\b(copy|duplicate|clone|reuse)\b.*\btrips?\b|\b(copier|dupliquer)\b.*\bvoyages?\b/i,     // copying a trip (2.34.0)
   /\bprint|\bpdf\b|\bimprim/i,     // printing the plan (2.34.0)
+  // sharing the costs (2.36.0): "Split the bills", "Who owes whom", "Tricount", "Partage des dépenses"
+  /\bsplit\w*\b.*\b(bills?|costs?|expenses?|money)\b|\btricount|\bsplitwise|\bwho owes|\bexpenses?\b|\bpartag\w* (des |les )?(frais|dépenses|comptes)|\bdépenses\b|\bqui doit\b/i,
 ];
 const isBuilt = idea => BUILT_IDEAS.some(re => re.test(idea.title));
 

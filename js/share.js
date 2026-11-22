@@ -300,6 +300,7 @@ async function startShare(trip) {
   sharing.holding.add(id);
   try {
     await ref.set(root);
+    shareMoney(trip, user.uid);       // money.js: "me" in its costs becomes this account, which everyone sees
     docs = stateDocs({ trips: [{ ...trip, shared: id }], checklist: [] }, id);
     await writeDocs(ref.collection('docs'), docs);
     // Deleted here while it was being sent, or signed out: take it back.

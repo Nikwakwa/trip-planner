@@ -5,12 +5,12 @@
 
 // peek: an archived trip being looked at (archive.js): { id, trip, view, step }: the trip and section it was opened
 // from, and the number of its step in the history.
-const ui = { view: 'plan', ideasTab: 'mine', filter: 'all', shuffle: {}, suggest: {}, meals: {}, mealDay: null, pickDay: null, peek: null, ideaOrder: null };
+const ui = { view: 'plan', ideasTab: 'mine', moneyTab: 'costs', filter: 'all', shuffle: {}, suggest: {}, meals: {}, mealDay: null, pickDay: null, peek: null, ideaOrder: null };
 
-/* ---------- The sections (Plan, Ideas, Checklist, Settings) ---------- */
+/* ---------- The sections (Plan, Ideas, Expenses, Checklist, Settings) ---------- */
 
-// 'more' is the Settings section.
-const VIEWS = ['plan', 'ideas', 'pack', 'more'];
+// 'money' is the Expenses section, 'pack' the Checklist, 'more' Settings.
+const VIEWS = ['plan', 'ideas', 'money', 'pack', 'more'];
 let scrollAt = {};     // section → how far down it was left, to come back to the same spot
 const pageView = () => (history.state && VIEWS.includes(history.state.view) ? history.state.view : 'plan');
 
@@ -58,7 +58,7 @@ window.addEventListener('popstate', () => {
 
 /* ---------- Drawing the screen ---------- */
 
-const TITLES = { plan: '', ideas: '', pack: T('Checklist'), more: T('Settings') };
+const TITLES = { plan: '', ideas: '', money: T('Expenses'), pack: T('Checklist'), more: T('Settings') };
 
 // Trips made before place search (or saved while offline) get their place looked up once.
 const placeTried = new Set();
@@ -128,13 +128,14 @@ function render({ inPlace = false } = {}) {
   });
 
   const tripViews = ui.view === 'plan' || ui.view === 'ideas';
-  // The Checklist is the open trip's too (2.28): its tabs switch trips there as well.
-  const tabs = !!trip && (tripViews || ui.view === 'pack');
+  // The Checklist and the Expenses are the open trip's too: its tabs switch trips there as well.
+  const tabs = !!trip && (tripViews || ui.view === 'pack' || ui.view === 'money');
   $('#trip-tabs').hidden = !tabs;
   $('#appbar-title').hidden = tripViews || tabs;
   $('#appbar-title').textContent = TITLES[ui.view];
-  $('#fab').hidden = $('#ai-fab').hidden = !tripViews || !trip;
-  $('#fab-label').textContent = ui.view === 'ideas' ? T('New idea') : T('New plan');
+  $('#fab').hidden = !(tripViews || ui.view === 'money') || !trip;
+  $('#ai-fab').hidden = !tripViews || !trip;
+  $('#fab-label').textContent = ui.view === 'ideas' ? T('New idea') : ui.view === 'money' ? T('New expense') : T('New plan');
   $('#fab').setAttribute('aria-label', $('#fab-label').textContent);
   try {
     if (tripViews && !trip) renderWelcome();
@@ -144,6 +145,7 @@ function render({ inPlace = false } = {}) {
     if (trip && ui.view === 'ideas') renderIdeas(trip);
     // Away from the list of ideas: their order (most hearts first) is set again when it is opened.
     if (ui.view !== 'ideas' || ui.ideasTab === 'explore') ui.ideaOrder = null;
+    if (ui.view === 'money') renderMoney(trip);      // view-money.js
     if (ui.view === 'pack') renderChecklist();
     if (ui.view === 'more') renderMore();
   } catch (e) {

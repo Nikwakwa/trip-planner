@@ -36,6 +36,8 @@ card, the ✕ on its tab, or your phone's Back button) returns to where you were
 - **Copy** a trip to go again: tap ✎ on the trip, then **Copy** (the two-pages button). Pick the new first day and
   every plan moves with it. The copy starts fresh: nothing ticked off, no "Booked" marks, no attached tickets, and
   it's yours alone even if the old trip was shared. Its checklist comes along, unticked.
+- **Expenses**, like Tricount: add what each of you pays and the app works out who owes whom (see "Sharing
+  the costs" below).
 - **Print** a trip, or save it as a PDF: **Share → Print or save as PDF**. You get one clean page with each day's
   plans, times, addresses, notes and the way between stops, then your ideas. On a computer, the browser's own
   Print (Ctrl+P) gives the same page.
@@ -72,7 +74,7 @@ behavior in `js/`. Each file covers one part of the app, so a change usually tou
 | `base.css` | The font, the colors (all made from the trip's color, light and dark). |
 | `components.css` | Pieces used everywhere: lists, buttons, chips, sheets, form fields, switches. |
 | `shell.css` | Around the sections: the top bar, the day strip, the + button, the navigation bar. |
-| `plan.css`, `ideas.css`, `checklist.css` | The Plan, Ideas and Checklist sections. |
+| `plan.css`, `ideas.css`, `checklist.css`, `money.css` | The Plan, Ideas, Checklist and Expenses sections. |
 | `map.css` | The maps and their pins. |
 | `sheets.css` | The sheets of the features: Essentials, voting, sharing, the AI Assistant, tickets… |
 | `desktop.css` | The computer layout (sidebar, docked map), on wide windows. |
@@ -104,12 +106,13 @@ behavior in `js/`. Each file covers one part of the app, so a change usually tou
 | `vote.js` | Voting for new features, and suggesting your own (Settings → About). |
 | `share.js` | Planning a trip together: invitations, who is on a trip, the Share sheet. |
 | `print.js` | The trip as a page to print or save as a PDF. |
+| `money.js` | Expenses: adding up who paid what, who owes whom, currencies and exchange rates. |
 | `sync.js` | Sign-in and syncing plans between devices (Firebase). |
 | `ui.js` | Shared pieces of the screen: messages at the bottom, "Are you sure?" questions, colors. |
 | `guide.js` | Ideas for each day, Auto-fill day, and "Book ahead". |
 | `store.js` | Your plans: saving them on the device, and checking anything that comes from outside. |
 | `render.js` | Drawing the screen and switching sections. |
-| `view-plan.js`, `view-ideas.js`, `view-checklist.js`, `view-settings.js` | The four sections. |
+| `view-plan.js`, `view-ideas.js`, `view-money.js`, `view-checklist.js`, `view-settings.js` | The five sections. |
 | `form-plan.js`, `form-trip.js` | The forms to add or edit a plan, and a trip (and to copy a trip). |
 | `archive.js` | Archived trips: taking a trip off the top bar, and the "Archived trips" sheet. |
 | `account.js` | Signing in, changing the password, deleting the account. |
@@ -193,7 +196,7 @@ Good to know:
 - The Share sheet lists **who is on the trip**, by email address. Only the people on the trip see that list.
 - The person who started it can **remove** someone (the link is then replaced, so the old one stops working)
   and can **delete the trip for everyone**. The others can **leave**; the trip then goes away from their devices only.
-- Shared: the trip, its plans and ideas, and **a list for everyone** on the trip. It shows in the **Checklist**
+- Shared: the trip, its plans and ideas, its **expenses** (see "Sharing the costs"), and **a list for everyone** on the trip. It shows in the **Checklist**
   when that trip is open, above your own checklist: anyone adds to it and ticks things off. Hold an item and
   drag it to move it between that list and your own. A packing suggestion can go on either: **+** for yours,
   the people button for everyone.
@@ -218,6 +221,28 @@ everything with the contents of `firestore.rules`, and **Publish**. Until then t
 
 To see the shared trips in the console: **Firestore Database → Data**, collection `shared`. Each entry lists
 the accounts on the trip, and holds the trip's plans under `docs`.
+
+## Sharing the costs
+
+The **Expenses** tab (the third button) is for what you spend during the trip, like the Tricount app.
+
+- Tap **New expense**: the amount, what it was for, who paid, and who it was for (everyone is ticked; untick
+  whoever wasn't there). **Equally** splits it in equal parts; **By amounts** lets you type each person's part.
+- **Any currency in the world.** Euros and the place's own currency (the one in Essentials) come first in the
+  list, then every other one by name. The app converts each expense with that day's exchange rate and keeps the
+  rate with it, so balances don't change afterwards. Offline, it uses the last rates it saw, or you type the rate.
+- **Who shares the costs:** on a trip you plan together, everyone on it is there already. **Add someone** adds anyone
+  by name, even people without the app (a child, a friend): you enter what they pay. Someone no expense names can
+  be removed by tapping their name in **Balances**.
+- **Balances** shows how much each person paid and is owed (green) or owes (red), and **How to settle up**: the
+  fewest payments that make everyone square. Tap **Paid** once the money is given: it goes in the list as money
+  given back (**Money given**, also to add by hand), and the balances go back to zero.
+- The card at the top says how much the trip cost, your own part, and what you get back or owe.
+- The totals are in euros unless you pick another currency before the first expense (under the empty list).
+- On a shared trip everyone sees and can change the expenses. Copying a trip keeps its people, not its expenses.
+  Backups keep them.
+- Exchange rates come from a free service (Fawaz Ahmed's currency API, through jsDelivr), asked at most every 12
+  hours. It only learns that the app wants today's rates.
 
 ## Voting for new features
 
