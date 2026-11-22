@@ -289,6 +289,15 @@ function autoFillDay(trip, day) {
   };
 }
 
+// An idea that is also a plan on a day (the same guide place, picked again in the plan form, by the AI
+// Assistant or under "Where to eat") has done its job: it leaves the ideas. Returns the ideas taken away.
+function dropPlannedIdeas(trip) {
+  const planned = new Set(trip.items.filter(i => i.date && i.guideId).map(i => i.guideId));
+  const gone = trip.items.filter(i => !i.date && i.guideId && planned.has(i.guideId));
+  for (const it of gone) trip.items.splice(trip.items.indexOf(it), 1);
+  return gone;
+}
+
 function runAutoFill(day) {
   const trip = activeTrip();
   const result = autoFillDay(trip, day);

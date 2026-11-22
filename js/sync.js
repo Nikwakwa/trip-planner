@@ -63,11 +63,18 @@ function readSyncInfo() {
   } catch { /* fall through */ }
   return null;
 }
+// The record of what the account holds (base) must keep up with the saved plans: one that stopped saving
+// (storage full) took plans deleted on another device for this device's own new ones, and sent them back.
+// So it makes room the way the plans do (store.js), and says so when even that fails (once per visit).
+let syncWriteWarned = false;
 function writeSyncInfo() {
-  try {
-    if (sync.saved) localStorage.setItem(SYNC_KEY, JSON.stringify(sync.saved));
-    else localStorage.removeItem(SYNC_KEY);
-  } catch { /* storage full: sync still works, it just re-checks more next time */ }
+  if (!sync.saved) {
+    try { localStorage.removeItem(SYNC_KEY); } catch { /* nothing to remove */ }
+    return;
+  }
+  if (storeMakingRoom(SYNC_KEY, JSON.stringify(sync.saved)) || syncWriteWarned) return;
+  syncWriteWarned = true;
+  snackbar(T('Could not save — device storage may be full'));
 }
 
 function setSyncStatus(status, error = '') {

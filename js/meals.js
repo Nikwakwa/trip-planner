@@ -368,11 +368,12 @@ onAction('add-meal', (el) => {
     lat: m.lat, lng: m.lng, ...(m.guideId && { guideId: m.guideId }),
   };
   trip.items.push(item);
+  const ideas = dropPlannedIdeas(trip);     // the same place, kept as an idea
   save();
   render();
   if (navigator.vibrate) navigator.vibrate(12);
   snackbar(T('Added to {day}', { day: fmtDay(day, { weekday: 'long' }) }), T('Undo'), () => {
-    trip.items = trip.items.filter(i => i !== item);
+    trip.items = trip.items.filter(i => i !== item).concat(ideas);
     save();
     render();
   });

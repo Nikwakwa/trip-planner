@@ -298,7 +298,11 @@ itemForm.addEventListener('submit', (e) => {
   } else {
     trip.items.push({ id: uid(), done: false, ...data, ...spot });
   }
-  saveFormFiles(editingItemId || trip.items[trip.items.length - 1].id);
+  const savedId = editingItemId || trip.items[trip.items.length - 1].id;
+  saveFormFiles(savedId);
+  // The same guide place kept as an idea: now that it's on a day, it leaves the ideas.
+  const saved = findItem(savedId);
+  if (saved && saved.item.date) dropPlannedIdeas(saved.trip);
   save();
   itemDialog.close();
   render();

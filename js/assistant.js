@@ -433,6 +433,9 @@ function applyProposal(trip, msg) {
     }
     if (c.kind === 'dates') { trip.start = c.start; trip.end = c.end; }
   }
+  // A place that was an idea and now has a plan on a day leaves the ideas (Undo brings it back with the rest).
+  // Not when a plan was moved to the ideas here: it is meant to be one.
+  if (!checked.some(c => c.kind === 'update' && c.item && !c.item.date)) dropPlannedIdeas(trip);
   msg.status = 'applied';
   // What was done, kept as text: once applied, the changes no longer check out against the trip
   // (a moved plan is where it was asked to go, a removed one is gone), and the list would empty itself.

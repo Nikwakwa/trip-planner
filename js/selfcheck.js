@@ -278,12 +278,47 @@ function runChecks() {
     mergeRemote(stateDocs(remote), new Set());
     return same([titles(), JSON.parse(stateDocs(state).item_b).pos], ['Dinner, Tram 28', 0]);
   }));
+  check('The record of what the account holds makes room when the storage is full, like the plans', () => {
+    // Full until two things that can be fetched again are gone. Nothing is really removed or written.
+    const proto = Storage.prototype, set = proto.setItem, remove = proto.removeItem;
+    const removed = [], written = [];
+    proto.setItem = function (k) { if (removed.length < 2) throw new DOMException('full', 'QuotaExceededError'); written.push(k); };
+    proto.removeItem = function (k) { removed.push(k); };
+    let ok;
+    try { ok = storeMakingRoom(SYNC_KEY, '{}'); } finally { proto.setItem = set; proto.removeItem = remove; }
+    return same([ok, removed, written, /storeMakingRoom\(SYNC_KEY/.test(String(writeSyncInfo))], [true, [TRANSLATIONS_KEY, INFO_KEY], [SYNC_KEY], true]);
+  });
+  check('With an out-of-date record, a plan deleted on another device looks new here (why the record must be saved)', () => sandbox(() => {
+    // Why the record must be saved: with an old one, the plan looks like this device's own new plan.
+    const local = () => {
+      const s = sample();
+      s.trips[0].items.push({ id: 'n', title: 'New', category: 'sight', date: '', time: '', place: '', link: '', notes: '', done: false });
+      return s;
+    };
+    state = local();
+    sync.saved = { uid: 'selfcheck', email: '', linked: true, base: stateDocs(local()), shared: {} };
+    mergeRemote(stateDocs(sample()), new Set());
+    const upToDate = titles();
+    state = local();
+    sync.saved = { uid: 'selfcheck', email: '', linked: true, base: stateDocs(sample()), shared: {} };
+    mergeRemote(stateDocs(sample()), new Set());
+    return same([upToDate, titles()], ['Castle, Lunch, Tram 28', 'Castle, Lunch, New, Tram 28']);
+  }));
   check('An answer from the offline copy never wipes the plans', () => sandbox(() => {
     state = sample();
     sync.saved = { uid: 'selfcheck', email: '', linked: true, base: stateDocs(sample()), shared: {} };
     onAccountSnapshot({ metadata: { fromCache: true }, forEach() {} });
     return same(titles(), 'Castle, Lunch, Tram 28');
   }));
+
+  group = 'Ideas';
+  check('An idea leaves the ideas once its place is a plan on a day, and only then', () => {
+    const plan = (id, date, guideId) => ({ id, title: id, category: 'sight', date, time: '', place: '', link: '', notes: '', done: false, ...(guideId && { guideId }) });
+    const trip = { items: [plan('idea', '', 'wv-1'), plan('day', '2026-05-01', 'wv-1'), plan('other', '', 'wv-2'), plan('mine', '', ''), plan('typed', '2026-05-02', '')] };
+    const array = trip.items;
+    const gone = dropPlannedIdeas(trip).map(i => i.id);
+    return same([gone, trip.items.map(i => i.id), trip.items === array, dropPlannedIdeas(trip).length], [['idea'], ['day', 'other', 'mine', 'typed'], true, 0]);
+  });
 
   /* ---------- A trip planned by several accounts ---------- */
   group = 'Planning a trip together';

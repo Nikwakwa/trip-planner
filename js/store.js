@@ -176,18 +176,22 @@ function load() {
   return defaultState();
 }
 
-function saveLocal() {
-  const text = JSON.stringify(state);
-  // When the storage is full, what can be fetched again makes room for the plans: what was read about
-  // places, road routes, opening hours, forecasts, then the saved guides (they stay in use until the app is closed).
+// Writes to the device's storage. When it is full, what can be fetched again makes room: what was read about
+// places, road routes, opening hours, forecasts, then the saved guides (they stay in use until the app is closed).
+// False when even that wasn't enough.
+function storeMakingRoom(key, text) {
   for (const makeRoom of [null, TRANSLATIONS_KEY, INFO_KEY, ROUTES_KEY, HOURS_KEY, WEATHER_KEY, GUIDES_KEY]) {
     try {
       if (makeRoom) localStorage.removeItem(makeRoom);
-      localStorage.setItem(STORAGE_KEY, text);
-      return;
+      localStorage.setItem(key, text);
+      return true;
     } catch (e) { /* full: free the next one */ }
   }
-  snackbar(T('Could not save — device storage may be full'));
+  return false;
+}
+
+function saveLocal() {
+  if (!storeMakingRoom(STORAGE_KEY, JSON.stringify(state))) snackbar(T('Could not save — device storage may be full'));
 }
 
 // Saves on the phone, and sends the change to the account when signed in (sync.js).
@@ -238,6 +242,9 @@ if (state.settings.geoRetry === 6) {
   state.settings.geoRetry = 7;
   for (const t of state.trips) t.items.forEach((i) => { if (isHomeLeg(i, t)) delete i.geoMiss; });
 }
+// An idea whose place is also a plan on a day (put there before 2.33.1, when the plan form didn't check, or
+// by an older version on another device): it leaves the ideas. The account hears of it at the first merge.
+for (const t of state.trips) dropPlannedIdeas(t);
 saveLocal();
 
 // The app open twice on one device (a browser tab and the installed app, or two tabs): each has its own

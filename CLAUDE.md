@@ -386,7 +386,9 @@ Ideas with an address are looked up while the layer is on. Leaflet 1.9 lets clic
 **Sync (`sync.js`).** This is optional and switched on only when `firebase-config.js` sets `window.FIREBASE_CONFIG`.
 Firebase compat SDKs are vendored and loaded lazily. The state is split into Firestore documents
 `users/{uid}/docs/{trip_…|item_…|check_…|arch_…}` (`arch_`: an archived trip, 2.18; `profile_me`: the name, 2.20; a shared trip's space also has `todo_…`, `heart_…` and `name_…`). After each save, the local state is compared with the last known remote copy (kept in
-localStorage `tripPlanner.sync`), and only the differences are sent. Only documents of the kinds this version writes are ever
+localStorage `tripPlanner.sync`), and only the differences are sent. That record must keep up with the saved plans: one
+that stopped saving (storage full) took plans deleted on another device for this device's own new ones and sent them
+back (2.33.1). So `writeSyncInfo` makes room like `saveLocal` (`storeMakingRoom`, store.js). Only documents of the kinds this version writes are ever
 removed (`SYNCED_KINDS`), so a newer version can keep other kinds next to them. Remote snapshots are merged into
 `state`. A plan changed both here (not sent yet) and elsewhere is merged field by field (`mergeDoc`: theirs, with
 the fields changed here on top), because deleting a plan changes the `pos` of every plan after it. `settings` stay on each phone and are never synced. Account actions (Settings → Account): the sign-in sheet
@@ -603,7 +605,9 @@ Phone styles are the default. Add desktop overrides in desktop.css (loaded last)
   every trip, so it reads as a notice, not as part of the theme. Don't recolor whole days.
 - The Ideas tab has three sections: **Activities** (ideas that aren't food, `ideasTab` `mine`), **Food** (`food`: ideas with
   the `food` type, then Where to eat, meals.js) and **Explore**. "New idea" on Food starts as a Food & drink plan.
-- Ideas (Ideas tab) have "Add to a day" (`pick-day` / `set-day`) in place of the done checkbox. An idea from the
+- Ideas (Ideas tab) have "Add to a day" (`pick-day` / `set-day`) in place of the done checkbox. An idea whose guide
+  place becomes a plan on a day some other way (the plan form, the AI Assistant, Where to eat) leaves the ideas
+  (`dropPlannedIdeas`, guide.js; also at every start, for older copies). An idea from the
   guide keeps showing what Explore showed (photo, the guide's words, time to allow: `itemHTML` with `schedule`), and a
   tap opens its details sheet (`openPlanInfo`), not the form: there it can get a heart, go on a day, or be edited.
 - On desktop, hovering a plan highlights its pin (`hotPin`), and the docked map opens on today's route during the trip.
