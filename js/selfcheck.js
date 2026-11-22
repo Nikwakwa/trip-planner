@@ -1307,6 +1307,26 @@ function runChecks() {
       voting.ideas = was;
     }
   });
+  check('A new suggestion is emailed with who sent it, the version and the device', () => sandbox(() => {
+    state = sample();
+    const was = sync.saved;
+    try {
+      sync.saved = { ...(was || {}), email: 'ann@test.org' };
+      state.profile = { name: 'Ann' };
+      const named = suggestionMail('Trip budget', 'Per day');
+      state.profile = { name: '' };
+      const plain = suggestionMail('Trip budget', '');
+      return same([named.email, named.name, named.message, named.version, named.subject.endsWith('a new idea from Ann'), 'name' in plain, plain.message, plain.subject.endsWith('a new idea')],
+        ['ann@test.org', 'Ann', 'Trip budget\n\nPer day', APP_VERSION, true, false, 'Trip budget', true]);
+    } finally {
+      sync.saved = was;
+    }
+  }));
+  check('The device type is said in plain words', () =>
+    same([deviceType('Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36', true),
+      deviceType('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1', false),
+      deviceType('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140.0 Safari/537.36', false)],
+    ['Android phone, installed app', 'iPhone, browser', 'Windows computer, browser']));
   check('The app’s own proposals each have a name, a text and an id of their own', () =>
     (FEATURE_IDEAS.every(f => isId(f.id) && f.title && f.text) && new Set(FEATURE_IDEAS.map(f => f.id)).size === FEATURE_IDEAS.length) || 'a proposal is not filled in right');
 

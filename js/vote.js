@@ -8,7 +8,8 @@
    Kept in the Firebase project, outside the accounts' own plans, so that all accounts see it:
      featureVotes/{uid}      { ids: [the keys that person voted for] }
      featureIdeas/{uid}_{n}  { title, text, uid, at }   n = 0…4: that is what limits it to five
-   firestore.rules lets each account write only its own. Names and emails are never stored here.
+   firestore.rules lets each account write only its own. Names and emails are never stored here
+   (a new suggestion is emailed to the owner with them, emailSuggestion).
    Functions here also use sync.js and the screen's files (ui.js … app.js), which load after this one.
    ========================================================= */
 
@@ -199,6 +200,7 @@ async function suggestFeature(form) {
     batch.set(sync.db.collection('featureIdeas').doc(doc), { title, text, uid: voting.uid, at });
     batch.set(sync.db.collection('featureVotes').doc(voting.uid), { ids: [...(voting.votes[voting.uid] || []), `${doc}.${at}`].slice(-300) });
     await batch.commit();
+    emailSuggestion(title, text);
     suggesting(false);
     snackbar(T('Suggestion sent'));
   } catch (err) {
@@ -206,6 +208,34 @@ async function suggestFeature(form) {
   } finally {
     send.disabled = false;
   }
+}
+
+// The owner hears of each new suggestion by email, through Web3Forms like "Report a problem" (about.js),
+// with who sent it: the form says so. In English, whatever the app's language: it is for the owner.
+function suggestionMail(title, text) {
+  const name = myName();
+  return {
+    access_key: window.REPORT_KEY,
+    subject: `Dotted Line ${APP_VERSION}: a new idea${name ? ` from ${name}` : ''}`,
+    from_name: 'Dotted Line',
+    ...(name ? { name } : {}),
+    email: sync.saved.email,      // a reply goes to them
+    message: text ? `${title}\n\n${text}` : title,
+    version: APP_VERSION,
+    device: `${deviceType()} (${navigator.userAgent})`,
+    language: LANG,
+  };
+}
+
+// Nothing waits for it: the suggestion is in the list already. A failed email is only noted.
+function emailSuggestion(title, text) {
+  if (!window.REPORT_KEY || !sync.saved) return;
+  fetch(REPORT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(suggestionMail(title, text)),
+  }).then(res => res.ok || noteError(`Suggestion email: HTTP ${res.status}`))
+    .catch(err => noteError(`Suggestion email: ${(err && err.message) || err}`));
 }
 
 async function removeIdea(doc) {

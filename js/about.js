@@ -18,6 +18,7 @@ function openPrivacy() {
       T('The app’s owner can see them there. Your password is scrambled: nobody can read it.'),
       T('A shared trip is stored once for everyone on it. They see its plans, its shared list, hearts, names and emails. Your own checklist, other trips and files stay yours.'),
       T('Your feature votes and suggestions are stored there too. Signed-in users can read suggestions, not who sent them.'),
+      window.REPORT_KEY && T('A suggestion you send is also emailed to the app’s owner, with your name and email, the app version and device type.'),
     ]),
     part('public', T('Sent to other services'), [
       T('Free outside services get only what each request needs, never your account.'),
@@ -69,6 +70,18 @@ const reportDialog = $('#report-dialog');
 const reportForm = $('#report-form');
 let reportSentAt = 0;
 
+// What kind of device, in a few words ("Android phone, installed app"). The full browser line goes with it.
+function deviceType(ua = navigator.userAgent, app = installed()) {
+  const kind = /iPhone|iPod/.test(ua) ? 'iPhone'
+    : /iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ? 'iPad'
+    : /Android/.test(ua) ? (/Mobile/.test(ua) ? 'Android phone' : 'Android tablet')
+    : /CrOS/.test(ua) ? 'Chromebook'
+    : /Macintosh/.test(ua) ? 'Mac'
+    : /Windows/.test(ua) ? 'Windows computer'
+    : /Linux/.test(ua) ? 'Linux computer' : 'device';
+  return `${kind}, ${app ? 'installed app' : 'browser'}`;
+}
+
 // What goes with the user's words. Counts and settings, never the plans themselves.
 // They stay in English, whatever the app's language: they are for the person who looks after the app.
 function problemDetails() {
@@ -79,7 +92,7 @@ function problemDetails() {
       + (sharing.off ? 'sharing not switched on' : `${plural(state.trips.filter(t => t.shared).length, 'shared trip')}`);
   return [
     `Version: ${APP_VERSION}`,
-    `Device: ${navigator.userAgent}`,
+    `Device: ${deviceType()} (${navigator.userAgent})`,
     `Window: ${innerWidth}×${innerHeight}, ${installed() ? 'installed' : 'in the browser'}, ${navigator.onLine ? 'online' : 'offline'}, language ${navigator.language || '?'}, app in ${LANG}`,
     `App: section "${ui.view}", ${plural(state.trips.length, 'trip')}${state.trips.some(isArchived) ? ` (${state.trips.filter(isArchived).length} archived)` : ''}, ${plural(plans, 'plan')}, theme ${state.settings.theme}, ${state.settings.units}`,
     `Account: ${account}`,

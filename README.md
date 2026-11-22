@@ -228,6 +228,12 @@ everything with the contents of `firestore.rules`, and **Publish**. Until then t
 To look at the results or remove a suggestion you don't want: **Firestore Database → Data**, collections
 `featureVotes` (one entry per person) and `featureIdeas` (the suggestions; delete an entry to remove it).
 
+Each new suggestion is also emailed to you, through the same Web3Forms key as "Report a problem"
+(`window.REPORT_KEY` in `firebase-config.js`). The email has the idea, the sender's name (if they chose one in
+Settings) and email address, the app version and the kind of device. Reply to it and your answer goes to them.
+Other people using the app still never see who sent a suggestion. Suggestions are emailed only from version 2.34.0:
+the ones sent before are only in Firestore.
+
 ## Report a problem
 
 The app has no server of its own, so it can't send email by itself. A free service,
