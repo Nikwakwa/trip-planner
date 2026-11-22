@@ -5,6 +5,7 @@
 const tripDialog = $('#trip-dialog');
 const tripForm = $('#trip-form');
 let editingTripId = null;
+let copyingTripId = null;      // the form makes a copy of this trip (Copy, in the trip's sheet)
 
 $('#trip-colors').insertAdjacentHTML('beforeend', COLORS.map(c => `
   <label><input type="radio" name="color" value="${c}" aria-label="${T('Color {c}', { c })}">
@@ -44,7 +45,7 @@ function onTripNameInput() {
   // Typed something else than the chosen place: a new trip's place is then looked up from its name.
   // A trip being edited keeps its place: a new name alone never moves the trip, nor loses its guide
   // while offline. Only picking a place from the list changes it.
-  if (!editingTripId && placeSearch.chosen && !placeNames(placeSearch.chosen).some(n => norm(q).includes(norm(n)))) placeSearch.chosen = null;
+  if (!editingTripId && !copyingTripId && placeSearch.chosen &&!placeNames(placeSearch.chosen).some(n => norm(q).includes(norm(n)))) placeSearch.chosen = null;
   showChosenPlace();
   clearTimeout(placeSearch.timer);
   if (placeSearch.ctl) placeSearch.ctl.abort();
@@ -71,9 +72,23 @@ $('#place-list').addEventListener('click', (e) => {
   showPlaceResults([]);
 });
 
-function openTripForm(trip) {
-  editingTripId = trip ? trip.id : null;
-  $('#trip-dialog-title').textContent = trip ? T('Edit trip') : state.trips.length ? T('New trip') : T('Where to?');
+// The trip's sheet. With `copy`, it makes a new trip from that one: the same name, place and colors, its
+// dates to change.
+function openTripForm(trip, copy = false) {
+  editingTripId = trip && !copy ? trip.id : null;
+  copyingTripId = trip && copy ? trip.id : null;
+  $('#trip-dialog-title').textContent = copy ? T('Copy {trip}', { trip: tripName(trip) })
+    : trip ? T('Edit trip') : state.trips.length ? T('New trip') : T('Where to?');
+  $('#trip-save').textContent = copy ? T('Make a copy') : T('Save');
+  const note = $('#trip-copy-note');
+  note.hidden = !copy;
+  if (copy) {
+    note.textContent = [
+      T('The plans, ideas and checklist come along, nothing ticked off. Change the first day: the plans move with it.'),
+      trip.shared ? T('The copy is yours alone.') : '',
+    ].filter(Boolean).join(' ');
+  }
+  $('#trip-copy').hidden = !editingTripId;
   const f = tripForm.elements;
   f.name.value = trip ? tripName(trip) : '';
   f.start.value = trip ? trip.start : '';
@@ -83,22 +98,75 @@ function openTripForm(trip) {
   placeSearch.chosen = (trip && trip.place) || null;
   showChosenPlace();
   showPlaceResults([]);
-  $('#trip-delete').hidden = !trip;
+  $('#trip-delete').hidden = !editingTripId;
   $('#trip-delete-label').textContent = tripEndLabel(trip);     // share.js: "Leave trip" when it is someone else's
   $('#trip-delete').setAttribute('aria-label', tripEndLabel(trip));
   $('#trip-delete').title = tripEndLabel(trip);
   // Archive or bring back (archive.js). On a phone this row shows icons only: the names are there for
   // screen readers, and on a long press.
   const archive = $('#trip-archive');
-  archive.hidden = !trip;
+  archive.hidden = !editingTripId;
   const label = isArchived(trip) ? T('Unarchive') : T('Archive');
   archive.innerHTML = `${icon(isArchived(trip) ? 'unarchive' : 'archive')}<span>${label}</span>`;
   archive.setAttribute('aria-label', label);
   archive.title = label;
-  tripDialog.showModal();
+  if (!tripDialog.open) tripDialog.showModal();     // Copy switches the open sheet over
   draftStart(tripDialog);
   if (!trip) f.name.focus();
+  if (copy) $('#trip-dialog-title').focus();
 }
+
+/* ---------- Copy a trip ---------- */
+
+// A day moved by n days.
+function shiftDay(day, n) {
+  if (!isDate(day) || !n) return day;
+  const d = parseDate(day);
+  d.setDate(d.getDate() + n);
+  return toISO(d);
+}
+
+// Where the trip's plans start: its first day, else its earliest plan.
+const tripFirstDay = trip => trip.start || trip.items.map(i => i.date).filter(isDate).sort()[0] || '';
+
+// A new trip of your own from another one, its plans moved by `days`. Nothing is done or booked yet. The
+// people, hearts and the trip's shared list stay with the old trip (the list comes along as checklist lines),
+// and so do the files: tickets are for the old dates.
+function copyOfTrip(trip, days, data = {}) {
+  const { shared, todos, hearts, names, items, dayTravel, ...rest } = JSON.parse(JSON.stringify(trip));
+  const copy = { ...rest, ...data, id: uid() };
+  copy.items = items.map(({ booked, ...it }) => {
+    const out = { ...it, id: uid(), done: false, date: shiftDay(it.date, days) };
+    if (it.until) out.until = shiftDay(it.until, days);
+    return out;
+  });
+  if (dayTravel) copy.dayTravel = Object.fromEntries(Object.entries(dayTravel).map(([d, m]) => [shiftDay(d, days), m]));
+  return copy;
+}
+
+// The old trip's own checklist lines (and its shared list), on the copy, not ticked.
+function copyTripChecks(from, to) {
+  const lines = [
+    ...state.checklist.filter(c => c.trip === from.id).map(({ doneOn, ...c }) => c),
+    ...(from.todos || []).map(c => ({ id: c.id, text: c.text })),
+  ];
+  state.checklist.push(...lines.map(c => ({ ...c, id: uid(), trip: to.id, done: false })));
+}
+
+// Copy, in the trip's sheet: the same sheet becomes the copy's, with the trip as it is saved.
+$('#trip-copy').addEventListener('click', async () => {
+  const trip = state.trips.find(t => t.id === editingTripId);
+  if (!trip) return;
+  if (draftChanged(tripDialog) && !await askConfirm({ icon: 'edit', ...DRAFTS.get(tripDialog).ask(), ok: T('Discard'), cancel: T('Keep editing') })) return;
+  openTripForm(trip, true);
+});
+
+// Copying a trip with dates: the last day follows the first, so the copy is as long as the trip.
+tripForm.elements.start.addEventListener('change', () => {
+  const from = copyingTripId && state.trips.find(t => t.id === copyingTripId);
+  const f = tripForm.elements;
+  if (from && from.start && from.end && f.start.value) f.end.value = shiftDay(f.start.value, daysBetween(from.start, from.end));
+});
 
 tripForm.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -128,12 +196,22 @@ tripForm.addEventListener('submit', async (e) => {
   if (!tripDialog.open) return;
 
   let trip;
+  const copied = copyingTripId && state.trips.find(t => t.id === copyingTripId);
   if (editingTripId) {
     trip = state.trips.find(t => t.id === editingTripId);
     if (!trip) return;
     // The name shown in this language, left as it was: the trip keeps the name it has.
     if (data.name === tripName(trip)) data.name = trip.name;
     Object.assign(trip, data);
+  } else if (copied) {
+    if (data.name === tripName(copied)) data.name = copied.name;
+    const first = tripFirstDay(copied);
+    trip = copyOfTrip(copied, start && first ? daysBetween(first, start) : 0, data);
+    state.trips.push(trip);
+    copyTripChecks(copied, trip);
+    state.activeTripId = trip.id;
+    setView('plan');
+    scrollAt = {};
   } else {
     trip = { id: uid(), items: [], ...data };
     state.trips.push(trip);
@@ -151,7 +229,8 @@ tripForm.addEventListener('submit', async (e) => {
   save();
   tripDialog.close();
   render();
-  if (place && !guideFor(trip) && guideState(trip) === 'loading') snackbar(T('Found {place} — getting ideas…', { place: localLabel(place) }));
+  if (copied) snackbar(T('Copy made'));
+  else if (place && !guideFor(trip) && guideState(trip) === 'loading') snackbar(T('Found {place} — getting ideas…', { place: localLabel(place) }));
   else if (!place && navigator.onLine) snackbar(T('Couldn’t find {place} on the map — no suggestions for it', { place: data.name }));
 });
 
