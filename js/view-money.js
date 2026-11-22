@@ -188,8 +188,8 @@ const formCur = () => costFields().cur.value;
 // The rate field says how much 1 of the trip's currency is in the expense's ("1 EUR = 162.4 JPY": how
 // travellers think of it). The expense keeps the other way round: what 1 JPY is in euros. null when not a number.
 function readRate(text) {
-  const n = Number(String(text || '').replace(/\s/g, '').replace(',', '.'));
-  return n > 0 && Number.isFinite(n) ? 1 / n : null;
+  const n = readNumber(text);
+  return n ? 1 / n : null;
 }
 const rateText = r => {
   const s = String(Number(r.toPrecision(6)));
@@ -218,6 +218,7 @@ function openCostForm(cost, preset = {}) {
   costForm.dataset.split = JSON.stringify(cost ? cost.split : null);
   fillPeopleFields(trip, cost ? cost.paidBy : me);
   showCostKind();
+  showAmountNote();
   $('#cost-delete').hidden = !cost;
   costDialog.showModal();
   draftStart(costDialog);
@@ -232,6 +233,16 @@ function fillPeopleFields(trip, paidBy) {
   f.paidBy.innerHTML = people.map(p => `<option value="${esc(p.id)}">${esc(personLabel(trip, p.id))}</option>`).join('');
   f.paidBy.value = people.some(p => p.id === paidBy) ? paidBy : myPersonId(trip);
   drawSplit();
+}
+
+// Under the amount, what the app understood ("$1,200.00"), or what is wrong with it: a misread is seen at once.
+function showAmountNote() {
+  const f = costFields();
+  const cur = formCur();
+  const note = $('#cost-amount-note');
+  const trouble = cleanAmount(f.amount.value) ? amountTrouble(f.amount.value, cur) : '';
+  note.textContent = trouble || (cleanAmount(f.amount.value) ? fmtMoney(parseAmount(f.amount.value, cur), cur) : '');
+  note.classList.toggle('bad', !!trouble);
 }
 
 // Expense or money given back: the same sheet, with other words.
@@ -366,6 +377,7 @@ function keepSplit() {
 costForm.addEventListener('input', (e) => {
   const name = e.target.name || '';
   if (name === 'amount' || name.startsWith('part_')) limitDecimals(e.target, formCur());
+  if (name === 'amount') showAmountNote();
   if (name === 'amount' || name === 'rate') { showRate(); if (formHow() !== 'amounts' || formKind() === 'transfer') { keepSplit(); drawSplit(); } else splitNote(); }
   if (name.startsWith('part_')) splitNote();
 });
@@ -374,7 +386,7 @@ costForm.addEventListener('change', (e) => {
   if (name === 'cur') {
     // A currency with fewer decimals: the amounts typed lose the extra ones.
     for (const el of [costFields().amount, ...costForm.querySelectorAll('.split-part')]) limitDecimals(el, formCur(), true);
-    keepSplit(); showRate(); drawSplit();
+    showAmountNote(); keepSplit(); showRate(); drawSplit();
   }
   if (name === 'for' || name === 'paidBy' || name === 'to') { keepSplit(); drawSplit(); }
 });
@@ -384,7 +396,7 @@ function readCostForm(trip) {
   const f = costFields();
   const cur = formCur();
   const amount = parseAmount(f.amount.value, cur);
-  if (!amount) return { error: !curDigits(cur) && /[.,]\d{1,2}$/.test(f.amount.value) ? T('No decimals in {cur}', { cur }) : T('Type the amount') };
+  if (!amount) return { error: amountTrouble(f.amount.value, cur) };
   let rate = 1;
   if (cur !== tripCurrency(trip)) {
     rate = readRate(f.rate.value);

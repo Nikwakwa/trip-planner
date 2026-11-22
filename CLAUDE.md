@@ -475,9 +475,13 @@ spent and who owes whom; a planned budget on plans may come later, its `FEATURE_
 - On the trip: `currency` (the totals', `tripCurrency`, EUR when missing; changed at any time from the tab's
   "Totals in" button, `#currency-dialog`: `changeTripCurrency` carries every cost's rate over with today's rate (or a
   typed one), a cost already in the new currency gets 1, and it returns an Undo; 2.38), `people` (`[{ id, name }]`) and `costs` (`[{ id, title, amount, cur, rate, paidBy, split, how,
-  date, kind, at }]`). Amounts are whole smallest units (`curDigits`: JPY 0, EUR 2), never decimals. Typed ones: the last `.` or `,` is
-  the decimal point, and `parseAmount` refuses more decimals than the currency has (a currency without any reads
-  "1.200" as 1200); `limitDecimals` stops the fields taking them (2.38.1: "45.999 $" was read as 45 999). `rate` is what 1
+  date, kind, at }]`). Amounts are whole smallest units (`curDigits`: JPY 0, EUR 2), never decimals. Typed ones (2.39.1, the owner's
+  wish: simple and never misread): the app's own decimal mark is the decimal point (`decimalMark`: "." in English,
+  "," in French, as `fmtMoney` writes them); the other mark followed by exactly 3 digits groups thousands ("1,200" in
+  English), followed by 1 or 2 it is a decimal point too ("45,99" from a comma-only keyboard) (`decimalAt`).
+  `parseAmount` refuses more decimals than the currency has, `limitDecimals` stops the fields taking them after the
+  app's mark, `amountTrouble` says what is wrong, and the expense sheet writes what it understood under the field
+  (`showAmountNote`), so a misread shows before saving. Rates go through `readNumber`, the same rule without the limit. `rate` is what 1
   `cur` is in the trip's currency, saved with the cost so balances never move; the form shows it the other way round
   ("1 EUR = 162.4 JPY", `readRate`). `split` is person → weight (`how: 'equal'`, 1 each; `'shares'` (2.37), 1 to
   `MAX_SHARES` each, set with − / + in the sheet, `share-step`) or → their part in `cur` (`'amounts'`). A 2.36 device
