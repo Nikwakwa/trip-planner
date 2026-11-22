@@ -64,7 +64,7 @@ function repinNumbered() {
       if (waitMs > 0) await new Promise(r => setTimeout(r, waitMs));
       geoLast = Date.now();
       const q = norm(place).includes(norm(where)) ? numbered(place) : `${numbered(place)}, ${where}`;
-      const res = await fetch('https://nominatim.openstreetmap.org/search?' + new URLSearchParams({ format: 'jsonv2', limit: '5', q, 'accept-language': 'en' }));
+      const res = await fetchWithin('https://nominatim.openstreetmap.org/search?' + new URLSearchParams({ format: 'jsonv2', limit: '5', q, 'accept-language': 'en' }));
       if (!res.ok) throw new Error('lookup ' + res.status);
       const answer = await res.json();
       // Found again now: an answer from the account may have replaced the plans while waiting.
@@ -128,7 +128,7 @@ function lookupMissing(trip, items) {
         const params = new URLSearchParams({ format: 'jsonv2', limit: '5', q, 'accept-language': 'en' });
         if (box) { params.set('viewbox', box.join(',')); params.set('bounded', '1'); }
         else if (trip.place && trip.place.bbox) params.set('viewbox', trip.place.bbox.join(','));
-        const res = await fetch('https://nominatim.openstreetmap.org/search?' + params);
+        const res = await fetchWithin('https://nominatim.openstreetmap.org/search?' + params);
         if (!res.ok) throw new Error('lookup ' + res.status);
         const all = (await res.json()).map(f => ({
           lat: Number(f.lat), lng: Number(f.lon),
@@ -167,7 +167,7 @@ function lookupMissing(trip, items) {
         const params = new URLSearchParams({ q, limit: '1', lang: 'en' });
         const by = around[0] || (trip.place && trip.place.kind === 'city' ? trip.place : null);
         if (by) { params.set('lat', by.lat); params.set('lon', by.lng); }
-        const res = await fetch('https://photon.komoot.io/api/?' + params);
+        const res = await fetchWithin('https://photon.komoot.io/api/?' + params);
         if (!res.ok) return null;
         const f = (await res.json()).features[0];
         const number = /^\s*(\d[\w-]*)\s/.exec(q);
@@ -803,7 +803,10 @@ function drawMap(fit) {
   // A flight from home far away is only fitted on a day with nothing else on the map: otherwise the map would show half the world.
   if (!all.length) all.push(...awayPts);
   const pts = mapView.day === 'all' || !all.length ? [...all, ...ideaPts] : all;
-  if (pts.length > 1) mapView.map.fitBounds(pts, { padding: [48, 48], maxZoom: 16 });
+  // Beside the plan, the day's card covers the map's top left: the pins are fitted below it.
+  const card = mapDocked() && $('.pane-card');
+  const top = card ? Math.max(48, card.offsetTop + card.offsetHeight + 24) : 48;
+  if (pts.length > 1) mapView.map.fitBounds(pts, { paddingTopLeft: [48, top], paddingBottomRight: [48, 48], maxZoom: 16 });
   else if (pts.length === 1) mapView.map.setView(pts[0], 15);
   else {
     const guide = guideFor(trip);

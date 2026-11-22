@@ -68,7 +68,7 @@ function askRoads(points) {
       const waitMs = roadRoutes.last + 1100 - Date.now();
       if (waitMs > 0) await new Promise(r => setTimeout(r, waitMs));
       roadRoutes.last = Date.now();
-      const res = await fetch(`${ROUTER}${points.map(p => `${p.lng.toFixed(5)},${p.lat.toFixed(5)}`).join(';')}?overview=false`);
+      const res = await fetchWithin(`${ROUTER}${points.map(p => `${p.lng.toFixed(5)},${p.lat.toFixed(5)}`).join(';')}?overview=false`);
       // 400 is the server's "no route between these" (an island, a place no road reaches).
       if (!res.ok && res.status !== 400) throw new Error('route ' + res.status);
       const found = readRoads(points, await res.json());

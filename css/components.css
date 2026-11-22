@@ -472,6 +472,12 @@ input.dressed:disabled + .date-shown { opacity: .38; }
   #trip-form .sheet-actions .btn.text > span { display: none; }
   #trip-form .sheet-actions .btn.text .icon { width: 22px; height: 22px; }
 }
+/* A small phone (320px): Copy, Archive, Delete and "Enregistrer" made the trip sheet wider than the screen */
+@media (max-width: 359px) {
+  .sheet-actions { gap: 4px; }
+  .sheet-actions .btn.lg { padding: 0 20px; }
+  #trip-form .sheet-actions .btn.text { width: 44px; }
+}
 /* The long forms (a plan, a trip): Save stays in view at the bottom while the fields scroll under it */
 #item-form > .sheet-actions, #trip-form > .sheet-actions {
   position: sticky;

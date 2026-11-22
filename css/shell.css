@@ -258,6 +258,9 @@ body.fabs-away .fab:not(:focus-visible), body.fabs-away .ai-fab:not(:focus-visib
 .navbar button.active { color: var(--on-surface); font-weight: 700; }
 /* Five sections on a narrow phone: "Paramètres" needs the room */
 @media (max-width: 420px) { .navbar button { letter-spacing: 0; padding: 0 2px; } .navbar button.active { letter-spacing: -.01em; } }
+/* A small phone (320px): five labels share 64px each, and "Programme", "Paramètres" were cut at the edges */
+.navbar button { min-width: 0; }
+@media (max-width: 359px) { .navbar button { font-size: 11px; } .navbar button.active { letter-spacing: -.02em; } }
 .navbar button.active .nav-ind { color: var(--on-secondary-container); }
 .navbar button.active .nav-ind::before { opacity: 1; transform: none; }
 .navbar button.active .i-fill { display: block; }

@@ -211,7 +211,7 @@ function lookupHours(trip, items) {
   hours.busy = true;
   todo.forEach(x => hours.pending.add(x.key));
   const query = `[out:json][timeout:20];(${todo.map(x => `nwr(around:120,${x.c.lat},${x.c.lng})[name][opening_hours];`).join('')});out tags center;`;
-  fetch(OVERPASS, { method: 'POST', body: 'data=' + encodeURIComponent(query) })
+  fetchWithin(OVERPASS, { method: 'POST', body: 'data=' + encodeURIComponent(query) }, 45e3)
     .then(res => (res.ok ? res.json() : Promise.reject(new Error('hours ' + res.status))))
     .then((data) => {
       const found = data.elements.map(e => ({ tags: e.tags, lat: e.lat ?? e.center.lat, lng: e.lon ?? e.center.lon }));

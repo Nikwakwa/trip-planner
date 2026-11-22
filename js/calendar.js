@@ -111,7 +111,8 @@ function downloadTripCalendar(trip) {
   const blob = new Blob([lines.map(icsLine).join('\r\n') + '\r\n'], { type: 'text/calendar' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `${tripName(trip).replace(/[^\w\- ]+/g, '').trim() || 'trip'}.ics`;
+  // Letters of any language stay ("Zürich.ics", "東京.ics"): only what a file name can't hold goes.
+  a.download = `${tripName(trip).replace(/[^\p{L}\p{N}\- ]+/gu, '').trim() || 'trip'}.ics`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
   snackbar(Tn(plans.length, 'Calendar file saved — {n} plan', 'Calendar file saved — {n} plans'));

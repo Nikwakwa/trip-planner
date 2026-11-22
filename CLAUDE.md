@@ -481,7 +481,8 @@ spent and who owes whom; a planned budget on plans may come later, its `FEATURE_
   English), followed by 1 or 2 it is a decimal point too ("45,99" from a comma-only keyboard) (`decimalAt`).
   `parseAmount` refuses more decimals than the currency has, `limitDecimals` stops the fields taking them after the
   app's mark, `amountTrouble` says what is wrong, and the expense sheet writes what it understood under the field
-  (`showAmountNote`), so a misread shows before saving. Rates go through `readNumber`, the same rule without the limit. `rate` is what 1
+  (`showAmountNote`), so a misread shows before saving. Rates go through `readNumber`, the same rule without the limit;
+  one outside 1e-9 to 1e9 (`isRate`) is refused by the form and set to 1 by `tidyCost`, so the totals never read "∞". `rate` is what 1
   `cur` is in the trip's currency, saved with the cost so balances never move; the form shows it the other way round
   ("1 EUR = 162.4 JPY", `readRate`). `split` is person → weight (`how: 'equal'`, 1 each; `'shares'` (2.37), 1 to
   `MAX_SHARES` each, set with − / + in the sheet, `share-step`) or → their part in `cur` (`'amounts'`). A 2.36 device
@@ -668,6 +669,9 @@ Phone styles are the default. Add desktop overrides in desktop.css (loaded last)
 
 - External services (Photon, Nominatim, Wikivoyage/Wikipedia/Wikidata, OSM tiles, Firebase) are called straight
   from the browser. Don't add anything that needs a server or API keys we'd have to keep secret.
+- Ask them with `fetchWithin(url, opts, ms)` (core.js; `getJSON` uses it), not `fetch`: on a phone a request can hang
+  with no answer and no error, and what waited on it (road times, opening hours, a guide) stayed stuck for the visit.
+  It fails after 40 s by default. (The AI Assistant and the map style have time limits of their own.)
 - Keep every feature working offline once loaded, or have it fail gracefully offline (the `#offline-badge` / `navigator.onLine` checks).
 - UI follows Material 3 Expressive. Icons use `icon(name)` → `<svg><use href="icons/sprite.svg#name">`.
 - Code comments are short and in plain language. Match that style.

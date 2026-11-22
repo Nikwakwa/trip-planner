@@ -165,7 +165,7 @@ reportForm.addEventListener('submit', async (e) => {
   const buttons = reportForm.querySelectorAll('button');
   buttons.forEach((b) => { b.disabled = true; });
   try {
-    const res = await fetch(REPORT_URL, {
+    const res = await fetchWithin(REPORT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({

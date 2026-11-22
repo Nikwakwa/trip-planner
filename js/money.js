@@ -21,6 +21,9 @@
 const RATES_KEY = 'tripPlanner.rates';
 const RATES_MAX_AGE = 12 * 3600e3;          // rates are fetched again after 12 hours (they change once a day)
 const MONEY_MAX = 1e12;                     // the largest amount the app takes, in a currency's smallest unit
+// What 1 of a currency can be worth in another, at most and at least: far beyond any real rate, but a rate
+// from a typo or from someone else's device can't turn the totals into "∞" or "NaN".
+const isRate = v => typeof v === 'number' && v >= 1e-9 && v <= 1e9;
 // A short list for a device that can't list every currency (older browsers).
 const SOME_CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF', 'JPY', 'CAD', 'AUD', 'NZD', 'CNY', 'HKD', 'SGD', 'THB', 'INR', 'MXN', 'BRL',
   'ZAR', 'MAD', 'TRY', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF', 'ISK', 'KRW', 'IDR', 'VND', 'MUR', 'AED', 'EGP', 'ILS'];
@@ -273,7 +276,7 @@ function shareMoney(trip, uidNow) {
 // what it is worth stays the same, give or take a cent. Returns what to put back for Undo.
 function changeTripCurrency(trip, to, r) {
   const before = { currency: trip.currency, rates: (trip.costs || []).map(c => [c, c.rate]) };
-  for (const c of trip.costs || []) c.rate = c.cur === to ? 1 : c.rate * r;
+  for (const c of trip.costs || []) c.rate = c.cur === to ? 1 : Math.min(1e9, Math.max(1e-9, c.rate * r));
   trip.currency = to;
   return () => {
     if (before.currency === undefined) delete trip.currency; else trip.currency = before.currency;

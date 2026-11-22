@@ -101,7 +101,7 @@ async function findMatches(trip, q, signal, by, far = false) {
   const ask = async (at) => {
     const params = new URLSearchParams({ q, limit: '8', lang: LANG === 'fr' ? 'fr' : 'en' });
     if (at) { params.set('lat', at.lat); params.set('lon', at.lng); }
-    const res = await fetch('https://photon.komoot.io/api/?' + params, { signal });
+    const res = await fetchWithin('https://photon.komoot.io/api/?' + params, { signal });
     return res.ok ? (await res.json()).features : [];
   };
   const [around, anywhere] = await Promise.all([ask(by), far ? ask(null) : []]);

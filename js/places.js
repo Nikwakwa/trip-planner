@@ -16,7 +16,7 @@ const MAX_SAVED_GUIDES = 16;
 const WIKIVOYAGE = 'https://en.wikivoyage.org/w/api.php';
 
 async function getJSON(url, params, signal) {
-  const res = await fetch(url + '?' + new URLSearchParams(params), { signal });
+  const res = await fetchWithin(url + '?' + new URLSearchParams(params), { signal });
   if (!res.ok) throw new Error(`${url} answered ${res.status}`);
   return res.json();
 }
@@ -61,7 +61,7 @@ async function searchPlaces(q, signal) {
   const params = new URLSearchParams({ q, limit: '12', lang: photonLang() });
   params.append('osm_tag', 'place');
   params.append('osm_tag', 'boundary:administrative');
-  const res = await fetch('https://photon.komoot.io/api/?' + params, { signal });
+  const res = await fetchWithin('https://photon.komoot.io/api/?' + params, { signal });
   if (!res.ok) throw new Error('place search failed');
   const data = await res.json();
   const seen = new Set();
@@ -123,7 +123,7 @@ function ensurePlaceName(trip) {
   if (!p || !p.osm || (p.names && p.names[lang]) || namesAsked.has(p.osm + lang) || !navigator.onLine) return;
   namesAsked.add(p.osm + lang);
   const params = new URLSearchParams({ q: p.name, limit: '15', lang, lat: p.lat, lon: p.lng });
-  fetch('https://photon.komoot.io/api/?' + params)
+  fetchWithin('https://photon.komoot.io/api/?' + params)
     .then(res => (res.ok ? res.json() : Promise.reject(new Error('place search failed'))))
     .then((data) => {
       const f = data.features.find(x => `${x.properties.osm_type}${x.properties.osm_id}` === p.osm && x.properties.name);

@@ -232,7 +232,7 @@ function suggestionMail(title, text) {
 // Nothing waits for it: the suggestion is in the list already. A failed email is only noted.
 function emailSuggestion(title, text) {
   if (!window.REPORT_KEY || !sync.saved) return;
-  fetch(REPORT_URL, {
+  fetchWithin(REPORT_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify(suggestionMail(title, text)),

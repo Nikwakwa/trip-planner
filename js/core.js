@@ -109,6 +109,23 @@ function hostLabel(url) {
 const norm = s => String(s || '').toLowerCase().replace(/[‘’]/g, "'").replace(/\s+/g, ' ');
 const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+/* ---------- Asking other sites ---------- */
+
+// fetch(), but nothing waits for ever: on a phone, a connection that dies on the way can leave a request with no
+// answer and no error for minutes, and what was waiting on it (the road times, the opening hours, a guide still
+// "Finding ideas…") stayed stuck until the app was closed. After `ms` (the answer's body included) it fails like
+// any error, and is asked again later. A `signal` in opts still stops it sooner.
+function fetchWithin(url, opts = {}, ms = 40e3) {
+  const ctl = new AbortController();
+  setTimeout(() => ctl.abort(), ms);
+  const outer = opts.signal;
+  if (outer) {
+    if (outer.aborted) ctl.abort();
+    else outer.addEventListener('abort', () => ctl.abort(), { once: true });
+  }
+  return fetch(url, { ...opts, signal: ctl.signal });
+}
+
 /* ---------- Distances, getting around, units ---------- */
 
 // Straight-line distance in miles.

@@ -87,7 +87,7 @@ function refreshWeather(day, spot, entry) {
     latitude: spot.lat, longitude: spot.lng, timezone: 'auto', forecast_days: FORECAST_DAYS,
     daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max',
   });
-  fetch('https://api.open-meteo.com/v1/forecast?' + params)
+  fetchWithin('https://api.open-meteo.com/v1/forecast?' + params)
     .then(res => (res.ok ? res.json() : Promise.reject(new Error('weather ' + res.status))))
     .then((data) => {
       const d = data.daily;

@@ -1415,6 +1415,12 @@ function runChecks() {
       tidyCost({ id: 'a', amount: 100, cur: 'EUR', paidBy: 'me', split: { me: 1, '<i>': 1 }, rate: -1, title: 7, kind: 'gift', newer: true }),
     ], [null, null, null, null,
       { id: 'a', amount: 100, cur: 'EUR', paidBy: 'me', split: { me: 1 }, rate: 1, title: '', how: 'equal', date: '', kind: 'cost', at: 0, newer: true }]));
+  check('A rate far beyond any real one is refused (typed, or from another device): totals stay numbers', () => {
+    const cost = { id: 'a', amount: 100, cur: 'JPY', paidBy: 'me', split: { me: 1 } };
+    return same([tidyCost({ ...cost, rate: 1e300 }).rate, tidyCost({ ...cost, rate: 1e-300 }).rate, tidyCost({ ...cost, rate: 0.0062 }).rate,
+      readRate('0.0000000001'), readRate('0'), Math.round(1 / readRate('162.4') * 10) / 10],
+    [1, 1, 0.0062, null, null, 162.4]);
+  });
   check('Expenses and the people sharing them sync as documents of their own, and come back the same', () => sandbox(() => {
     state = sample();
     const trip = spending();
@@ -1611,11 +1617,11 @@ function runChecks() {
       const m = a.match(/^https:\/\/(\*\.)?([^/]+)\/?$/);
       return m && (m[1] ? host.endsWith('.' + m[2]) : host === m[2]);
     });
-    // Addresses written in a fetch(…) or getJSON(…), directly or through a constant (const OVERPASS = 'https://…').
+    // Addresses written in a fetch(…), fetchWithin(…) or getJSON(…), directly or through a constant (const OVERPASS = 'https://…').
     const missing = [];
     for (const [file, text] of sources().filter(([f]) => f.endsWith('.js'))) {
       const consts = new Map([...text.matchAll(/^const ([A-Z_]+) = ['`]https:\/\/([^/'`]+)/gm)].map(m => [m[1], m[2]]));
-      for (const m of text.matchAll(/\b(?:fetch|getJSON)\(\s*(?:['`]https:\/\/([^/'`$]+)|`?\$?\{?([A-Z_]+)\b)/g)) {
+      for (const m of text.matchAll(/\b(?:fetch|fetchWithin|getJSON)\(\s*(?:['`]https:\/\/([^/'`$]+)|`?\$?\{?([A-Z_]+)\b)/g)) {
         const host = m[1] || consts.get(m[2]);
         if (host && !ok(host)) missing.push(`${host} (${file})`);
       }

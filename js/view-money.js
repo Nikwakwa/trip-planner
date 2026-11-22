@@ -175,7 +175,7 @@ function balancesHTML(trip, bal) {
         </li>`).join('')}
       </ul>
       <p class="supporting">${T('Tap Paid once the money is given: it goes in the list, and the balances go back to zero.')}</p>`
-    : `<p class="supporting">${icon('check', 'sm')} ${T('Everyone is square.')}</p>`}`;
+    : `<p class="supporting money-square">${icon('check', 'sm')}${T('Everyone is square.')}</p>`}`;
 }
 
 /* ---------- The expense sheet ---------- */
@@ -189,7 +189,7 @@ const formCur = () => costFields().cur.value;
 // travellers think of it). The expense keeps the other way round: what 1 JPY is in euros. null when not a number.
 function readRate(text) {
   const n = readNumber(text);
-  return n ? 1 / n : null;
+  return n && isRate(1 / n) ? 1 / n : null;
 }
 const rateText = r => {
   const s = String(Number(r.toPrecision(6)));
@@ -316,7 +316,8 @@ function drawSplit() {
     rows = people.map((p) => {
       const on = ticked(p.id);
       const name = esc(personLabel(trip, p.id));
-      const typed = was && byAmounts && was[p.id] ? amountText(was[p.id], cur) : '';
+      // "5000", not "5000.000" once the currency was changed to one with decimals.
+      const typed = was && byAmounts && was[p.id] ? amountText(was[p.id], cur).replace(/[.,]0+$/, '') : '';
       const share = `<span class="split-share">${on && amount ? esc(fmtMoney(parts.get(p.id) || 0, cur)) : ''}</span>`;
       const n = sharesOf(p.id);
       return `

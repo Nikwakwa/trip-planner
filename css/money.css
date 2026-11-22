@@ -94,9 +94,16 @@
 .settle-row { display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 20px; }
 .settle-row .row-sub { font-weight: 650; color: var(--on-surface); font-variant-numeric: tabular-nums; }
 .settle + .supporting { margin-top: 10px; }
+.money-square { display: flex; align-items: center; gap: 6px; }
+.money-square .icon { color: var(--gain); }
 
 /* ---------- The expense sheet ---------- */
 .cost-kind { margin: 0; }
+/* Room by the length of each word ("À parts égales" is longer than "Par parts"), smaller on a 320px phone */
+@media (max-width: 359px) {
+  .split-how button { flex: 1 1 auto; }
+  .split-how button, .cost-kind button { padding: 0 6px; font-size: 13px; }
+}
 .amount-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 9.5em); gap: 12px; }
 .amount-field input { font-size: 28px; line-height: 36px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .field select {
