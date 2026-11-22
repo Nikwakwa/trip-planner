@@ -1369,6 +1369,14 @@ function runChecks() {
     return same([[...costShares(trip.costs[0], trip)], [...balances(trip)], tidyCost(trip.costs[0]).how, tidyCost({ ...trip.costs[0], how: 'thirds' }).how, [...costShares(odd, trip)]],
       [[['ann', 3000], ['me', 1000], ['sam', 2000]], [['me', 5000], ['ann', -3000], ['sam', -2000]], 'shares', 'equal', [['ann', 500], ['me', 167], ['sam', 333]]]);
   }));
+  check('The totals can change currency with expenses in: each keeps its worth, and Undo puts it all back', () => sandbox(() => {
+    const trip = spending();
+    const undo = changeTripCurrency(trip, 'JPY', 162.4);
+    const after = [trip.currency, trip.costs.map(c => Math.round(c.rate * 1000) / 1000), [...balances(trip)], [...balances(trip).values()].reduce((s, n) => s + n, 0)];
+    undo();
+    return same([after, trip.currency, [...balances(trip)]],
+      [['JPY', [162.4, 1, 162.4], [['me', 7120], ['ann', -872], ['sam', -6248]], 0], 'EUR', [['me', 4384], ['ann', -537], ['sam', -3847]]]);
+  }));
   check('Settling up takes the fewest payments this way finds, largest first', () =>
     same([settleUp(new Map([['me', 4384], ['ann', -537], ['sam', -3847]])), settleUp(new Map([['a', 500], ['b', 500], ['c', -1000]])), settleUp(new Map([['a', 0]]))],
       [[{ from: 'sam', to: 'me', amount: 3847 }, { from: 'ann', to: 'me', amount: 537 }], [{ from: 'c', to: 'a', amount: 500 }, { from: 'c', to: 'b', amount: 500 }], []]));

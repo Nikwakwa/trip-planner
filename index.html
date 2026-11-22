@@ -274,6 +274,55 @@
     </form>
   </dialog>
 
+  <!-- Bottom sheet: who shares a trip's costs, to add, rename or remove them (view-money.js) -->
+  <dialog id="people-dialog" class="sheet info-sheet fit-sheet">
+    <div class="info-inner">
+      <div class="handle" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 tabindex="-1" autofocus>People</h2>
+        <button type="button" class="icon-btn ripple" data-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#close"/></svg>
+        </button>
+      </div>
+      <div class="info-body">
+        <p class="sheet-text" id="people-text"></p>
+        <ul id="people-list" class="group people-list"></ul>
+        <button type="button" class="btn tonal ripple add-person" data-action="add-person">
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#person_add"/></svg>Add someone
+        </button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Bottom sheet: the currency of a trip's totals and balances (view-money.js) -->
+  <dialog id="currency-dialog" class="sheet">
+    <form id="currency-form" method="dialog" novalidate>
+      <div class="handle" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 tabindex="-1" autofocus>Currency of the totals</h2>
+        <button type="button" class="icon-btn ripple" data-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#close"/></svg>
+        </button>
+      </div>
+      <p class="sheet-text" id="currency-text"></p>
+      <label class="field">
+        <span class="field-label">Currency</span>
+        <select name="cur"></select>
+      </label>
+      <div id="currency-rate" class="rate-row" hidden>
+        <label class="field">
+          <span class="field-label" id="currency-rate-label">Rate</span>
+          <input name="rate" inputmode="decimal" autocomplete="off">
+        </label>
+        <p class="hint" id="currency-rate-note"></p>
+      </div>
+      <div class="sheet-actions">
+        <span class="spacer"></span>
+        <button type="submit" class="btn filled lg ripple">Save</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- Bottom sheet: add / edit a trip (city) -->
   <dialog id="trip-dialog" class="sheet">
     <form id="trip-form" method="dialog">
