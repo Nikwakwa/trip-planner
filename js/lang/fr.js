@@ -1113,6 +1113,7 @@ DICTS.fr = {
   '{amount} too much': '{amount} de trop',
   'All shared out': 'Tout est réparti',
   'Type the amount': 'Saisissez le montant',
+  'No decimals in {cur}': 'Pas de décimales en {cur}',
   'Type the rate': 'Saisissez le taux',
   'Pick who gets the money': 'Choisissez qui reçoit l’argent',
   'Pick who it is for': 'Choisissez pour qui',
