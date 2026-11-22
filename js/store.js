@@ -119,7 +119,7 @@ function tidyCost(c, newId = false) {
     title: typeof c.title === 'string' ? c.title.slice(0, 80) : '',
     rate: typeof c.rate === 'number' && c.rate > 0 && Number.isFinite(c.rate) ? c.rate : 1,
     split: Object.fromEntries(split),
-    how: c.how === 'amounts' ? 'amounts' : 'equal',
+    how: ['amounts', 'shares'].includes(c.how) ? c.how : 'equal',
     date: isDate(c.date) ? c.date : '',
     kind: c.kind === 'transfer' ? 'transfer' : 'cost',
     at: typeof c.at === 'number' ? c.at : 0,

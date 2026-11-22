@@ -476,8 +476,9 @@ spent and who owes whom; a planned budget on plans may come later, its `FEATURE_
   cost keeps a rate to it), `people` (`[{ id, name }]`) and `costs` (`[{ id, title, amount, cur, rate, paidBy, split, how,
   date, kind, at }]`). Amounts are whole smallest units (`curDigits`: JPY 0, EUR 2), never decimals. `rate` is what 1
   `cur` is in the trip's currency, saved with the cost so balances never move; the form shows it the other way round
-  ("1 EUR = 162.4 JPY", `readRate`). `split` is person → weight (`how: 'equal'`, 1 each) or → their part in `cur`
-  (`'amounts'`); `kind: 'transfer'` is money given back from `paidBy` to the one person in `split`.
+  ("1 EUR = 162.4 JPY", `readRate`). `split` is person → weight (`how: 'equal'`, 1 each; `'shares'` (2.37), 1 to
+  `MAX_SHARES` each, set with − / + in the sheet, `share-step`) or → their part in `cur` (`'amounts'`). A 2.36 device
+  reads `'shares'` as `'equal'` but adds up the same, since both go by the weights; `kind: 'transfer'` is money given back from `paidBy` to the one person in `split`.
 - Synced as `person_…` and `cost_…` documents (`stateDocs`/`applyDocs`, `SYNCED_KINDS`), never inside the trip
   document: two people adding a cost at once don't undo each other's. The current rules already allow it.
   Checked by `tidyPerson`/`tidyCost` (store.js), backups by `cleanBackup`. `copyOfTrip` keeps `people`, not `costs`.
