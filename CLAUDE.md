@@ -611,6 +611,8 @@ Phone styles are the default. Add desktop overrides in desktop.css (loaded last)
 - A day's tools (`.day-tools`) are one row on a phone, scrolled sideways. Two fields side by side go in `.row2`
   (its columns are `minmax(0, 1fr)`, or a date pushes the form wider than the screen).
 - The plan and trip forms keep their actions (`.sheet-actions`) stuck to the bottom of the sheet.
+- The snackbar (2.39) has a ✕, and a finger swipes it away sideways or down (`snackSwipe`, ui.js; touch and pen
+  only, `touch-action: none` on it). It stays while touched; a short swipe slides back and the timer starts again.
 - Sheets close with their ✕, a tap outside, a swipe down, Esc or Back, all through `closeSheet`. A tap outside
   must start and end there: selecting text and letting go outside the sheet sends the dialog a click too (a
   tester lost a typed plan that way). Sheets to type in (`DRAFTS`: plan, trip, report, suggestion) ask "Discard…?"
