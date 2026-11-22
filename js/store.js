@@ -96,7 +96,34 @@ function tidyTrip(t, newId = false) {
       ? Object.entries(out.dayTravel).filter(([d, m]) => isDate(d) && typeof m === 'string' && TRAVEL_MODES[m]) : [];
     if (own.length) out.dayTravel = Object.fromEntries(own); else delete out.dayTravel;
   }
+  if ('currency' in out && !isCurrency(out.currency)) delete out.currency;      // money.js: what its totals are in
   return out;
+}
+
+// money.js: someone who shares a trip's costs.
+function tidyPerson(p, newId = false) {
+  if (!p || typeof p !== 'object' || (!isId(p.id) && !newId)) return null;
+  return { ...p, id: isId(p.id) ? p.id : uid(), name: tidyName(p.name) };
+}
+
+// money.js: a cost, or money given back. One the app can't add up is left out.
+function tidyCost(c, newId = false) {
+  if (!c || typeof c !== 'object' || (!isId(c.id) && !newId)) return null;
+  const whole = v => Number.isSafeInteger(v) && v > 0 && v <= MONEY_MAX;
+  const split = c.split && typeof c.split === 'object' && !Array.isArray(c.split)
+    ? Object.entries(c.split).filter(([who, n]) => isId(who) && whole(n)) : [];
+  if (!whole(c.amount) || !isCurrency(c.cur) || !isId(c.paidBy) || !split.length) return null;
+  return {
+    ...c,
+    id: isId(c.id) ? c.id : uid(),
+    title: typeof c.title === 'string' ? c.title.slice(0, 80) : '',
+    rate: typeof c.rate === 'number' && c.rate > 0 && Number.isFinite(c.rate) ? c.rate : 1,
+    split: Object.fromEntries(split),
+    how: c.how === 'amounts' ? 'amounts' : 'equal',
+    date: isDate(c.date) ? c.date : '',
+    kind: c.kind === 'transfer' ? 'transfer' : 'cost',
+    at: typeof c.at === 'number' ? c.at : 0,
+  };
 }
 
 function tidyItem(i, newId = false) {
@@ -144,6 +171,11 @@ function tidyState(data) {
     // The trip's own list, for everyone on the trip (only a trip planned with other people has one).
     if (trip && Array.isArray(t.todos)) trip.todos = t.todos.map(c => tidyCheck(c, true)).filter(Boolean);
     else if (trip) delete trip.todos;
+    // Who shares its costs, and what was spent (money.js).
+    for (const [field, tidy] of [['people', tidyPerson], ['costs', tidyCost]]) {
+      if (trip && Array.isArray(t[field])) trip[field] = t[field].map(v => tidy(v, true)).filter(Boolean);
+      else if (trip) delete trip[field];
+    }
     return trip;
   }).filter(Boolean);
   const { profile, ...rest } = data;

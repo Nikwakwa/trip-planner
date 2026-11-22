@@ -12,6 +12,9 @@ const DRAFTS = new Map([
   [tripDialog, { form: tripForm, ask: () => editingTripId
     ? { title: T('Discard your changes?'), text: T('The trip stays as it was.') }
     : { title: T('Discard this trip?'), text: T('What you entered hasn’t been saved.') } }],
+  [costDialog, { form: costForm, ask: () => editingCostId
+    ? { title: T('Discard your changes?'), text: T('The expense stays as it was.') }
+    : { title: T('Discard this expense?'), text: T('What you entered hasn’t been saved.') } }],
   [$('#report-dialog'), { form: $('#report-form'), ask: () => ({ title: T('Discard your message?'), text: T('It hasn’t been sent.') }) }],
   [$('#vote-dialog'), { form: $('#vote-form'), ask: () => ({ title: T('Discard your idea?'), text: T('It hasn’t been sent.') }) }],
 ]);

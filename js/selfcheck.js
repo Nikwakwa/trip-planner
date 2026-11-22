@@ -1321,6 +1321,79 @@ function runChecks() {
     same(['Duplicate a trip', 'Copier un voyage', 'Print my itinerary', 'Export to PDF', 'Imprimer le programme', 'Trip budget', 'Copy tickets'].map(title => isBuilt({ title })),
       [true, true, true, true, true, false, false]));
 
+  group = 'Expenses';
+  // A trip with you, two guests and three costs: dinner (€90, equally), a taxi (¥6000 paid by Ann, by amounts),
+  // and €10 Sam gave back to you.
+  const spending = () => ({
+    ...sample().trips[0], currency: 'EUR',
+    people: [{ id: 'ann', name: 'Ann' }, { id: 'sam', name: 'Sam' }],
+    costs: [
+      { id: 'c1', title: 'Dinner', amount: 9000, cur: 'EUR', rate: 1, paidBy: 'me', split: { me: 1, ann: 1, sam: 1 }, how: 'equal', date: '2026-05-01', kind: 'cost', at: 1 },
+      { id: 'c2', title: 'Taxi', amount: 6000, cur: 'JPY', rate: 1 / 162.4, paidBy: 'ann', split: { me: 1000, ann: 2000, sam: 3000 }, how: 'amounts', date: '2026-05-01', kind: 'cost', at: 2 },
+      { id: 'c3', title: '', amount: 1000, cur: 'EUR', rate: 1, paidBy: 'sam', split: { me: 1 }, how: 'equal', date: '2026-05-02', kind: 'transfer', at: 3 },
+    ],
+  });
+  check('Amounts are read the way people type them, in the currency’s own decimals', () =>
+    same(['12,5', '1 200.00', '1,200', '1.234,56', '€8', '12.', '0', '-3', '', 'abc'].map(t => parseAmount(t, 'EUR')).concat(['1200', '12.5', '1.200'].map(t => parseAmount(t, 'JPY'))),
+      [1250, 120000, 120000, 123456, 800, 1200, null, null, null, null, 1200, null, 1200]));
+  check('A cost is shared out to the cent, the same way on every device', () =>
+    same([[...shareOut(100, { b: 1, a: 1, c: 1 })], [...shareOut(10, { x: 1, y: 2 })], [...shareOut(0, { x: 1 })], [...shareOut(50, {})]],
+      [[['a', 34], ['b', 33], ['c', 33]], [['x', 3], ['y', 7]], [['x', 0]], []]));
+  check('Balances add up to zero, other currencies and money given back included', () => sandbox(() => {
+    const trip = spending();
+    const bal = balances(trip);
+    return same([[...bal], [...bal.values()].reduce((s, n) => s + n, 0), spentTotals(trip)], [[['me', 4384], ['ann', -537], ['sam', -3847]], 0, { total: 12695, mine: 3616 }]);
+  }));
+  check('Settling up takes the fewest payments this way finds, largest first', () =>
+    same([settleUp(new Map([['me', 4384], ['ann', -537], ['sam', -3847]])), settleUp(new Map([['a', 500], ['b', 500], ['c', -1000]])), settleUp(new Map([['a', 0]]))],
+      [[{ from: 'sam', to: 'me', amount: 3847 }, { from: 'ann', to: 'me', amount: 537 }], [{ from: 'c', to: 'a', amount: 500 }, { from: 'c', to: 'b', amount: 500 }], []]));
+  check('A currency without decimals, and one the device doesn’t know, are written right', () =>
+    same([curDigits('JPY'), curDigits('EUR'), curDigits('KWD'), fmtMoney(123456, 'EUR'), fmtMoney(1200, 'JPY'), isCurrency('eur'), isCurrency('USD')],
+      [0, 2, 3, '€1,234.56', '¥1,200', false, true]));
+  check('A cost from outside is checked: one the app can’t add up is left out, unknown fields stay', () =>
+    same([
+      tidyCost({ id: 'a', amount: 12.5, cur: 'EUR', paidBy: 'me', split: { me: 1 } }),
+      tidyCost({ id: 'a', amount: 100, cur: 'eur', paidBy: 'me', split: { me: 1 } }),
+      tidyCost({ id: 'a', amount: 100, cur: 'EUR', paidBy: '<b>', split: { me: 1 } }),
+      tidyCost({ id: 'a', amount: 100, cur: 'EUR', paidBy: 'me', split: { '<b>': 1, x: -2 } }),
+      tidyCost({ id: 'a', amount: 100, cur: 'EUR', paidBy: 'me', split: { me: 1, '<i>': 1 }, rate: -1, title: 7, kind: 'gift', newer: true }),
+    ], [null, null, null, null,
+      { id: 'a', amount: 100, cur: 'EUR', paidBy: 'me', split: { me: 1 }, rate: 1, title: '', how: 'equal', date: '', kind: 'cost', at: 0, newer: true }]));
+  check('Expenses and the people sharing them sync as documents of their own, and come back the same', () => sandbox(() => {
+    state = sample();
+    const trip = spending();
+    state.trips = [trip];
+    const docs = stateDocs(state);
+    const kinds = Object.keys(docs).filter(k => /^(cost|person)_/.test(k)).sort();
+    const tripDoc = JSON.parse(docs.trip_trip1);
+    const want = copy({ people: trip.people, costs: trip.costs });
+    trip.people = []; trip.costs = [];
+    applyDocs(docs);
+    const back = state.trips[0];
+    return same([kinds, 'costs' in tripDoc || 'people' in tripDoc, { people: back.people, costs: back.costs }],
+      [['cost_c1', 'cost_c2', 'cost_c3', 'person_ann', 'person_sam'], false, want]);
+  }));
+  check('Sharing a trip makes “me” your account in its costs; a copy keeps the people, not the costs', () => sandbox(() => {
+    const trip = spending();
+    shareMoney(trip, 'u1');
+    const copied = copyOfTrip(spending(), 0);
+    return same([trip.costs[0].paidBy, Object.keys(trip.costs[0].split), trip.costs[2].split, copied.people.length, 'costs' in copied],
+      ['m_u1', ['m_u1', 'ann', 'sam'], { m_u1: 1 }, 2, false]);
+  }));
+  check('A backup keeps the expenses, the people and the currency, and drops a cost it can’t add up', () => sandbox(() => {
+    const trip = spending();
+    trip.costs.push({ id: 'bad', amount: 'lots', cur: 'EUR', paidBy: 'me', split: { me: 1 } });
+    const back = cleanBackup({ trips: [trip], checklist: [] }).trips[0];
+    return same([back.currency, back.people, back.costs.map(c => c.id), balances({ ...back, costs: back.costs }).get('me')], ['EUR', trip.people, ['c1', 'c2', 'c3'], 4384]);
+  }));
+  check('Who you are: “me” on your own trip, your account on a shared one', () => sandbox(() => {
+    sync.saved = { uid: 'u1', email: '', linked: true, base: {}, shared: {} };
+    const own = spending();
+    const shared = { ...spending(), shared: 'x1' };
+    const before = { ...spending(), people: [{ id: 'm_u1', name: 'Me' }] };      // once shared, now your own
+    return same([myPersonId(own), myPersonId(shared), myPersonId(before), tripPeople(own).map(p => p.id)], ['me', 'm_u1', 'm_u1', ['me', 'ann', 'sam']]);
+  }));
+
   group = 'Voting for new features';
   check('Votes are counted once per person, and the most wanted comes first', () => {
     const features = [{ key: 'a' }, { key: 'b' }, { key: 'c' }];

@@ -5,7 +5,7 @@
   <!-- Safety net: the page only runs scripts from the app's own files (plus Google's bot check for the
        AI Assistant). Text from a guide, a backup file or another device can never run as code.
        And it only talks to the services the app uses (connect-src), so nothing can be sent anywhere else. -->
-  <meta http-equiv="Content-Security-Policy" content="script-src 'self' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; connect-src 'self' https://*.googleapis.com https://www.google.com https://www.gstatic.com https://photon.komoot.io https://nominatim.openstreetmap.org https://routing.openstreetmap.de https://overpass-api.de https://api.open-meteo.com https://tiles.openfreemap.org https://*.wikipedia.org https://*.wikivoyage.org https://*.wikidata.org https://api.web3forms.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="script-src 'self' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; connect-src 'self' https://*.googleapis.com https://www.google.com https://www.gstatic.com https://photon.komoot.io https://cdn.jsdelivr.net https://latest.currency-api.pages.dev https://nominatim.openstreetmap.org https://routing.openstreetmap.de https://overpass-api.de https://api.open-meteo.com https://tiles.openfreemap.org https://*.wikipedia.org https://*.wikivoyage.org https://*.wikidata.org https://api.web3forms.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#fff8f7">
   <meta name="description" content="Plan your trips day by day, together. Works offline.">
@@ -24,6 +24,7 @@
   <link rel="stylesheet" href="css/plan.css">
   <link rel="stylesheet" href="css/ideas.css">
   <link rel="stylesheet" href="css/checklist.css">
+  <link rel="stylesheet" href="css/money.css">
   <link rel="stylesheet" href="css/map.css">
   <link rel="stylesheet" href="css/sheets.css">
   <link rel="stylesheet" href="css/desktop.css">
@@ -45,6 +46,7 @@
   <main id="main">
     <section id="view-plan" class="view"></section>
     <section id="view-ideas" class="view" hidden></section>
+    <section id="view-money" class="view" hidden></section>
     <section id="view-pack" class="view" hidden></section>
     <section id="view-more" class="view" hidden></section>
   </main>
@@ -81,6 +83,12 @@
         <svg class="icon i-line" aria-hidden="true"><use href="icons/sprite.svg#lightbulb"/></svg>
         <svg class="icon i-fill" aria-hidden="true"><use href="icons/sprite.svg#lightbulb-fill"/></svg>
       </span>Ideas
+    </button>
+    <button type="button" data-go="money">
+      <span class="nav-ind">
+        <svg class="icon i-line" aria-hidden="true"><use href="icons/sprite.svg#payments"/></svg>
+        <svg class="icon i-fill" aria-hidden="true"><use href="icons/sprite.svg#payments-fill"/></svg>
+      </span>Expenses
     </button>
     <button type="button" data-go="pack">
       <span class="nav-ind">
@@ -170,6 +178,94 @@
       <div class="sheet-actions">
         <button type="button" class="btn text danger ripple" id="item-delete">
           <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#delete"/></svg>Delete
+        </button>
+        <span class="spacer"></span>
+        <button type="submit" class="btn filled lg ripple">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Bottom sheet: add / edit an expense, or money given back (view-money.js) -->
+  <dialog id="cost-dialog" class="sheet">
+    <form id="cost-form" method="dialog" novalidate>
+      <div class="handle" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 id="cost-dialog-title" tabindex="-1" autofocus>New expense</h2>
+        <button type="button" class="icon-btn ripple" data-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#close"/></svg>
+        </button>
+      </div>
+      <input type="hidden" name="kind" value="cost">
+      <input type="hidden" name="how" value="equal">
+      <div class="segmented cost-kind" role="group" aria-label="Kind of expense">
+        <button type="button" class="ripple" data-action="cost-kind" data-kind="cost" aria-pressed="true">Expense</button>
+        <button type="button" class="ripple" data-action="cost-kind" data-kind="transfer" aria-pressed="false">Money given</button>
+      </div>
+      <label class="field" id="cost-title-field">
+        <span class="field-label">What for</span>
+        <input name="title" maxlength="80" placeholder="e.g. Dinner, taxi, groceries" autocomplete="off" autocapitalize="sentences">
+      </label>
+      <div class="amount-row">
+        <label class="field amount-field">
+          <span class="field-label">Amount</span>
+          <input name="amount" inputmode="decimal" autocomplete="off" enterkeyhint="done">
+        </label>
+        <label class="field cur-field">
+          <span class="field-label">Currency</span>
+          <select name="cur"></select>
+        </label>
+      </div>
+      <div id="cost-rate" class="rate-row" hidden>
+        <label class="field">
+          <span class="field-label" id="cost-rate-label">Rate</span>
+          <input name="rate" inputmode="decimal" autocomplete="off">
+        </label>
+        <p class="hint" id="cost-rate-note"></p>
+      </div>
+      <div class="row2">
+        <label class="field"><span class="field-label" id="cost-paid-label">Paid by</span><select name="paidBy"></select></label>
+        <label class="field"><span class="field-label">Day</span><input type="date" name="date"></label>
+      </div>
+      <div class="split-head">
+        <span class="field-label" id="cost-for-label">For whom</span>
+        <div class="segmented split-how" role="group" aria-label="How to split">
+          <button type="button" class="ripple" data-action="split-how" data-how="equal" aria-pressed="true">Equally</button>
+          <button type="button" class="ripple" data-action="split-how" data-how="amounts" aria-pressed="false">By amounts</button>
+        </div>
+      </div>
+      <ul id="cost-split" class="group split-list"></ul>
+      <p class="hint" id="cost-split-note" aria-live="polite"></p>
+      <button type="button" class="btn text ripple add-person" data-action="add-person">
+        <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#person_add"/></svg>Add someone
+      </button>
+      <div class="sheet-actions">
+        <button type="button" class="btn text danger ripple" id="cost-delete">
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#delete"/></svg>Delete
+        </button>
+        <span class="spacer"></span>
+        <button type="submit" class="btn filled lg ripple">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Bottom sheet: someone who shares a trip's costs without the app, added by name (view-money.js) -->
+  <dialog id="person-dialog" class="sheet">
+    <form id="person-form" method="dialog" novalidate>
+      <div class="handle" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 id="person-dialog-title" tabindex="-1" autofocus>Add someone</h2>
+        <button type="button" class="icon-btn ripple" data-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#close"/></svg>
+        </button>
+      </div>
+      <p class="sheet-text" id="person-text">They don’t need the app: you add what they pay, and they see who owes whom when you show them.</p>
+      <label class="field">
+        <span class="field-label">Name</span>
+        <input name="name" maxlength="30" autocomplete="off" autocapitalize="words" enterkeyhint="done">
+      </label>
+      <div class="sheet-actions">
+        <button type="button" class="btn text danger ripple" id="person-delete">
+          <svg class="icon" aria-hidden="true"><use href="icons/sprite.svg#delete"/></svg>Remove
         </button>
         <span class="spacer"></span>
         <button type="submit" class="btn filled lg ripple">Save</button>
@@ -589,6 +685,7 @@
   <script src="js/vote.js"></script>
   <script src="js/share.js"></script>
   <script src="js/print.js"></script>
+  <script src="js/money.js"></script>
   <script src="js/sync.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/guide.js"></script>
@@ -597,6 +694,7 @@
   <script src="js/view-plan.js"></script>
   <script src="js/view-ideas.js"></script>
   <script src="js/view-checklist.js"></script>
+  <script src="js/view-money.js"></script>
   <script src="js/view-settings.js"></script>
   <script src="js/form-plan.js"></script>
   <script src="js/form-trip.js"></script>

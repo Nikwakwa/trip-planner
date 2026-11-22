@@ -70,8 +70,10 @@ if (navigator.storage && navigator.storage.persist) {
     .catch(() => {});
 }
 
-// The big + button: a new plan on today during the trip, else on its first day; a new idea on Ideas.
+// The big + button: a new plan on today during the trip, else on its first day; a new idea on Ideas; a new
+// expense on Expenses.
 $('#fab').addEventListener('click', () => {
+  if (ui.view === 'money') return openCostForm(null);
   if (ui.view === 'ideas') return openItemForm(null, ui.ideasTab === 'food' ? { date: '', category: 'food' } : { date: '' });
   const trip = activeTrip();
   const today = todayISO();

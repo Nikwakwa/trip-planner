@@ -13,7 +13,7 @@
 
 const ESSENTIALS_KEY = 'tripPlanner.essentials';
 const ESSENTIALS_MAX_AGE = 60 * 864e5;
-const ESSENTIALS_VERSION = 3;     // 2: the country's main languages, and summaries that keep their sentences whole. 3: the socket voltage only. Older saved ones are fetched again.
+const ESSENTIALS_VERSION = 4;     // 2: the country’s main languages, and summaries that keep their sentences whole. 3: the socket voltage only. 4: the currency’s code. Older saved ones are fetched again.
 
 const ESSENTIAL_SECTIONS = [
   { key: 'around', title: T('Getting around'), icon: 'directions_bus', heads: ['Get around'] },
@@ -59,7 +59,7 @@ function socketVolts(values) {
 async function countryFacts(qid) {
   // Names are in the app's language, or in Wikidata's "mul" (same in every language, e.g. "euro").
   // Official languages come with "applies to part" (?part) when they are official in one region only.
-  const query = `SELECT ?country ?prop ?val ?label ?mul ?part WHERE {
+  const query = `SELECT ?country ?prop ?val ?label ?mul ?part ?code WHERE {
     wd:${qid} wdt:P17 ?country .
     {
       VALUES ?prop { wdt:P2852 wdt:P38 wdt:P2853 wdt:P1622 wdt:P2884 wdt:P474 }
@@ -72,6 +72,7 @@ async function countryFacts(qid) {
     }
     OPTIONAL { ?val rdfs:label ?label . FILTER(LANG(?label) = "${factsLang()}") }
     OPTIONAL { ?val rdfs:label ?mul . FILTER(LANG(?mul) = "mul") }
+    OPTIONAL { ?val wdt:P498 ?code }
   }`;
   const data = await getJSON('https://query.wikidata.org/sparql', { format: 'json', query });
   // A place can list more than one country (e.g. a historic one): use the best-described.
@@ -79,7 +80,7 @@ async function countryFacts(qid) {
   for (const b of data.results.bindings) {
     const id = b.country.value.split('/').pop();
     if (!byCountry.has(id)) byCountry.set(id, []);
-    byCountry.get(id).push({ prop: b.prop.value.split('/').pop(), value: (b.label || b.mul || b.val).value, part: !!b.part });
+    byCountry.get(id).push({ prop: b.prop.value.split('/').pop(), value: (b.label || b.mul || b.val).value, part: !!b.part, code: b.code ? b.code.value : '' });
   }
   const [country, rows] = [...byCountry].sort((a, b) => b[1].length - a[1].length)[0] || [];
   if (!/^Q\d+$/.test(country || '')) return null;      // it goes into the next questions as it is
@@ -108,6 +109,8 @@ async function countryFacts(qid) {
     emergency: all('P2852').filter(n => /^[\d\s-]{2,8}$/.test(n)).slice(0, 3),
     languages: languages.map(cap).slice(0, 4),
     currency: all('P38').map(cap).slice(0, 2),
+    // Its code (ISO 4217, "JPY"): the expense form offers it first, after euros (money.js).
+    currencyCodes: [...new Set(rows.filter(r => r.prop === 'P38' && /^[A-Z]{3}$/.test(r.code)).map(r => r.code))].slice(0, 2),
     plugs: plugs.slice(0, 4),
     voltage: socketVolts(all('P2884')),
     driving: all('P1622')[0] || '',

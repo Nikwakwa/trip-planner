@@ -1,0 +1,157 @@
+/* money.css — the Expenses tab (view-money.js): what was spent, the balances and who pays whom, and the sheets
+   to add an expense or someone who shares the costs. */
+
+:root { --gain: #1d6b37; }
+:root[data-theme="dark"] { --gain: #86d69c; }
+
+/* ---------- The total ---------- */
+.money-card {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 16px;
+  padding: 20px 22px 18px;
+  border-radius: 32px;
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+}
+.money-over { margin: 0; font-size: 14px; line-height: 20px; font-weight: 600; opacity: .8; }
+.money-total {
+  margin: 0;
+  font-size: 40px;
+  line-height: 48px;
+  font-weight: 650;
+  letter-spacing: -.02em;
+  font-variation-settings: 'ROND' 100;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.money-facts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 14px; line-height: 20px; font-weight: 500; }
+.money-bal {
+  padding: 4px 12px;
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--on-surface);
+  font-weight: 650;
+}
+.money-bal.plus { color: var(--gain); }
+.money-bal.minus { color: var(--error); }
+
+.money-tabs { margin-bottom: 4px; }
+@media (max-width: 380px) { .money-tabs button .icon { display: none; } }
+
+/* What the totals are in, before the first expense */
+.money-cur {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 8px 16px 0;
+  font-size: 14px;
+  color: var(--on-surface-variant);
+}
+.money-cur select {
+  max-width: 100%;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--outline);
+  border-radius: 20px;
+  background: var(--surface);
+  color: var(--on-surface);
+  font: inherit;
+  font-weight: 600;
+}
+
+/* ---------- The expenses, by day ---------- */
+.money-day { margin-right: 16px; }
+.money-day-total { font-size: 14px; font-weight: 650; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; }
+.cost-row, .bal-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 68px;
+  padding: 10px 16px;
+  text-align: left;
+}
+.cost-row .row-icon.transfer { background: var(--tertiary-container); color: var(--on-tertiary-container); }
+.cost-row .row-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cost-amount { display: grid; justify-items: end; flex: none; font-variant-numeric: tabular-nums; }
+.cost-amount b { font-size: 16px; line-height: 24px; font-weight: 650; }
+.cost-amount small { font-size: 12px; line-height: 16px; color: var(--on-surface-variant); }
+
+/* ---------- People and balances ---------- */
+.person-badge {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: oklch(var(--cat-l) var(--cat-c) var(--h));
+  color: oklch(var(--cat-on-l) var(--cat-on-c) var(--h));
+  font-size: 16px;
+  font-weight: 700;
+}
+.bal-amount {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  flex: none;
+  min-width: 88px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.bal-amount.plus { color: var(--gain); }
+.bal-amount.minus { color: var(--error); }
+.bal-bar { display: block; width: var(--w); height: 4px; border-radius: 2px; background: currentColor; opacity: .6; }
+.add-person { justify-self: start; margin: 8px 0 0 4px; }
+.settle-row { display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 20px; }
+.settle-row .row-sub { font-weight: 650; color: var(--on-surface); font-variant-numeric: tabular-nums; }
+.settle + .supporting { margin-top: 10px; }
+
+/* ---------- The expense sheet ---------- */
+.cost-kind { margin: 0; }
+.amount-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 9.5em); gap: 12px; }
+.amount-field input { font-size: 28px; line-height: 36px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.field select {
+  width: 100%;
+  min-height: 32px;
+  padding: 2px 0 6px;
+  border: none;
+  outline: none;
+  background: none;
+  font: inherit;
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--on-surface);
+}
+.cur-field select { min-height: 42px; text-overflow: ellipsis; }
+.rate-row { display: grid; gap: 12px; }
+.rate-row .hint, #cost-split-note { margin-top: -4px; }
+#cost-split-note:empty { display: none; }
+#cost-split-note.bad { color: var(--error); font-weight: 600; }
+.split-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 4px -6px; }
+.split-head .segmented { margin: 0; }
+.split-head .segmented button { height: 36px; padding: 0 14px; }
+.split-row { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 6px 16px; cursor: pointer; }
+.split-row input[type="checkbox"], .split-row input[type="radio"] { width: 20px; height: 20px; flex: none; accent-color: var(--primary); }
+.split-row .person-badge { width: 32px; height: 32px; font-size: 14px; }
+.split-row:has(input:disabled:not(.split-part)) { opacity: .45; cursor: default; }
+.split-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.split-share { flex: none; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; }
+.split-part {
+  width: 6.5em;
+  flex: none;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--outline);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--on-surface);
+  font: inherit;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.split-part:disabled { opacity: .4; }
+.split-part:focus { outline: 2px solid var(--primary); outline-offset: -1px; }

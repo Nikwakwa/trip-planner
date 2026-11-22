@@ -256,6 +256,8 @@ body.fabs-away .fab:not(:focus-visible), body.fabs-away .ai-fab:not(:focus-visib
 .nav-ind .icon { position: relative; grid-area: 1 / 1; }
 .navbar .i-fill { display: none; }
 .navbar button.active { color: var(--on-surface); font-weight: 700; }
+/* Five sections on a narrow phone: "Paramètres" needs the room */
+@media (max-width: 420px) { .navbar button { letter-spacing: 0; padding: 0 2px; } .navbar button.active { letter-spacing: -.01em; } }
 .navbar button.active .nav-ind { color: var(--on-secondary-container); }
 .navbar button.active .nav-ind::before { opacity: 1; transform: none; }
 .navbar button.active .i-fill { display: block; }
