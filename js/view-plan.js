@@ -49,8 +49,11 @@ function itemHTML(item, trip, { showDate = false, drag = false, note = null, sch
   }
   const check = schedule ? '' : `<button type="button" class="check ripple" data-action="toggle" role="checkbox"
         aria-checked="${item.done}" aria-label="${T('Done: {name}', { name: esc(item.title) })}" title="${T('Done')}"><span class="box">${icon('check')}</span></button>`;
-  // The address line is skipped when it only repeats the title.
-  const showPlace = item.place && norm(item.place) !== norm(item.title);
+  // The address line leaves out the title it repeats ("L’Aventure du Sucre, Powder Mills Road" → "Powder
+  // Mills Road"), and is skipped when that is all it says.
+  const lead = norm(item.title) + ', ';
+  const showPlace = item.place && norm(item.place) !== norm(item.title)
+    && (norm(item.place).startsWith(lead) ? item.place.slice(lead.length) : item.place);
   const book = bookingNote(item, trip, guide);
   return `
     <li class="item ${item.done ? 'done' : ''}" data-id="${esc(item.id)}" ${drag ? 'data-drag' : ''}>
@@ -59,7 +62,7 @@ function itemHTML(item, trip, { showDate = false, drag = false, note = null, sch
         <span class="item-text">
           <span class="overline">${esc(over)}</span>
           <span class="item-title">${esc(item.title)}</span>
-          ${showPlace ? `<span class="item-sub">${esc(item.place)}</span>` : ''}
+          ${showPlace ? `<span class="item-sub">${esc(showPlace)}</span>` : ''}
           ${note && !item.done ? `<span class="item-hours ${note.warn ? 'warn' : ''}">${icon(note.warn ? 'event_busy' : 'schedule')}${esc(note.text)}</span>` : ''}
           ${book ? `<span class="item-hours book">${icon('confirmation_number')}${esc(book.text)}</span>` : ''}
           ${hearts && hearts.length ? `<span class="item-hours hearts">${icon('favorite-fill')}${esc(heartNames(trip, hearts))}</span>` : ''}

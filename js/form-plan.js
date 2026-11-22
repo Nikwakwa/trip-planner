@@ -69,8 +69,9 @@ function matchFromPhoton(f) {
   return {
     // A house has no name of its own: its street and number are the name, and its town is said under it.
     name: p.name || street,
-    // With a street, the address alone; a park or a square keeps its name ("Central Park, New York").
-    place: (street ? address : [p.name, address].filter(Boolean).join(', ')).slice(0, 200),
+    // With a house number, the address alone. Else the place keeps its name in front ("L’Aventure du Sucre,
+    // Powder Mills Road, Pamplemousses"): Google Maps, asked for a road alone, shows the road.
+    place: (p.housenumber ? address : [p.name, address].filter(Boolean).join(', ')).slice(0, 200),
     sub: (p.name ? address : town) || p.country || '',
     cat: OSM_CATEGORY[p.osm_key] || OSM_CATEGORY[p.osm_value] || '',
     country: p.country || '',
@@ -111,6 +112,15 @@ async function findMatches(trip, q, signal, by, far = false) {
 // with far, up to two from anywhere (anywhere: its answer without a spot to look around).
 function sortMatches(trip, guide, fromGuide, around, anywhere, far) {
   const fits = nearTrip(trip, guide);
+  // A guide place has no address, and its spot is the guide writer's (L’Aventure du Sucre: 400 m off). When
+  // OpenStreetMap has a place of that name close by, the guide's takes its address and exact spot.
+  fromGuide = fromGuide.map(g => {
+    const twin = around.find(f => f.properties.name && norm(f.properties.name) === norm(g.name)
+      && !['country', 'state', 'county', 'city'].includes(f.properties.type) && miles(g, { lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0] }) < 1);
+    if (!twin) return g;
+    const m = matchFromPhoton(twin);
+    return { ...g, place: m.place, sub: m.sub, lat: m.lat, lng: m.lng };
+  });
   const seen = new Set(fromGuide.map(m => norm(m.name)));
   const pick = (features, keep) => features
     .filter(f => (f.properties.name || (f.properties.street && f.properties.housenumber)) && !['country', 'state', 'county', 'city'].includes(f.properties.type))

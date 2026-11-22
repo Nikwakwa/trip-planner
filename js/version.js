@@ -13,6 +13,7 @@ const CHANGELOG = [
     'Split equally or by amounts, with the people on the trip or anyone you add by name',
     'How to settle up: the fewest payments to make everyone square, ticked off when paid',
   ] },
+  { v: '2.35.1', date: '2026-11-22', items: ['Bug fixes'] },
   { v: '2.35.0', date: '2026-11-22', items: [
     'Your feature suggestions now reach the app’s owner by email',
   ] },

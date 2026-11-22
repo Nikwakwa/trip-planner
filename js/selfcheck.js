@@ -987,6 +987,25 @@ function runChecks() {
       ['Rue de la Gare 12 | Port Louis | Rue de la Gare 12, Port Louis', '12 Rue de la Gare | Strassen · Luxembourg | 12 Rue de la Gare, Strassen | far'],
     ]);
   });
+  check('A guide place picked in the plan form takes the address and spot of OpenStreetMap’s place of that name', () => {
+    const trip = { items: [], place: { kind: 'country', name: 'Mauritius', label: 'Mauritius', lat: -20.28, lng: 57.57, bbox: [56.38, -20.73, 63.72, -10.14] } };
+    const osm = (name, lat, lng, extra = {}) => ({ geometry: { coordinates: [lng, lat] },
+      properties: { name, city: 'Pamplemousses VCA', country: 'Mauritius', countrycode: 'MU', type: 'house', osm_key: 'tourism', osm_value: 'museum', ...extra } });
+    const g = { name: 'L’Aventure du Sucre', place: 'L’Aventure du Sucre', sub: '', cat: 'sight', lat: -20.10053, lng: 57.57243, guideId: 'wv-x' };
+    const list = around => sortMatches(trip, null, [g], around, [], false).map(m => `${m.name} | ${m.place} | ${m.lat},${m.lng}${m.guideId ? ' | guide' : ''}`);
+    return same([
+      // the twin, 400 m away: one entry, the guide's, with OpenStreetMap's address and spot
+      list([osm('L\'Aventure du Sucre', -20.0975549, 57.5741118, { street: 'Powder Mills Road' })]),
+      // a place of that name 30 km away is another place
+      list([osm('L\'Aventure du Sucre', -20.4, 57.7)]),
+      // a house number: the address alone
+      list([osm('Le Café', -20.1, 57.57, { street: 'Royal Road', housenumber: '5' })]),
+    ], [
+      ['L’Aventure du Sucre | L\'Aventure du Sucre, Powder Mills Road, Pamplemousses VCA | -20.09755,57.57411 | guide'],
+      ['L’Aventure du Sucre | L’Aventure du Sucre | -20.10053,57.57243 | guide'],
+      ['L’Aventure du Sucre | L’Aventure du Sucre | -20.10053,57.57243 | guide', 'Le Café | Royal Road 5, Pamplemousses VCA | -20.1,57.57'],
+    ]);
+  });
   check('Travel times and distances grow with the distance, without a jump', () => {
     for (const mode of ['drive', 'transit']) {
       let last = travel(1.3, mode);
