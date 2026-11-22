@@ -233,14 +233,17 @@ The **Expenses** tab (the third button) is for what you spend during the trip, l
 - **Any currency in the world.** Euros and the place's own currency (the one in Essentials) come first in the
   list, then every other one by name. The app converts each expense with that day's exchange rate and keeps the
   rate with it, so balances don't change afterwards. Offline, it uses the last rates it saw, or you type the rate.
-- **Who shares the costs:** on a trip you plan together, everyone on it is there already. **Add someone** adds anyone
-  by name, even people without the app (a child, a friend): you enter what they pay. Someone no expense names can
-  be removed by tapping their name in **Balances**.
+- **Who shares the costs:** the **people** button at the top of the tab lists them. On a trip you plan together,
+  everyone on it is there already. **Add someone** adds anyone by name, even people without the app (a child, a
+  friend): you enter what they pay. The pencil renames them, the bin removes them (not while an expense names them:
+  change or delete those first). The people on a shared trip keep the name they chose in Settings.
 - **Balances** shows how much each person paid and is owed (green) or owes (red), and **How to settle up**: the
   fewest payments that make everyone square. Tap **Paid** once the money is given: it goes in the list as money
   given back (**Money given**, also to add by hand), and the balances go back to zero.
 - The card at the top says how much the trip cost, your own part, and what you get back or owe.
-- The totals are in euros unless you pick another currency before the first expense (under the empty list).
+- The totals are in euros to start with. **Totals in EUR**, at the top of the tab, changes that at any time: each
+  expense keeps its own amount, and what it's worth is converted at today's rate (filled in, or type it offline).
+  Undo puts it back.
 - On a shared trip everyone sees and can change the expenses. Copying a trip keeps its people, not its expenses.
   Backups keep them.
 - Exchange rates come from a free service (Fawaz Ahmed's currency API, through jsDelivr), asked at most every 12

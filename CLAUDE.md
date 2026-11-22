@@ -472,8 +472,9 @@ and `shared/{id}/docs/…` holds the trip and its plans, in the same form as an 
 
 **Expenses (`money.js`, `view-money.js`, 2.36).** The Tricount part only (the owner's choice, 2026-11-22: what was
 spent and who owes whom; a planned budget on plans may come later, its `FEATURE_IDEAS` entry `budget` stays).
-- On the trip: `currency` (the totals', `tripCurrency`, EUR when missing; picked before the first expense only, as each
-  cost keeps a rate to it), `people` (`[{ id, name }]`) and `costs` (`[{ id, title, amount, cur, rate, paidBy, split, how,
+- On the trip: `currency` (the totals', `tripCurrency`, EUR when missing; changed at any time from the tab's
+  "Totals in" button, `#currency-dialog`: `changeTripCurrency` carries every cost's rate over with today's rate (or a
+  typed one), a cost already in the new currency gets 1, and it returns an Undo; 2.38), `people` (`[{ id, name }]`) and `costs` (`[{ id, title, amount, cur, rate, paidBy, split, how,
   date, kind, at }]`). Amounts are whole smallest units (`curDigits`: JPY 0, EUR 2), never decimals. `rate` is what 1
   `cur` is in the trip's currency, saved with the cost so balances never move; the form shows it the other way round
   ("1 EUR = 162.4 JPY", `readRate`). `split` is person → weight (`how: 'equal'`, 1 each; `'shares'` (2.37), 1 to
@@ -485,7 +486,9 @@ spent and who owes whom; a planned budget on plans may come later, its `FEATURE_
 - People: on your own trip you are `me`; on a shared one each member is `m_<uid>` (`memberId`, `myPersonId`), so two
   devices adding the same member make the same document. `tripPeople` adds you and the members without saving them;
   `keepPeople` saves the ones a cost names (with their name, for when they leave). Guests have random ids
-  (`addGuest`); one no cost names can be removed. `startShare` calls `shareMoney`: `me` becomes `m_<owner uid>`.
+  (`addGuest`). The tab's people button opens `#people-dialog` (`drawPeople`, 2.38): guests and people who left the trip
+  can be renamed and removed (`remove-person`, with Undo; refused while a cost names them); you and the members of a
+  shared trip can't (`fixedPerson`: their name is their own). `startShare` calls `shareMoney`: `me` becomes `m_<owner uid>`.
 - Adding up: `costInTrip` converts, `shareOut` splits to the unit (largest remainders, then id order, the same on
   every device), `balances` (paid minus parts, sums to 0), `settleUp` (greedy: largest debtor pays largest creditor),
   `spentTotals` (transfers left out). "Paid" under How to settle up adds a transfer with Undo (`addTransfer`).

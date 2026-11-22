@@ -8,6 +8,10 @@
    each, five at most. Fixes are never described, not even one people would notice: they are a
    single line, "Bug fixes", and a version with fixes only says just that. */
 const CHANGELOG = [
+  { v: '2.38.0', date: '2026-11-22', items: [
+    'Change the currency of the totals at any time: your expenses are converted',
+    'People in Expenses: add, rename or remove who shares the costs',
+  ] },
   { v: '2.37.0', date: '2026-11-22', items: [
     'Split an expense by shares too: say 1 share for one person, 3 for another and 2 for the last',
   ] },

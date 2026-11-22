@@ -39,28 +39,13 @@
 .money-tabs { margin-bottom: 4px; }
 @media (max-width: 380px) { .money-tabs button .icon { display: none; } }
 
-/* What the totals are in, before the first expense */
-.money-cur {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin: 8px 16px 0;
-  font-size: 14px;
-  color: var(--on-surface-variant);
-}
-.money-cur select {
-  max-width: 100%;
-  min-height: 40px;
-  padding: 0 12px;
-  border: 1px solid var(--outline);
-  border-radius: 20px;
-  background: var(--surface);
-  color: var(--on-surface);
-  font: inherit;
-  font-weight: 600;
-}
+/* Who shares the costs, and what the totals are in */
+.money-tools { display: flex; flex-wrap: wrap; gap: 8px; margin: -4px 0 16px; }
+
+/* The People sheet */
+.person-row { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 8px 8px 8px 16px; }
+.person-row .icon-btn { width: 44px; height: 44px; }
+.people-list + .add-person { margin-top: 12px; }
 
 /* ---------- The expenses, by day ---------- */
 .money-day { margin-right: 16px; }

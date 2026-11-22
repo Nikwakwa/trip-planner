@@ -222,6 +222,19 @@ function shareMoney(trip, uidNow) {
   }
 }
 
+// The totals in another currency. `r` is what 1 of the old one is in the new one (today's rate, or typed).
+// Each expense keeps its amount; its rate is carried over to the new currency (one already in it gets 1), so
+// what it is worth stays the same, give or take a cent. Returns what to put back for Undo.
+function changeTripCurrency(trip, to, r) {
+  const before = { currency: trip.currency, rates: (trip.costs || []).map(c => [c, c.rate]) };
+  for (const c of trip.costs || []) c.rate = c.cur === to ? 1 : c.rate * r;
+  trip.currency = to;
+  return () => {
+    if (before.currency === undefined) delete trip.currency; else trip.currency = before.currency;
+    for (const [c, rate] of before.rates) c.rate = rate;
+  };
+}
+
 /* ---------- Adding up ---------- */
 
 // A cost in the trip's currency, in its smallest unit.

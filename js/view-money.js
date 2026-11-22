@@ -42,6 +42,8 @@ function renderMoney(trip) {
   const tab = ui.moneyTab === 'balances' ? 'balances' : 'costs';
   let html = `<h1 class="headline">${T('Expenses')}</h1>`;
 
+  html += moneyToolsHTML(trip);
+
   if (!costs.length) {
     html += `
       <p class="supporting">${T('Add what each of you pays during the trip: the app works out who owes whom.')}</p>
@@ -50,8 +52,7 @@ function renderMoney(trip) {
         : T('Add the people you travel with, even without the app.'), `
         <div class="empty-actions">
           <button type="button" class="btn tonal ripple" data-action="add-person">${icon('person_add')}${T('Add someone')}</button>
-        </div>`)}
-      ${currencyPickHTML(trip)}`;
+        </div>`)}`;
     view.innerHTML = html;
     return;
   }
@@ -78,22 +79,23 @@ function renderMoney(trip) {
   view.innerHTML = html;
 }
 
-// What the totals are in. It is picked before the first expense: each one is converted with the rate of its
-// day, and changing it afterwards would change what everyone owes.
-function currencyPickHTML(trip) {
+// Who shares the costs, and what the totals are in: each opens its sheet.
+function moneyToolsHTML(trip) {
+  const n = tripPeople(trip).length;
   const cur = tripCurrency(trip);
-  const first = firstCurrencies(trip);
-  const rest = allCurrencies().filter(c => !first.includes(c));
-  const option = c => `<option value="${c}" ${c === cur ? 'selected' : ''}>${esc(currencyName(c))} (${c})</option>`;
   return `
-    <label class="money-cur">
-      <span>${T('Totals and balances in')}</span>
-      <select data-money-cur aria-label="${T('Currency of the totals')}">
-        ${first.map(option).join('')}
-        <option disabled>──────────</option>
-        ${rest.map(option).join('')}
-      </select>
-    </label>`;
+    <div class="money-tools">
+      <button type="button" class="assist-chip ripple" data-action="money-people">${icon('group')}${Tn(n, '{n} person', '{n} people')}</button>
+      <button type="button" class="assist-chip ripple" data-action="money-currency" aria-label="${T('Currency of the totals: {cur}', { cur: esc(currencyName(cur)) })}">${icon('currency_exchange')}${T('Totals in {cur}', { cur })}</button>
+    </div>`;
+}
+
+// Every currency for a <select>: euros and the place's own first, then the others by name.
+function currencyOptions(trip, cur) {
+  const first = firstCurrencies(trip);
+  if (!first.includes(cur)) first.push(cur);
+  const option = c => `<option value="${c}">${c} · ${esc(currencyName(c))}</option>`;
+  return first.map(option).join('') + '<option disabled>──────────</option>' + allCurrencies().filter(c => !first.includes(c)).map(option).join('');
 }
 
 // The expenses, newest day first.
@@ -206,11 +208,7 @@ function openCostForm(cost, preset = {}) {
   $('#cost-dialog-title').textContent = cost ? (kind === 'transfer' ? T('Money given back') : T('Edit expense')) : T('New expense');
   f.title.value = cost ? cost.title : '';
   f.amount.value = cost ? amountText(cost.amount, cost.cur) : '';
-  // Currencies: euros and the place's own first, then every other one by name.
-  const first = firstCurrencies(trip);
-  if (!first.includes(cur)) first.push(cur);
-  const option = c => `<option value="${c}">${c} · ${esc(currencyName(c))}</option>`;
-  f.cur.innerHTML = first.map(option).join('') + '<option disabled>──────────</option>' + allCurrencies().filter(c => !first.includes(c)).map(option).join('');
+  f.cur.innerHTML = currencyOptions(trip, cur);
   f.cur.value = cur;
   f.rate.value = cost && cost.cur !== tripCurrency(trip) ? rateText(1 / cost.rate) : '';
   f.rate.dataset.kept = cost ? cost.cur : '';
@@ -489,6 +487,7 @@ personForm.addEventListener('submit', (e) => {
   }
   save();
   personDialog.close();
+  if (peopleDialog.open) drawPeople();
   // Added from the expense sheet: they are ticked in it, as everyone else.
   if (costDialog.open) {
     keepSplit();
@@ -505,7 +504,120 @@ $('#person-delete').addEventListener('click', () => {
   trip.people = (trip.people || []).filter(p => p.id !== editingPersonId);
   save();
   personDialog.close();
+  if (peopleDialog.open) drawPeople();
   render();
+});
+
+/* ---------- Everyone who shares the costs ---------- */
+
+const peopleDialog = $('#people-dialog');
+
+// Someone the app decides about: you, and the people on a shared trip (their name is their own, from Settings).
+// Everyone else (a guest, someone who has left the trip) can be renamed, and removed while no expense names them.
+function fixedPerson(trip, id) {
+  if (id === myPersonId(trip)) return true;
+  const root = shareOf(trip);
+  return !!root && root.members.some(m => memberId(m.uid) === id);
+}
+
+function drawPeople() {
+  const trip = activeTrip();
+  if (!trip) return;
+  const me = myPersonId(trip);
+  $('#people-text').textContent = trip.shared
+    ? T('Everyone on the trip is here. Add anyone else by name, even without the app.')
+    : T('Add the people you travel with, even without the app: you add what they pay.');
+  $('#people-list').innerHTML = tripPeople(trip).map((p) => {
+    const used = (trip.costs || []).filter(c => c.paidBy === p.id || p.id in c.split).length;
+    const fixed = fixedPerson(trip, p.id);
+    const sub = p.id === me ? T('That’s you') : fixed ? T('On the trip')
+      : used ? Tn(used, 'In {n} expense', 'In {n} expenses') : T('In no expense yet');
+    const name = esc(personLabel(trip, p.id));
+    return `
+      <li class="person-row">
+        ${personBadge(trip, p.id)}
+        <span class="row-text"><span class="row-title">${name}</span><span class="row-sub">${sub}</span></span>
+        ${fixed ? '' : `
+          <button type="button" class="icon-btn ripple" data-action="edit-person" data-id="${esc(p.id)}" aria-label="${T('Rename {name}', { name })}" title="${T('Rename {name}', { name })}">${icon('edit')}</button>
+          <button type="button" class="icon-btn ripple" data-action="remove-person" data-id="${esc(p.id)}" aria-label="${T('Remove {name}', { name })}" title="${T('Remove {name}', { name })}">${icon('delete')}</button>`}
+      </li>`;
+  }).join('');
+}
+
+function openPeople() {
+  if (!activeTrip()) return;
+  drawPeople();
+  peopleDialog.showModal();
+}
+
+/* ---------- The currency of the totals ---------- */
+
+const currencyDialog = $('#currency-dialog');
+const currencyForm = $('#currency-form');
+
+function openCurrency() {
+  const trip = activeTrip();
+  if (!trip) return;
+  const cur = tripCurrency(trip);
+  const f = currencyForm.elements;
+  f.cur.innerHTML = currencyOptions(trip, cur);
+  f.cur.value = cur;
+  f.rate.value = '';
+  f.rate.dataset.kept = '';
+  $('#currency-text').textContent = (trip.costs || []).length
+    ? T('Totals and balances are shown in it. Each expense keeps its own amount, converted at today’s rate.')
+    : T('Totals and balances are shown in it.');
+  showCurrencyRate();
+  currencyDialog.showModal();
+  loadRates().then(() => { if (currencyDialog.open) showCurrencyRate(); });
+}
+
+// With expenses, a new currency needs today's rate from the old one ("1 EUR in JPY": 162.4). It can be typed.
+function showCurrencyRate() {
+  const trip = activeTrip();
+  if (!trip) return;
+  const f = currencyForm.elements;
+  const from = tripCurrency(trip);
+  const to = f.cur.value;
+  const box = $('#currency-rate');
+  box.hidden = to === from || !(trip.costs || []).length;
+  if (box.hidden) return;
+  $('#currency-rate-label').textContent = T('1 {to} in {cur}', { to: from, cur: to });
+  if (f.rate.dataset.kept !== to) {
+    const r = rateFor(from, to);
+    f.rate.value = r ? rateText(r) : '';
+    f.rate.dataset.kept = r ? to : '';
+  }
+  $('#currency-rate-note').textContent = readRate(f.rate.value) ? ''
+    : navigator.onLine ? T('Finding today’s rate… You can also type it.') : T('Offline: type the rate.');
+}
+currencyForm.addEventListener('change', (e) => { if (e.target.name === 'cur') showCurrencyRate(); });
+currencyForm.addEventListener('input', (e) => { if (e.target.name === 'rate') showCurrencyRate(); });
+
+currencyForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const trip = activeTrip();
+  const f = currencyForm.elements;
+  const to = f.cur.value;
+  if (!trip || !isCurrency(to)) return;
+  if (to === tripCurrency(trip)) { currencyDialog.close(); return; }
+  let undo;
+  if ((trip.costs || []).length) {
+    const back = readRate(f.rate.value);        // what 1 of the new is in the old one
+    if (!back) { snackbar(T('Type the rate')); return; }
+    undo = changeTripCurrency(trip, to, 1 / back);
+  } else {
+    undo = changeTripCurrency(trip, to, 1);
+  }
+  save();
+  currencyDialog.close();
+  render();
+  snackbar(T('Totals in {cur}', { cur: currencyName(to) }), T('Undo'), () => {
+    if (!state.trips.includes(trip)) return;
+    undo();
+    save();
+    render();
+  });
 });
 
 /* ---------- Taps ---------- */
@@ -567,12 +679,27 @@ onAction('settle', (el) => {
   });
 });
 
-// The currency of the totals, picked before the first expense.
-document.addEventListener('change', (e) => {
-  if (!e.target.matches('[data-money-cur]')) return;
+onAction('money-people', () => openPeople());
+onAction('money-currency', () => openCurrency());
+// Removing someone from the People sheet, with Undo. Not while an expense names them: it would no longer add up.
+onAction('remove-person', (el) => {
   const trip = activeTrip();
-  if (!trip || (trip.costs || []).length || !isCurrency(e.target.value)) return;
-  trip.currency = e.target.value;
+  const person = trip && (trip.people || []).find(p => p.id === el.dataset.id);
+  if (!person || fixedPerson(trip, person.id)) return;
+  const used = (trip.costs || []).filter(c => c.paidBy === person.id || person.id in c.split).length;
+  const name = personLabel(trip, person.id);
+  if (used) { snackbar(Tn(used, '{name} is in {n} expense: change or delete it first.', '{name} is in {n} expenses: change or delete them first.', { name })); return; }
+  const at = trip.people.indexOf(person);
+  trip.people.splice(at, 1);
   save();
+  drawPeople();
   render();
+  snackbar(T('{name} removed', { name }), T('Undo'), () => {
+    if (!state.trips.includes(trip)) return;
+    trip.people = trip.people || [];
+    trip.people.splice(Math.min(at, trip.people.length), 0, person);
+    save();
+    if (peopleDialog.open) drawPeople();
+    render();
+  });
 });
