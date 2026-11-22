@@ -21,6 +21,8 @@ const FEATURE_IDEAS = [
   { id: 'budget', title: T('Trip budget'), text: T('Note each plan’s cost, with day and trip totals.') },
   { id: 'journal', title: T('Trip journal'), text: T('Add a photo and a note to plans you’ve done.') },
   { id: 'change-email', title: T('Change your email'), text: T('Move your account to another email address.') },
+  { id: 'user-guide', title: T('A user guide'), text: T('Everything the app can do, explained in one place in Settings.') },
+  { id: 'first-tour', title: T('A short tour for newcomers'), text: T('A few screens on the first visit to show the basics. Easy to skip.') },
 ];
 const VOTE_MAX_IDEAS = 5;
 
