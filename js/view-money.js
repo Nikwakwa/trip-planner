@@ -365,12 +365,17 @@ function keepSplit() {
 
 costForm.addEventListener('input', (e) => {
   const name = e.target.name || '';
+  if (name === 'amount' || name.startsWith('part_')) limitDecimals(e.target, formCur());
   if (name === 'amount' || name === 'rate') { showRate(); if (formHow() !== 'amounts' || formKind() === 'transfer') { keepSplit(); drawSplit(); } else splitNote(); }
   if (name.startsWith('part_')) splitNote();
 });
 costForm.addEventListener('change', (e) => {
   const name = e.target.name || '';
-  if (name === 'cur') { keepSplit(); showRate(); drawSplit(); }
+  if (name === 'cur') {
+    // A currency with fewer decimals: the amounts typed lose the extra ones.
+    for (const el of [costFields().amount, ...costForm.querySelectorAll('.split-part')]) limitDecimals(el, formCur(), true);
+    keepSplit(); showRate(); drawSplit();
+  }
   if (name === 'for' || name === 'paidBy' || name === 'to') { keepSplit(); drawSplit(); }
 });
 
@@ -379,7 +384,7 @@ function readCostForm(trip) {
   const f = costFields();
   const cur = formCur();
   const amount = parseAmount(f.amount.value, cur);
-  if (!amount) return { error: T('Type the amount') };
+  if (!amount) return { error: !curDigits(cur) && /[.,]\d{1,2}$/.test(f.amount.value) ? T('No decimals in {cur}', { cur }) : T('Type the amount') };
   let rate = 1;
   if (cur !== tripCurrency(trip)) {
     rate = readRate(f.rate.value);

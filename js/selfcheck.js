@@ -1353,8 +1353,16 @@ function runChecks() {
     ],
   });
   check('Amounts are read the way people type them, in the currency’s own decimals', () =>
-    same(['12,5', '1 200.00', '1,200', '1.234,56', '€8', '12.', '0', '-3', '', 'abc'].map(t => parseAmount(t, 'EUR')).concat(['1200', '12.5', '1.200'].map(t => parseAmount(t, 'JPY'))),
-      [1250, 120000, 120000, 123456, 800, 1200, null, null, null, null, 1200, null, 1200]));
+    same(['12,5', '1 200.00', '1,200', '1.234,56', '€8', '12.', '0', '-3', '', 'abc'].map(t => parseAmount(t, 'EUR'))
+      .concat(['45.999', '45.99', '$45,9'].map(t => parseAmount(t, 'USD')), ['1200', '12.5', '1.200', '45.'].map(t => parseAmount(t, 'JPY'))),
+    [1250, 120000, null, 123456, 800, 1200, null, null, null, null, null, 4599, 4590, 1200, null, 1200, 45]));
+  check('An amount field takes no more decimals than its currency has', () => {
+    const field = v => ({ value: v });
+    return same(['45.999', '45,9', '1200', '3.14159'].map((v) => { const f = field(v); limitDecimals(f, 'USD'); return f.value; })
+      .concat([['1.2345', 'KWD'], ['12.5', 'JPY']].map(([v, cur]) => { const f = field(v); limitDecimals(f, cur); return f.value; }))
+      .concat(['45.99', '1.200'].map((v) => { const f = field(v); limitDecimals(f, 'JPY', true); return f.value; })),
+    ['45.99', '45,9', '1200', '3.14', '1.234', '12.5', '45', '1.200']);
+  });
   check('A cost is shared out to the cent, the same way on every device', () =>
     same([[...shareOut(100, { b: 1, a: 1, c: 1 })], [...shareOut(10, { x: 1, y: 2 })], [...shareOut(0, { x: 1 })], [...shareOut(50, {})]],
       [[['a', 34], ['b', 33], ['c', 33]], [['x', 3], ['y', 7]], [['x', 0]], []]));

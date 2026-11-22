@@ -67,14 +67,26 @@ function parseAmount(text, cur) {
   if (!s || s.includes('-')) return null;
   const digits = curDigits(cur);
   let whole = s, frac = '';
-  // The last "." or "," is the decimal point, unless 3 digits follow it in a currency with fewer decimals:
-  // then "1,200" or "1.200" is a thousand and two hundred.
+  // The last "." or "," is the decimal point, and no more decimals than the currency has: "45.999" dollars is
+  // refused, not taken for 45 999. A currency without decimals (yen) reads "1.200" as a thousand two hundred.
   const at = Math.max(s.lastIndexOf('.'), s.lastIndexOf(','));
-  if (at >= 0 && !(s.length - at - 1 === 3 && digits < 3)) { whole = s.slice(0, at); frac = s.slice(at + 1); }
+  const after = s.length - at - 1;
+  if (at >= 0 && digits) { whole = s.slice(0, at); frac = s.slice(at + 1); }
+  else if (at >= 0 && after !== 3 && after !== 0) return null;
   whole = whole.replace(/[.,]/g, '');
   if (!/^\d*$/.test(whole) || !/^\d*$/.test(frac) || (!whole && !frac) || frac.length > digits) return null;
   const minor = Number(whole || 0) * 10 ** digits + Number((frac + '000').slice(0, digits) || 0);
   return Number.isSafeInteger(minor) && minor > 0 && minor <= MONEY_MAX ? minor : null;
+}
+
+// A field for an amount keeps no more decimals than its currency has: the digits typed after them don't go in.
+// `switched`: the currency was just changed, to one without decimals: "45.99" becomes "45" (but "1.200" stays).
+function limitDecimals(el, cur, switched = false) {
+  const d = curDigits(cur);
+  const m = el.value.match(/^(.*)([.,])(\d+)$/);
+  if (!m) return;
+  if (d && m[3].length > d) el.value = m[1] + m[2] + m[3].slice(0, d);
+  else if (!d && switched && m[3].length !== 3) el.value = m[1];
 }
 
 // The amount as it goes back into a field: "12.50", "12,50", "1200".
