@@ -12,7 +12,8 @@
      costs      [{ id, title, amount, cur, rate, paidBy, split, how, date, kind, at }]
                 amount   in `cur`'s smallest unit; rate: how much 1 `cur` is in the trip's currency (saved
                          with it, so a cost never changes later); paidBy: a person; split: person → their part
-                         (how "equal": shares, 1 each; how "amounts": in `cur`'s smallest unit);
+                         (how "equal": 1 each; "shares": how many shares each, 1 for one, 3 for another;
+                         "amounts": in `cur`'s smallest unit);
                 kind "transfer": money given back (paidBy gave it to the one person in split).
    people and costs are documents of their own when synced (person_…, cost_…): two people adding a cost at
    the same moment never undo each other's. */

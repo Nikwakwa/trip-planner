@@ -1363,6 +1363,12 @@ function runChecks() {
     const bal = balances(trip);
     return same([[...bal], [...bal.values()].reduce((s, n) => s + n, 0), spentTotals(trip)], [[['me', 4384], ['ann', -537], ['sam', -3847]], 0, { total: 12695, mine: 3616 }]);
   }));
+  check('An expense split by shares (1, 3 and 2) gives each their shares’ worth, and older copies keep the shares', () => sandbox(() => {
+    const trip = { ...spending(), costs: [{ id: 's1', title: 'Boat', amount: 6000, cur: 'EUR', rate: 1, paidBy: 'me', split: { me: 1, ann: 3, sam: 2 }, how: 'shares', date: '', kind: 'cost', at: 1 }] };
+    const odd = { id: 's2', amount: 1000, cur: 'EUR', rate: 1, paidBy: 'me', split: { me: 1, ann: 3, sam: 2 }, how: 'shares' };
+    return same([[...costShares(trip.costs[0], trip)], [...balances(trip)], tidyCost(trip.costs[0]).how, tidyCost({ ...trip.costs[0], how: 'thirds' }).how, [...costShares(odd, trip)]],
+      [[['ann', 3000], ['me', 1000], ['sam', 2000]], [['me', 5000], ['ann', -3000], ['sam', -2000]], 'shares', 'equal', [['ann', 500], ['me', 167], ['sam', 333]]]);
+  }));
   check('Settling up takes the fewest payments this way finds, largest first', () =>
     same([settleUp(new Map([['me', 4384], ['ann', -537], ['sam', -3847]])), settleUp(new Map([['a', 500], ['b', 500], ['c', -1000]])), settleUp(new Map([['a', 0]]))],
       [[{ from: 'sam', to: 'me', amount: 3847 }, { from: 'ann', to: 'me', amount: 537 }], [{ from: 'c', to: 'a', amount: 500 }, { from: 'c', to: 'b', amount: 500 }], []]));

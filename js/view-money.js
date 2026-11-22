@@ -275,8 +275,9 @@ function showRate() {
   $('#cost-rate-note').innerHTML = note.join(' ');
 }
 
-// Who the expense is for: everyone ticked, each with their part (or a field for it, "By amounts").
-// Money given back goes to one person.
+// Who the expense is for: everyone ticked, each with their part (a field for it "By amounts", and − / + for
+// their number of shares "By shares"). Money given back goes to one person.
+const MAX_SHARES = 99;
 function drawSplit() {
   const trip = activeTrip();
   if (!trip) return;
@@ -285,6 +286,7 @@ function drawSplit() {
   const people = tripPeople(trip);
   const transfer = formKind() === 'transfer';
   const byAmounts = !transfer && formHow() === 'amounts';
+  const byShares = !transfer && formHow() === 'shares';
   // What the list showed before (kept while it is drawn again), else what the expense had, else everyone.
   const was = JSON.parse(costForm.dataset.split || 'null');
   const ticked = id => (was ? id in was : true);
@@ -299,18 +301,31 @@ function drawSplit() {
         ${personBadge(trip, p.id)}<span class="split-name">${esc(personLabel(trip, p.id))}</span>
       </label></li>`);
   } else {
-    const weights = Object.fromEntries(people.filter(p => ticked(p.id)).map(p => [p.id, 1]));
+    const sharesOf = id => (byShares && was && Number.isSafeInteger(was[id]) && was[id] > 0 ? Math.min(was[id], MAX_SHARES) : 1);
+    const weights = Object.fromEntries(people.filter(p => ticked(p.id)).map(p => [p.id, sharesOf(p.id)]));
     const parts = shareOut(amount, weights);
     rows = people.map((p) => {
       const on = ticked(p.id);
-      const typed = was && byAmounts && was[p.id] && formHow() === 'amounts' ? amountText(was[p.id], cur) : '';
+      const name = esc(personLabel(trip, p.id));
+      const typed = was && byAmounts && was[p.id] ? amountText(was[p.id], cur) : '';
+      const share = `<span class="split-share">${on && amount ? esc(fmtMoney(parts.get(p.id) || 0, cur)) : ''}</span>`;
+      const n = sharesOf(p.id);
       return `
         <li><label class="split-row">
           <input type="checkbox" name="for" value="${esc(p.id)}" ${on ? 'checked' : ''}>
-          ${personBadge(trip, p.id)}<span class="split-name">${esc(personLabel(trip, p.id))}</span>
+          ${personBadge(trip, p.id)}${byShares
+            ? `<span class="split-name two-lines"><span>${name}</span><small>${on && amount ? esc(fmtMoney(parts.get(p.id) || 0, cur)) : ''}</small></span>`
+            : `<span class="split-name">${name}</span>`}
           ${byAmounts
-            ? `<input class="split-part" name="part_${esc(p.id)}" inputmode="decimal" autocomplete="off" value="${esc(typed)}" ${on ? '' : 'disabled'} aria-label="${T('Part of {name}', { name: esc(personLabel(trip, p.id)) })}">`
-            : `<span class="split-share">${on && amount ? esc(fmtMoney(parts.get(p.id) || 0, cur)) : ''}</span>`}
+            ? `<input class="split-part" name="part_${esc(p.id)}" inputmode="decimal" autocomplete="off" value="${esc(typed)}" ${on ? '' : 'disabled'} aria-label="${T('Part of {name}', { name })}">`
+            : byShares ? `
+              <span class="share-step" role="group" aria-label="${T('Shares of {name}', { name })}">
+                <button type="button" class="icon-btn ripple" data-action="share-step" data-id="${esc(p.id)}" data-step="-1" ${on && n > 1 ? '' : 'disabled'} aria-label="${T('One share less')}">−</button>
+                <b aria-live="polite">${on ? n : 0}</b>
+                <button type="button" class="icon-btn ripple" data-action="share-step" data-id="${esc(p.id)}" data-step="1" ${on && n < MAX_SHARES ? '' : 'disabled'} aria-label="${T('One share more')}">+</button>
+                <input type="hidden" name="share_${esc(p.id)}" value="${n}">
+              </span>`
+            : share}
         </label></li>`;
     });
   }
@@ -344,14 +359,15 @@ function keepSplit() {
   const out = {};
   for (const box of costForm.querySelectorAll('[name="for"]:checked')) {
     const part = costForm.querySelector(`[name="part_${CSS.escape(box.value)}"]`);
-    out[box.value] = part ? parseAmount(part.value, cur) || 0 : 1;
+    const shares = costForm.querySelector(`[name="share_${CSS.escape(box.value)}"]`);
+    out[box.value] = part ? parseAmount(part.value, cur) || 0 : shares ? Number(shares.value) || 1 : 1;
   }
   costForm.dataset.split = JSON.stringify(out);
 }
 
 costForm.addEventListener('input', (e) => {
   const name = e.target.name || '';
-  if (name === 'amount' || name === 'rate') { showRate(); if (formHow() === 'equal' || formKind() === 'transfer') { keepSplit(); drawSplit(); } else splitNote(); }
+  if (name === 'amount' || name === 'rate') { showRate(); if (formHow() !== 'amounts' || formKind() === 'transfer') { keepSplit(); drawSplit(); } else splitNote(); }
   if (name.startsWith('part_')) splitNote();
 });
 costForm.addEventListener('change', (e) => {
@@ -389,6 +405,12 @@ function readCostForm(trip) {
       }
       const sum = Object.values(split).reduce((s, n) => s + n, 0);
       if (sum !== amount) return { error: T('The parts must add up to {amount}', { amount: fmtMoney(amount, cur) }) };
+    } else if (formHow() === 'shares') {
+      how = 'shares';
+      for (const box of boxes) {
+        const n = Number(costForm.querySelector(`[name="share_${CSS.escape(box.value)}"]`).value);
+        split[box.value] = Number.isSafeInteger(n) && n >= 1 ? Math.min(n, MAX_SHARES) : 1;
+      }
     } else {
       split = Object.fromEntries(boxes.map(b => [b.value, 1]));
     }
@@ -505,12 +527,24 @@ onAction('cost-kind', (el) => {
 });
 onAction('split-how', (el) => {
   keepSplit();
-  // From equal shares to amounts: each ticked person starts empty, to be typed.
+  // To amounts: each ticked person starts empty, to be typed. Otherwise one share each.
   const was = JSON.parse(costForm.dataset.split || 'null');
-  if (was && el.dataset.how !== formHow()) for (const k of Object.keys(was)) was[k] = el.dataset.how === 'equal' ? 1 : 0;
+  if (was && el.dataset.how !== formHow()) for (const k of Object.keys(was)) was[k] = el.dataset.how === 'amounts' ? 0 : 1;
   costForm.dataset.split = JSON.stringify(was);
   costFields().how.value = el.dataset.how;
   showCostKind();
+});
+// − and + "By shares": one share less or more for that person (1 at least: untick them to leave them out).
+onAction('share-step', (el) => {
+  keepSplit();
+  const split = JSON.parse(costForm.dataset.split || '{}');
+  const id = el.dataset.id;
+  if (!(id in split)) return;
+  split[id] = Math.max(1, Math.min(MAX_SHARES, (split[id] || 1) + Number(el.dataset.step)));
+  costForm.dataset.split = JSON.stringify(split);
+  drawSplit();
+  const again = costForm.querySelector(`[data-action="share-step"][data-id="${CSS.escape(id)}"][data-step="${el.dataset.step}"]`);
+  if (again && !again.disabled) again.focus();
 });
 onAction('add-person', () => openPersonForm(null));
 onAction('edit-person', (el) => {

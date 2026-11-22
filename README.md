@@ -227,7 +227,9 @@ the accounts on the trip, and holds the trip's plans under `docs`.
 The **Expenses** tab (the third button) is for what you spend during the trip, like the Tricount app.
 
 - Tap **New expense**: the amount, what it was for, who paid, and who it was for (everyone is ticked; untick
-  whoever wasn't there). **Equally** splits it in equal parts; **By amounts** lets you type each person's part.
+  whoever wasn't there). **Equally** splits it in equal parts; **By shares** gives each person a number of shares
+  with − and + (say 1 for one person, 3 for another and 2 for the last: the last pays twice what the first does);
+  **By amounts** lets you type each person's part.
 - **Any currency in the world.** Euros and the place's own currency (the one in Essentials) come first in the
   list, then every other one by name. The app converts each expense with that day's exchange rate and keeps the
   rate with it, so balances don't change afterwards. Offline, it uses the last rates it saw, or you type the rate.

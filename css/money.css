@@ -132,13 +132,16 @@
 #cost-split-note:empty { display: none; }
 #cost-split-note.bad { color: var(--error); font-weight: 600; }
 .split-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 4px -6px; }
-.split-head .segmented { margin: 0; }
-.split-head .segmented button { height: 36px; padding: 0 14px; }
+.split-head .segmented { margin: 0; flex: 1 1 100%; }      /* three ways to split: on a line of their own */
+.split-head .segmented button { height: 36px; padding: 0 4px; font-size: 13px; }
 .split-row { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 6px 16px; cursor: pointer; }
 .split-row input[type="checkbox"], .split-row input[type="radio"] { width: 20px; height: 20px; flex: none; accent-color: var(--primary); }
 .split-row .person-badge { width: 32px; height: 32px; font-size: 14px; }
 .split-row:has(input:disabled:not(.split-part)) { opacity: .45; cursor: default; }
 .split-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.split-name.two-lines { display: grid; }
+.split-name.two-lines > span { overflow: hidden; text-overflow: ellipsis; }
+.split-name.two-lines small { font-size: 13px; line-height: 18px; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; }
 .split-share { flex: none; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; }
 .split-part {
   width: 6.5em;
@@ -155,3 +158,8 @@
 }
 .split-part:disabled { opacity: .4; }
 .split-part:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
+/* "By shares": − 3 + */
+.share-step { display: inline-flex; align-items: center; flex: none; gap: 2px; }
+.share-step .icon-btn { width: 36px; height: 36px; font-size: 20px; font-weight: 600; line-height: 1; }
+.share-step .icon-btn:disabled { opacity: .35; }
+.share-step b { min-width: 1.6em; text-align: center; font-size: 16px; font-variant-numeric: tabular-nums; }
