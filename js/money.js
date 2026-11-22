@@ -61,32 +61,66 @@ function fmtMoney(minor, cur) {
   return moneyFormats.get(key).format(minor / 10 ** curDigits(cur));
 }
 
-// What was typed ("12,5", "1 200.00", "€8") → the amount in the currency's smallest unit, or null.
+/* Typed amounts. The app's own decimal mark is the decimal point: "." in English, "," in French, as it writes
+   amounts. The other mark followed by exactly 3 digits groups thousands ("1,200" in English, "1.200" in French);
+   followed by 1 or 2 it is a decimal point too ("45,99" from a keyboard with only a comma). Never more decimals
+   than the currency has. The expense sheet shows what was understood under the field, as it is typed. */
+const decimalMark = () => (LANG === 'fr' ? ',' : '.');
+const cleanAmount = text => String(text || '').replace(/[\s\u00a0\u202f'’]/g, '').replace(/[^\d.,-]/g, '');
+
+// Where the decimals of a cleaned amount start (its decimal point), or -1.
+function decimalAt(s) {
+  const at = Math.max(s.lastIndexOf('.'), s.lastIndexOf(','));
+  if (at < 0 || s[at] === decimalMark()) return at;
+  return /^\d{3}$/.test(s.slice(at + 1)) ? -1 : at;
+}
+
+// What was typed ("12.5", "1,200", "€8") → the amount in the currency's smallest unit, or null.
 function parseAmount(text, cur) {
-  const s = String(text || '').replace(/[\s\u00a0\u202f'’]/g, '').replace(/[^\d.,-]/g, '');
+  const s = cleanAmount(text);
   if (!s || s.includes('-')) return null;
   const digits = curDigits(cur);
-  let whole = s, frac = '';
-  // The last "." or "," is the decimal point, and no more decimals than the currency has: "45.999" dollars is
-  // refused, not taken for 45 999. A currency without decimals (yen) reads "1.200" as a thousand two hundred.
-  const at = Math.max(s.lastIndexOf('.'), s.lastIndexOf(','));
-  const after = s.length - at - 1;
-  if (at >= 0 && digits) { whole = s.slice(0, at); frac = s.slice(at + 1); }
-  else if (at >= 0 && after !== 3 && after !== 0) return null;
-  whole = whole.replace(/[.,]/g, '');
+  const at = decimalAt(s);
+  const whole = (at < 0 ? s : s.slice(0, at)).replace(/[.,]/g, '');
+  const frac = at < 0 ? '' : s.slice(at + 1);
   if (!/^\d*$/.test(whole) || !/^\d*$/.test(frac) || (!whole && !frac) || frac.length > digits) return null;
   const minor = Number(whole || 0) * 10 ** digits + Number((frac + '000').slice(0, digits) || 0);
   return Number.isSafeInteger(minor) && minor > 0 && minor <= MONEY_MAX ? minor : null;
 }
 
-// A field for an amount keeps no more decimals than its currency has: the digits typed after them don't go in.
-// `switched`: the currency was just changed, to one without decimals: "45.99" becomes "45" (but "1.200" stays).
+// A typed number with any number of decimals (a rate: "162.4", "17,500" in English), by the same rule. null if not one.
+function readNumber(text) {
+  const s = cleanAmount(text);
+  if (!s || s.includes('-')) return null;
+  const at = decimalAt(s);
+  const whole = (at < 0 ? s : s.slice(0, at)).replace(/[.,]/g, '');
+  const frac = at < 0 ? '' : s.slice(at + 1);
+  if (!/^\d*$/.test(whole) || !/^\d*$/.test(frac) || (!whole && !frac)) return null;
+  const n = Number(`${whole || 0}.${frac || 0}`);
+  return n > 0 && Number.isFinite(n) ? n : null;
+}
+
+// Why a typed amount can't be taken, in a few words. '' when it can.
+function amountTrouble(text, cur) {
+  if (!cleanAmount(text)) return T('Type the amount');
+  if (parseAmount(text, cur)) return '';
+  const s = cleanAmount(text);
+  const at = decimalAt(s);
+  const d = curDigits(cur);
+  if (at >= 0 && s.length - at - 1 > d) return d ? Tn(d, '{n} decimal at most', '{n} decimals at most') : T('No decimals in {cur}', { cur });
+  return T('Check the amount');
+}
+
+// A field for an amount takes no more decimals than its currency has, after the app's own decimal mark (the
+// other one may be thousands being typed). `switched`: the currency was just changed to one without decimals,
+// whose amount loses them ("45.99" → "45").
 function limitDecimals(el, cur, switched = false) {
   const d = curDigits(cur);
-  const m = el.value.match(/^(.*)([.,])(\d+)$/);
-  if (!m) return;
-  if (d && m[3].length > d) el.value = m[1] + m[2] + m[3].slice(0, d);
-  else if (!d && switched && m[3].length !== 3) el.value = m[1];
+  const at = el.value.lastIndexOf(decimalMark());
+  const frac = at < 0 ? '' : el.value.slice(at + 1);
+  if (at < 0 || !/^\d*$/.test(frac) || frac.length <= d) return;
+  if (d) el.value = el.value.slice(0, at + 1 + d);
+  else if (switched) el.value = el.value.slice(0, at);
 }
 
 // The amount as it goes back into a field: "12.50", "12,50", "1200".
